@@ -35,9 +35,11 @@ All commands are prefixed with `deploynope-` so they stay distinct in your slash
 |---------|--------------|
 | `/deploynope-configure` | Interactive setup — prompts for repo names, branch names, Confluence details, deployment cutoff time, and more. Saves to `.deploynope.json` so other commands fill in placeholders automatically. |
 | `/deploynope-deploy` | Loads the full deployment ruleset — staging contention, branch protection toggle, human gates, cross-repo checks. **Run this first** before any deployment work. |
+| `/deploynope-preflight` | Pre-deployment readiness check. Answers "am I clear to deploy?" — checks staging availability, branch drift, deployment timing, version parity, and more. |
 | `/deploynope-new-work` | Starting a new task or branch? Runs the checklist: worktree check, branch name, base branch (branching policy), and branch drift check. Use before creating a branch. |
 | `/deploynope-deploy-status` | Shows where you are in the deployment process. Detects whether you're doing a feature release, hotfix, or chore and displays the right checklist with your current progress. |
 | `/deploynope-release-manifest` | Creates a `releases/<version>.json` audit trail for every production deployment — who deployed, what SHAs, which Jira tickets, rollback status. |
+| `/deploynope-postdeploy` | Post-deployment completion check. Answers "am I actually done?" — checks branch protection, staging cleared, GitHub Releases, manifest, merge-back, and branch alignment. |
 | `/deploynope-rollback` | Guides you through rolling back production to a previous release. Supports standard (through staging) and emergency (skip staging) modes. Handles frontend cache-busting automatically. |
 | `/deploynope-verify-rules` | A read-only self-check that confirms the deployment ruleset is loaded and Claude understands all 10 critical safety rules. Good for sanity-checking before a big release. |
 
@@ -97,9 +99,11 @@ DeployNOPE lives in its own repo and symlinks into the user-level directory. Tha
 2. **First time?** Type `/deploynope-configure` to set up repo names, branches, Confluence, etc.
 3. **Starting new work?** Type `/deploynope-new-work` to run the worktree + branching checklist, then create your branch
 4. **Deploying?** Type `/deploynope-deploy` to load the ruleset
-5. Type `/deploynope-deploy-status` to see where you are
-6. Follow the checklist — Claude will prompt you at every human gate
-7. After deploying, `/deploynope-release-manifest` creates the audit trail
+5. **Ready?** Type `/deploynope-preflight` to check if you're clear to deploy
+6. Type `/deploynope-deploy-status` to see where you are
+7. Follow the checklist — Claude will prompt you at every human gate
+8. After deploying, `/deploynope-release-manifest` creates the audit trail
+9. **Done?** Type `/deploynope-postdeploy` to confirm everything is closed out
 
 
 ---
