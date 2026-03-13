@@ -3,7 +3,9 @@
 
 <img width="256" height="1361" alt="nope" src="https://github.com/user-attachments/assets/60cd55ca-39f0-4117-b6d7-47b02ae26f71" />
 
-DeployNOPE is a set of slash commands for [Claude Code](https://claude.ai/claude-code) that turns your AI assistant into a deployment co-pilot. It guides you through a safe, repeatable staging-to-production process and says "nope" any time you're about to do something risky.
+DeployNOPE is a wrapper around your development AI. It is not concerned with coding standards or planning — its only focus is **branching strategy and deployment**.
+
+It's a set of slash commands for [Claude Code](https://claude.ai/claude-code) that turns your AI assistant into a deployment co-pilot. It guides you through a safe, repeatable staging-to-production process and says "nope" any time you're about to do something risky.
 
 It was built for a two-repo setup (frontend + backend) where both repos must stay version-locked, but the commands and safety patterns are useful for any team that deploys through a staging environment.
 
