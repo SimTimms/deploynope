@@ -99,17 +99,6 @@ DeployNOPE lives in its own repo and symlinks into the user-level directory. Tha
 6. Follow the checklist — Claude will prompt you at every human gate
 7. After deploying, `/deploynope-release-manifest` creates the audit trail
 
----
-
-## Updating
-
-Pull the latest and the symlinks pick up the changes automatically:
-
-```shell
-cd ~/GitHub/deploynope && git pull
-```
-
-No need to re-create symlinks — they point to the files, not copies.
 
 ---
 
