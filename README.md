@@ -124,3 +124,11 @@ If you previously had these commands inside a project's `.claude/commands/`, you
 - Version mismatches between frontend and backend in production
 - Leaving `master` unprotected after a force-push
 - Basically anything that could ruin someone's afternoon
+
+
+---
+
+## What's Next
+
+- choose a deployment strategy from a list  or point it to a custom strategy document 
+- choose a version strategy
