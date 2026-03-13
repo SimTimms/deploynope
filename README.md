@@ -58,7 +58,7 @@ mkdir -p ~/.claude/commands
 ### 3. Symlink the commands
 
 ```shell
-for f in ~/GitHub/deploynope/commands/*.md; do
+for f in ~/GitHub/deploynope/.claude/commands/*.md; do
   ln -sf "$f" ~/.claude/commands/"$(basename "$f")"
 done
 ```
