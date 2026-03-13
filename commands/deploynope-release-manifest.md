@@ -1,4 +1,4 @@
-# Release Manifest
+# /deploynope-release-manifest — Release Manifest
 
 > Reference for writing release manifest files during deployment.
 > The manifest is a structured JSON record of every production deployment,
@@ -6,6 +6,17 @@
 >
 > - **Backend:** `{owner}/{backend-repo}`
 > - **Frontend:** `{owner}/{frontend-repo}`
+
+---
+
+## Configuration
+
+Check for `.deploynope.json` in the current working directory. If it exists, read it and
+use its values in place of all placeholders throughout this command (see `/deploynope-configure`
+for the full mapping). If it does not exist, use the placeholder names as-is and suggest:
+
+> "Tip: run `/deploynope-configure` to set up your repo names, branch names, and Confluence
+> details so they're filled in automatically."
 
 ---
 

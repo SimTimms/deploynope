@@ -1,10 +1,21 @@
-# /rollback — Roll Back a Production Deployment
+# /deploynope-rollback — Roll Back a Production Deployment
 
-> Loaded via `/rollback`. Use this when a production deployment needs to be reverted
+> Loaded via `/deploynope-rollback`. Use this when a production deployment needs to be reverted
 > to the previous release. Supports two modes: Standard and Emergency.
 >
 > - **Backend:** `{owner}/{backend-repo}`
 > - **Frontend:** `{owner}/{frontend-repo}`
+
+---
+
+## Configuration
+
+Check for `.deploynope.json` in the current working directory. If it exists, read it and
+use its values in place of all placeholders throughout this command (see `/deploynope-configure`
+for the full mapping). If it does not exist, use the placeholder names as-is and suggest:
+
+> "Tip: run `/deploynope-configure` to set up your repo names, branch names, and Confluence
+> details so they're filled in automatically."
 
 ---
 
@@ -197,7 +208,7 @@ git log origin/staging --oneline -5
    > "Ready to roll back `master` from `<current-version>` to `<rollback-target>`.
    > This will temporarily enable force-push on `master`, perform the reset, and
    > immediately re-lock it. Proceed?"
-8. Reset backend `master` using the Branch Protection Toggle procedure (see deploy.md):
+8. Reset backend `master` using the Branch Protection Toggle procedure (see deploynope-deploy.md):
    - Enable force-push on `master`
    - `git reset --hard <rollback-target-tag>`
    - `git push --force-with-lease origin master`
@@ -378,7 +389,7 @@ Prompt the user to notify the team:
 ## Rollback Status Table
 
 Display and update this table throughout the rollback process. Use the same emoji
-key as `/deploy-status`.
+key as `/deploynope-deploy-status`.
 
 **Emoji key — use these and only these:**
 
@@ -448,7 +459,7 @@ _Mode: EMERGENCY | Repos: `<scope>` | Date: `<today>`_
 
 ## Resetting `master` — Branch Protection Toggle
 
-Follow the exact same procedure as defined in deploy.md. For reference:
+Follow the exact same procedure as defined in deploynope-deploy.md. For reference:
 
 1. **[HUMAN GATE]** — Confirm before starting
 2. Enable force-push on `master` via `gh api`
@@ -480,7 +491,7 @@ All cross-repo rules from deploy.md apply during rollback:
 ## General Safety
 
 - **Never push without permission.**
-- **Never force-push `master` without toggling branch protection** (same procedure as deploy.md).
+- **Never force-push `master` without toggling branch protection** (same procedure as deploynope-deploy.md).
 - **Always use `--force-with-lease`** instead of `--force`.
 - Before any destructive operation, state exactly what will happen and confirm.
 - **When in doubt, do less and ask more.**

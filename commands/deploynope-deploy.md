@@ -1,10 +1,21 @@
 # Deployment & Release Ruleset
 
-> Loaded via `/deploy`. Applies to all deployment, release, branching, versioning,
+> Loaded via `/deploynope-deploy`. Applies to all deployment, release, branching, versioning,
 > code review, and Confluence tasks.
 >
 > - **Backend:** `{owner}/{backend-repo}`
 > - **Frontend:** `{owner}/{frontend-repo}`
+
+---
+
+## Configuration
+
+Check for `.deploynope.json` in the current working directory. If it exists, read it and
+use its values in place of all placeholders throughout this ruleset (see `/deploynope-configure`
+for the full mapping). If it does not exist, use the placeholder names as-is and suggest:
+
+> "Tip: run `/deploynope-configure` to set up your repo names, branch names, and Confluence
+> details so they're filled in automatically."
 
 ---
 
@@ -96,7 +107,7 @@ ps aux | grep -i claude | grep -v grep
 
 ## Starting New Work
 
-Whenever a new task, feature, fix, or piece of work begins — before doing anything else:
+Whenever a new task, feature, fix, or piece of work begins — before doing anything else, run the starting-new-work checklist. You can also run **`/deploynope-new-work`** to run this checklist explicitly.
 
 1. **Check if a new worktree is appropriate.** Ask the user:
    > "Would you like to work in a new worktree for this, or continue in the current directory?"

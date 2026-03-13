@@ -1,4 +1,4 @@
-# /deploy-status — Where Are We in the Deployment Process?
+# /deploynope-deploy-status — Where Are We in the Deployment Process?
 
 When this command is run, perform the following checks and then display the
 deployment status table. Always use the exact same format and emoji set.

@@ -1,7 +1,7 @@
-# /verify-rules — Deployment Ruleset Self-Check
+# /deploynope-verify-rules — Deployment Ruleset Self-Check
 
 > Run this at the start of any deployment session, or on demand, to verify that
-> the deployment rules from `/deploy` have been correctly loaded and understood.
+> the deployment rules from `/deploynope-deploy` have been correctly loaded and understood.
 >
 > This is a non-destructive read-only check. It does not modify any state.
 
@@ -12,7 +12,7 @@
 When this command is run, perform the following self-check procedure:
 
 1. For each rule check listed below, answer the question from your current understanding
-   of the deployment rules loaded via `/deploy`.
+   of the deployment rules loaded via `/deploynope-deploy`.
 2. Compare your answer against the expected answer.
 3. Mark the result as pass or fail.
 4. Display the results table.
@@ -47,7 +47,7 @@ correctly understood.
 Display the results in exactly this format:
 
 **Deployment Ruleset Verification**
-_Date: `<today>` | Rules source: `/deploy`_
+_Date: `<today>` | Rules source: `/deploynope-deploy`_
 
 | # | Rule Check | Expected Answer | Result |
 |---|------------|-----------------|--------|
@@ -76,7 +76,7 @@ Display:
 > - #X: `<rule check name>` — got `<your answer>`, expected `<expected answer>`
 >
 > **It is not safe to proceed with deployment work.** Please reload the deployment
-> rules by running `/deploy`, then re-run `/verify-rules` to confirm.
+> rules by running `/deploynope-deploy`, then re-run `/deploynope-verify-rules` to confirm.
 
 Do not proceed with any deployment, branching, or release work until all checks pass.
 
