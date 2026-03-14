@@ -11,9 +11,13 @@ if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+reset\s+--hard'; then
   exit 0
 fi
 
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+# Source shared helpers
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$HOOK_DIR/hook-helpers.sh"
+
+CWD=$(resolve_effective_cwd "$INPUT" "$COMMAND")
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
-VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
+VERSION=$(resolve_version "$CWD")
 
 # Extract the reset target
 RESET_TARGET=$(echo "$COMMAND" | sed -n 's/.*--hard[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p')
@@ -25,20 +29,10 @@ fi
 CURRENT_HEAD=$(cd "$CWD" 2>/dev/null && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # Determine production branch
-PROD_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.productionBranch // empty' .deploynope.json 2>/dev/null)
-if [ -z "$PROD_BRANCH" ]; then
-  if cd "$CWD" 2>/dev/null && git rev-parse --verify origin/main &>/dev/null; then
-    PROD_BRANCH="main"
-  else
-    PROD_BRANCH="master"
-  fi
-fi
+PROD_BRANCH=$(resolve_prod_branch "$CWD")
 
 # Determine staging branch from config
-STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
-if [ -z "$STAGING_BRANCH" ]; then
-  STAGING_BRANCH="staging"
-fi
+STAGING_BRANCH=$(resolve_staging_branch "$CWD")
 
 # HARD BLOCK: reset --hard on production branch requires verified protection unlock
 if [ "$BRANCH" = "$PROD_BRANCH" ]; then

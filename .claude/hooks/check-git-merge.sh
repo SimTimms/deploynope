@@ -15,32 +15,23 @@ if echo "$COMMAND" | grep -q '\-\-abort'; then
   exit 0
 fi
 
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+# Source shared helpers
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$HOOK_DIR/hook-helpers.sh"
+
+CWD=$(resolve_effective_cwd "$INPUT" "$COMMAND")
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
-VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
+VERSION=$(resolve_version "$CWD")
 
 # Extract source branch being merged (first non-flag argument after "merge")
 MERGE_SOURCE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i!="git" && $i!="merge" && substr($i,1,1)!="-") {print $i; exit}}')
 
 # Determine production branch
-PROD_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.productionBranch // empty' .deploynope.json 2>/dev/null)
-if [ -z "$PROD_BRANCH" ]; then
-  if cd "$CWD" 2>/dev/null && git rev-parse --verify origin/main &>/dev/null; then
-    PROD_BRANCH="main"
-  else
-    PROD_BRANCH="master"
-  fi
-fi
+PROD_BRANCH=$(resolve_prod_branch "$CWD")
 
 # Determine staging and development branches from config
-STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
-if [ -z "$STAGING_BRANCH" ]; then
-  STAGING_BRANCH="staging"
-fi
-DEV_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.developmentBranch // empty' .deploynope.json 2>/dev/null)
-if [ -z "$DEV_BRANCH" ]; then
-  DEV_BRANCH="development"
-fi
+STAGING_BRANCH=$(resolve_staging_branch "$CWD")
+DEV_BRANCH=$(resolve_dev_branch "$CWD")
 
 EXTRA=""
 DECISION="ask"
