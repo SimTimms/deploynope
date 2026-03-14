@@ -49,10 +49,51 @@ fi
 
 # --- Remove hooks config from settings.json ---
 if [ -f "$CLAUDE_SETTINGS" ] && command -v jq &>/dev/null; then
-  if grep -q 'check-git-commit.sh' "$CLAUDE_SETTINGS" 2>/dev/null; then
-    jq 'del(.hooks)' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp"
+  DEPLOYNOPE_HOOK_REGEX='(^|/)\.claude/hooks/check-(git-commit|git-push|git-reset|gh-pr-create|gh-release|gh-api-protection|git-branch-delete|git-tag|git-merge)\.sh$'
+
+  if jq -e --arg deploynopeHookRegex "$DEPLOYNOPE_HOOK_REGEX" \
+    '
+    [
+      (.hooks.PreToolUse // [])[]? 
+      | (.hooks // [])[]?
+      | select((.type == "command") and ((.command // "") | test($deploynopeHookRegex)))
+    ] | length > 0
+    ' "$CLAUDE_SETTINGS" >/dev/null; then
+    jq --arg deploynopeHookRegex "$DEPLOYNOPE_HOOK_REGEX" '
+      def isDeploynopeCommandHook:
+        (.type == "command")
+        and ((.command // "") | test($deploynopeHookRegex));
+
+      .hooks.PreToolUse = (
+        (.hooks.PreToolUse // [])
+        | map(
+            if ((.hooks // null) | type) == "array" then
+              .hooks |= map(select((isDeploynopeCommandHook) | not))
+            else
+              .
+            end
+          )
+        | map(
+            if ((.hooks // null) | type) == "array" then
+              select((.hooks | length) > 0)
+            else
+              .
+            end
+          )
+      )
+      | if ((.hooks.PreToolUse // []) | length) == 0 then
+          del(.hooks.PreToolUse)
+        else
+          .
+        end
+      | if (.hooks == {}) then
+          del(.hooks)
+        else
+          .
+        end
+    ' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp"
     mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
-    info "Removed hook configuration from $CLAUDE_SETTINGS."
+    info "Removed DeployNOPE hook entries from $CLAUDE_SETTINGS (preserved unrelated hooks)."
   else
     info "No DeployNOPE hooks found in settings.json."
   fi
