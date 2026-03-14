@@ -144,8 +144,19 @@ Whenever a new task, feature, fix, or piece of work begins — before doing anyt
    > "Based on the deployment process, I'd recommend branching from `master` because [reason].
    > Would you like to use that, or a different base?
    > 1. `master` ← recommended
-   > 2. `development`
+   > 2. An existing release branch (e.g. `release/1.2.0`) — for ticket/feature work feeding into a release
    > 3. Other — please specify"
+
+   **Warning:** Do **not** offer `development` as a base branch. The `development` branch is
+   only updated by merging the release branch into it **after** production deployment. Branching
+   from `development` creates a mismatch: the PR hook will block PRs targeting `development`,
+   and the work cannot follow the correct release flow (`feature → release → staging → master → development`).
+
+   If the user's work is a feature or ticket and no release branch exists yet, prompt them to
+   create one first:
+
+   > "There's no active release branch. Would you like to create one (e.g. `release/X.Y.Z`)
+   > from `master` first? Feature branches should target a release branch, not `development`."
 
 4. **Run the branch drift check** before creating the branch (see below).
 
