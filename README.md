@@ -19,7 +19,9 @@ Deployments have a lot of steps, and skipping one can ruin someone's afternoon. 
 - **Staging contention** — checks that nobody else is using staging before you claim it
 - **Cross-repo version parity** — backend and frontend must be on the same version in production
 - **Deployment timing** — warns you before deploying after 2:00 PM (peak traffic hours)
-- **Branch protection toggling** — temporarily unlocks `master` for a controlled reset, then immediately re-locks it
+- **Branch protection toggling** — temporarily unlocks production for a controlled reset, then immediately re-locks it (with state-file tracking to prevent resets without a verified unlock)
+- **Stale release branch guard** — before resetting staging, verifies the release branch contains all commits on production, preventing accidental rewind
+- **Config-driven branch names** — no hardcoded `master`/`main` assumptions; all branch names read from `.deploynope.json`
 - **Rollback procedures** — standard and emergency paths, including frontend cache-busting
 - **Starting new work** — when you begin a new task, feature, or fix, the ruleset checks worktree usage, asks for branch name and base branch (following your branching policy), and runs a branch drift check before you create a branch. Run **`/deploynope-new-work`** to run this checklist explicitly.
 
@@ -200,12 +202,29 @@ If you previously had these commands inside a project's `.claude/commands/`, you
 - Deploying frontend before backend is confirmed healthy
 - Inventing branch names (always asks you first)
 - Starting a new branch without checking worktree and branching policy (run `/deploynope-new-work` first)
+- Resetting production without a verified protection unlock (state-file guard)
+- Deploying a stale release branch that would rewind production
+- Deleting production, staging, or development branches
+- Committing directly to protected branches without a warning
 - Forgetting to merge back into `development`
 - Forgetting GitHub Releases or Confluence notes
 - Version mismatches between frontend and backend in production
 - Leaving `master` unprotected after a force-push
 - Basically anything that could ruin someone's afternoon
 
+
+---
+
+## Tests
+
+DeployNOPE includes a bash test suite covering all 9 hooks with 116 assertions. Tests create disposable git repos, simulate hook JSON input, and verify deny/ask/passthrough decisions.
+
+```bash
+./tests/run-tests.sh              # all tests
+./tests/run-tests.sh push merge   # filter by hook name
+```
+
+See `tests/COVERAGE-MATRIX.md` for the full rule-to-test mapping.
 
 ---
 
