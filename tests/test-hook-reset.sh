@@ -9,19 +9,31 @@ printf "${CYAN}═══ check-git-reset.sh ═══${NC}\n"
 
 TEMP_DIR=$(setup_temp_repo)
 
-# ── Production branch reset → ask with PRODUCTION severity ───────────────────
+# ── Production reset WITHOUT protection unlock → deny ────────────────────────
 
-begin_test "reset --hard on main → ask"
+begin_test "reset --hard on main (no protection file) → deny"
+OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
+assert_decision "$OUTPUT" "deny"
+
+begin_test "deny reason mentions BLOCKED"
+OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
+assert_reason_contains "$OUTPUT" "BLOCKED"
+
+begin_test "deny reason mentions protection unlock"
+OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
+assert_reason_contains "$OUTPUT" "branch protection to be unlocked"
+
+# ── Production reset WITH protection unlock → ask ────────────────────────────
+
+begin_test "reset --hard on main (protection unlocked) → ask"
+echo "2026-03-14T12:00:00Z" > "$TEMP_DIR/.deploynope-protection-unlocked"
 OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
 assert_decision "$OUTPUT" "ask"
 
-begin_test "production reset reason mentions PRODUCTION BRANCH"
+begin_test "production reset reason mentions PRODUCTION RESET"
 OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
-assert_reason_contains "$OUTPUT" "PRODUCTION BRANCH"
-
-begin_test "production reset reason mentions protection toggle"
-OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
-assert_reason_contains "$OUTPUT" "branch protection toggle"
+assert_reason_contains "$OUTPUT" "PRODUCTION RESET"
+rm -f "$TEMP_DIR/.deploynope-protection-unlocked"
 
 # ── Staging reset → ask ──────────────────────────────────────────────────────
 
@@ -52,9 +64,19 @@ OUTPUT=$(run_hook "$HOOK" 'cd /tmp && git reset --hard HEAD')
 assert_decision "$OUTPUT" "ask"
 cd "$TEMP_DIR" && git checkout -q main
 
-begin_test "reason includes reset target"
+begin_test "reason includes reset target (with protection unlocked)"
+echo "2026-03-14T12:00:00Z" > "$TEMP_DIR/.deploynope-protection-unlocked"
 OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
 assert_reason_contains "$OUTPUT" "Reset target: origin/staging"
+rm -f "$TEMP_DIR/.deploynope-protection-unlocked"
+
+# ── JSON safety: quoted commands produce valid JSON ──────────────────────────
+
+begin_test "reset with quoted target produces valid JSON"
+cd "$TEMP_DIR" && git checkout -q -b feature/json-test
+OUTPUT=$(run_hook "$HOOK" 'git reset --hard "origin/main"')
+assert_decision "$OUTPUT" "ask"
+cd "$TEMP_DIR" && git checkout -q main
 
 # ── Should NOT intercept ─────────────────────────────────────────────────────
 

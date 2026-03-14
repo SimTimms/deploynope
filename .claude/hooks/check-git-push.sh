@@ -1,6 +1,7 @@
 #!/bin/bash
 # DeployNOPE hook: intercept every git push for user approval
-# Hard-blocks pushes to production when staging exists; asks for all others.
+# Hard-blocks pushes to production when staging exists.
+# Escalates force-push warnings for staging and release branches.
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
@@ -25,11 +26,13 @@ if [ -z "$PROD_BRANCH" ]; then
   fi
 fi
 
-# Check if staging branch exists
+# Determine staging branch
 STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
 if [ -z "$STAGING_BRANCH" ]; then
   STAGING_BRANCH="staging"
 fi
+
+# Check if staging branch exists
 HAS_STAGING="false"
 if cd "$CWD" 2>/dev/null && git rev-parse --verify "origin/${STAGING_BRANCH}" &>/dev/null; then
   HAS_STAGING="true"
@@ -52,10 +55,19 @@ if [ -z "$COMMITS" ]; then
   COMMIT_COUNT="0"
 fi
 
+# Detect force-push flags
+IS_FORCE_PUSH="false"
+if echo "$COMMAND" | grep -qE '\s--force($|\s)|\s-f($|\s)'; then
+  IS_FORCE_PUSH="true"
+fi
+if echo "$COMMAND" | grep -q '\-\-force-with-lease'; then
+  IS_FORCE_PUSH="true"
+fi
+
 # Production push with staging exists
 if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "true" ]; then
 
-  # ALLOW with confirmation: --force-with-lease is the controlled staging → production reset
+  # ALLOW with confirmation: --force-with-lease is the controlled staging -> production reset
   if echo "$COMMAND" | grep -q '\-\-force-with-lease'; then
     STAGING_SHA=$(cd "$CWD" 2>/dev/null && git rev-parse "origin/${STAGING_BRANCH}" 2>/dev/null || echo "unknown")
     LOCAL_SHA=$(cd "$CWD" 2>/dev/null && git rev-parse HEAD 2>/dev/null || echo "unknown")
@@ -74,6 +86,26 @@ fi
 # WARNING: pushing to production without staging
 if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "false" ]; then
   REASON=$(printf '[DeployNOPE] Push to production branch '\''%s'\'' — NO STAGING BRANCH detected.\n\nBranch: %s → origin/%s\nVersion: %s\nCommits: %s\n%s\n\nNo staging validation is possible. Consider running /deploynope-configure to set up staging infrastructure.\n\nApprove this direct push to production?' "$PROD_BRANCH" "$BRANCH" "$BRANCH" "$VERSION" "$COMMIT_COUNT" "$COMMITS")
+  jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
+  exit 0
+fi
+
+# Escalated warning for force-pushes to staging or other branches
+if [ "$IS_FORCE_PUSH" = "true" ]; then
+  FORCE_TARGET="$BRANCH"
+  EXPLICIT_TARGET=$(echo "$COMMAND" | sed -n 's/.*push[[:space:]]\{1,\}[^[:space:]]\{1,\}[[:space:]]\{1,\}\([^[:space:]-][^[:space:]]*\).*/\1/p')
+  if [ -n "$EXPLICIT_TARGET" ]; then
+    FORCE_TARGET="$EXPLICIT_TARGET"
+  fi
+
+  if [ "$FORCE_TARGET" = "$STAGING_BRANCH" ]; then
+    REASON=$(printf '[DeployNOPE] FORCE-PUSH TO STAGING — This could overwrite another deployment in progress.\n\nBranch: %s\nVersion: %s\n\nForce-pushing to staging can destroy work from a concurrent deployment. Verify that no one else is using staging right now.\n\nApprove this force-push to staging?' "$FORCE_TARGET" "$VERSION")
+    jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
+    exit 0
+  fi
+
+  # Force-push to any other branch — escalated warning
+  REASON=$(printf '[DeployNOPE] FORCE-PUSH detected.\n\nTarget: %s\nVersion: %s\n\nForce-pushing rewrites history. If others have based work on this branch, their work will be affected.\n\nApprove this force-push?' "$FORCE_TARGET" "$VERSION")
   jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
   exit 0
 fi
