@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.0] - 2026-03-14
+
+### Added
+- Staging contention polling: when staging is claimed, offers to poll every minute until released and auto-resume deployment
+- Automatic cron job cleanup when staging clears or user cancels the wait
+
+[2.3.0]: https://github.com/SimTimms/deploynope/compare/v2.2.0...v2.3.0
+
 ## [2.2.0] - 2026-03-14
 
 ### Changed
