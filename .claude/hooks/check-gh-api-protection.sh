@@ -27,11 +27,11 @@ CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 FORCE_PUSH_STATE="unknown"
 STATE_FILE="$CWD/.deploynope-protection-unlocked"
 
-if echo "$COMMAND" | grep -q '"allow_force_pushes".*true'; then
+if echo "$COMMAND" | grep -q 'allow_force_pushes.*true'; then
   FORCE_PUSH_STATE="ENABLING force-push"
   # Write state file to track that protection is unlocked
   echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$STATE_FILE" 2>/dev/null
-elif echo "$COMMAND" | grep -q '"allow_force_pushes".*false'; then
+elif echo "$COMMAND" | grep -q 'allow_force_pushes.*false'; then
   FORCE_PUSH_STATE="DISABLING force-push (re-locking)"
   # Remove state file — protection is being re-locked
   rm -f "$STATE_FILE" 2>/dev/null
@@ -46,14 +46,7 @@ if [ "$FORCE_PUSH_STATE" = "ENABLING force-push" ] && [ -f "$STATE_FILE" ]; then
   STALE_WARNING="\n\nWARNING: A previous protection unlock state file already exists. This may indicate a prior deployment that did not re-lock protection."
 fi
 
-cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] BRANCH PROTECTION MODIFICATION intercepted.\n\nAPI path: ${API_PATH}\nAction: ${FORCE_PUSH_STATE}\nCommand: ${COMMAND}\n\nBranch protection changes are security-critical. If enabling force-push, it MUST be re-disabled immediately after the reset — even if the reset fails.${STALE_WARNING}\n\nApprove this branch protection change?"
-  }
-}
-EOF
+REASON=$(printf '[DeployNOPE] BRANCH PROTECTION MODIFICATION intercepted.\n\nAPI path: %s\nAction: %s%s\n\nBranch protection changes are security-critical. If enabling force-push, it MUST be re-disabled immediately after the reset — even if the reset fails.\n\nApprove this branch protection change?' "$API_PATH" "$FORCE_PUSH_STATE" "$STALE_WARNING")
+jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
 exit 0

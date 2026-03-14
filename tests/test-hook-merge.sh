@@ -30,9 +30,11 @@ begin_test "merge main into development → ask (post-deploy step)"
 OUTPUT=$(run_hook "$HOOK" 'git merge main')
 assert_decision "$OUTPUT" "ask"
 
-begin_test "merge master into development → ask"
+begin_test "merge master into development → deny (master is not the configured prod branch)"
+# With productionBranch=main in config, 'master' is NOT the production branch.
+# Only the configured production branch is allowed to merge into development.
 OUTPUT=$(run_hook "$HOOK" 'git merge master')
-assert_decision "$OUTPUT" "ask"
+assert_decision "$OUTPUT" "deny"
 
 cd "$TEMP_DIR" && git checkout -q main
 

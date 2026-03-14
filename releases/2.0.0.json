@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "type": "feature",
+  "timestamp": "2026-03-14T20:24:31Z",
+  "deployer": "Tim",
+  "frontend": {
+    "sha": "0994114",
+    "branch": "2.0.0",
+    "repo": "SimTimms/deploynope",
+    "githubReleaseUrl": "https://github.com/SimTimms/deploynope/releases/tag/v2.0.0"
+  },
+  "backend": null,
+  "jiraTickets": [],
+  "confluencePageUrl": null,
+  "previousVersion": "1.9.0",
+  "status": "deployed",
+  "rollback": null,
+  "notes": "Hook hardening: safe JSON output via jq, config-driven branch names, false positive fix, protection-unlock state tracking, protected branch deletion guard, force-push escalation, 116 test assertions"
+}

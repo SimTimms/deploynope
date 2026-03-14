@@ -1,7 +1,7 @@
 #!/bin/bash
 # DeployNOPE hook: intercept git reset --hard for user approval
 # Hard-blocks resets on production unless branch protection is verified unlocked.
-# Shows what will be overwritten and flags staging/master resets.
+# Shows what will be overwritten and flags staging/production resets.
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
@@ -34,7 +34,7 @@ if [ -z "$PROD_BRANCH" ]; then
   fi
 fi
 
-# Determine staging branch
+# Determine staging branch from config
 STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
 if [ -z "$STAGING_BRANCH" ]; then
   STAGING_BRANCH="staging"
@@ -46,27 +46,13 @@ if [ "$BRANCH" = "$PROD_BRANCH" ]; then
   if [ -f "$STATE_FILE" ]; then
     # Protection was toggled off via the proper procedure — allow with confirmation
     UNLOCKED_AT=$(head -1 "$STATE_FILE" 2>/dev/null)
-    cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] PRODUCTION RESET — branch protection verified unlocked.\n\nBranch: ${BRANCH}\nCurrent HEAD: ${CURRENT_HEAD}\nReset target: ${RESET_TARGET}\nVersion: ${VERSION}\nProtection unlocked at: ${UNLOCKED_AT}\nCommand: ${COMMAND}\n\nThis resets the PRODUCTION branch. Force-push protection has been verified as unlocked. Approve this reset?"
-  }
-}
-EOF
+    REASON=$(printf '[DeployNOPE] PRODUCTION RESET — branch protection verified unlocked.\n\nBranch: %s\nCurrent HEAD: %s\nReset target: %s\nVersion: %s\nProtection unlocked at: %s\n\nThis resets the PRODUCTION branch. Force-push protection has been verified as unlocked. Approve this reset?' "$BRANCH" "$CURRENT_HEAD" "$RESET_TARGET" "$VERSION" "$UNLOCKED_AT")
+    jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
     exit 0
   else
     # No state file — hard block
-    cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "[DeployNOPE] BLOCKED — git reset --hard on production branch '${PROD_BRANCH}' requires branch protection to be unlocked first.\n\nNo protection unlock state file found (.deploynope-protection-unlocked). This means either:\n1. Force-push has not been enabled on '${PROD_BRANCH}' yet, or\n2. The protection toggle was done outside the DeployNOPE workflow.\n\nUse /deploynope-deploy to follow the correct procedure. The branch protection API call (enabling force-push) must happen first — the hook will create the state file automatically."
-  }
-}
-EOF
+    REASON=$(printf '[DeployNOPE] BLOCKED — git reset --hard on production branch '\''%s'\'' requires branch protection to be unlocked first.\n\nNo protection unlock state file found (.deploynope-protection-unlocked). This means either:\n1. Force-push has not been enabled on '\''%s'\'' yet, or\n2. The protection toggle was done outside the DeployNOPE workflow.\n\nUse /deploynope-deploy to follow the correct procedure. The branch protection API call (enabling force-push) must happen first — the hook will create the state file automatically.' "$PROD_BRANCH" "$PROD_BRANCH")
+    jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$reason}}'
     exit 0
   fi
 fi
@@ -76,17 +62,10 @@ SEVERITY="WARNING"
 EXTRA=""
 if [ "$BRANCH" = "$STAGING_BRANCH" ]; then
   SEVERITY="STAGING BRANCH"
-  EXTRA="\n\nThis resets STAGING. Ensure staging contention check has passed and staging/active tag is claimed."
+  EXTRA=$(printf '\n\nThis resets STAGING. Ensure staging contention check has passed and staging/active tag is claimed.')
 fi
 
-cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] ${SEVERITY} — git reset --hard intercepted.\n\nBranch: ${BRANCH}\nCurrent HEAD: ${CURRENT_HEAD}\nReset target: ${RESET_TARGET}\nVersion: ${VERSION}\nCommand: ${COMMAND}${EXTRA}\n\nThis is destructive and cannot be undone. Approve this reset?"
-  }
-}
-EOF
+REASON=$(printf '[DeployNOPE] %s — git reset --hard intercepted.\n\nBranch: %s\nCurrent HEAD: %s\nReset target: %s\nVersion: %s\nCommand: %s%s\n\nThis is destructive and cannot be undone. Approve this reset?' "$SEVERITY" "$BRANCH" "$CURRENT_HEAD" "$RESET_TARGET" "$VERSION" "$COMMAND" "$EXTRA")
+jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
 exit 0

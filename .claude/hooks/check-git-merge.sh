@@ -32,7 +32,11 @@ if [ -z "$PROD_BRANCH" ]; then
   fi
 fi
 
-# Determine development branch
+# Determine staging and development branches from config
+STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$STAGING_BRANCH" ]; then
+  STAGING_BRANCH="staging"
+fi
 DEV_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.developmentBranch // empty' .deploynope.json 2>/dev/null)
 if [ -z "$DEV_BRANCH" ]; then
   DEV_BRANCH="development"
@@ -41,25 +45,19 @@ fi
 EXTRA=""
 DECISION="ask"
 if [ "$BRANCH" = "$PROD_BRANCH" ]; then
-  EXTRA="\n\nYou are merging INTO the production branch. DeployNOPE requires all changes reach production via staging reset, not direct merge."
-elif [ "$BRANCH" = "staging" ]; then
-  EXTRA="\n\nYou are merging into staging. Ensure staging contention check has passed and staging/active tag is claimed."
+  EXTRA=$(printf '\n\nYou are merging INTO the production branch. DeployNOPE requires all changes reach production via staging reset, not direct merge.')
+elif [ "$BRANCH" = "$STAGING_BRANCH" ]; then
+  EXTRA=$(printf '\n\nYou are merging into staging. Ensure staging contention check has passed and staging/active tag is claimed.')
 elif [ "$BRANCH" = "$DEV_BRANCH" ] || [ "$BRANCH" = "develop" ] || [ "$BRANCH" = "dev" ]; then
-  # Only main/master should be merged into development (post-deployment step)
-  if [ "$MERGE_SOURCE" != "$PROD_BRANCH" ] && [ "$MERGE_SOURCE" != "main" ] && [ "$MERGE_SOURCE" != "master" ]; then
+  # Only the production branch should be merged into development (post-deployment step)
+  # Use config-driven PROD_BRANCH — no hardcoded master/main assumptions
+  if [ "$MERGE_SOURCE" != "$PROD_BRANCH" ]; then
     DECISION="deny"
-    EXTRA="\n\nBLOCKED: Only the production branch ('${PROD_BRANCH}') should be merged into '${DEV_BRANCH}'. Merging other branches into development causes drift and breaks branch alignment.\n\nThe correct flow is:\n1. Feature/release branch → staging reset → validate → production reset\n2. THEN merge '${PROD_BRANCH}' into '${DEV_BRANCH}' (post-deployment step)\n\nThe branch '${MERGE_SOURCE}' must go through the full deployment process first."
+    EXTRA=$(printf '\n\nBLOCKED: Only the production branch ('\''%s'\'') should be merged into '\''%s'\''. Merging other branches into development causes drift and breaks branch alignment.\n\nThe correct flow is:\n1. Feature/release branch → staging reset → validate → production reset\n2. THEN merge '\''%s'\'' into '\''%s'\'' (post-deployment step)\n\nThe branch '\''%s'\'' must go through the full deployment process first.' "$PROD_BRANCH" "$DEV_BRANCH" "$PROD_BRANCH" "$DEV_BRANCH" "$MERGE_SOURCE")
   fi
 fi
 
-cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "${DECISION}",
-    "permissionDecisionReason": "[DeployNOPE] Git merge intercepted.\n\nMerging: ${MERGE_SOURCE} → ${BRANCH}\nVersion: ${VERSION}\nCommand: ${COMMAND}${EXTRA}\n\nApprove this merge?"
-  }
-}
-EOF
+REASON=$(printf '[DeployNOPE] Git merge intercepted.\n\nMerging: %s → %s\nVersion: %s\nCommand: %s%s\n\nApprove this merge?' "$MERGE_SOURCE" "$BRANCH" "$VERSION" "$COMMAND" "$EXTRA")
+jq -n --arg reason "$REASON" --arg decision "$DECISION" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:$decision,permissionDecisionReason:$reason}}'
 
 exit 0
