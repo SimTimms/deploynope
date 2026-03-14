@@ -230,46 +230,81 @@ The command used to regenerate `package-lock.json` on the backend.
 
 ---
 
-### 14. Team Size
+### 14. Enable Changelog
 
-The number of developers on the team. This is stored for future use (e.g. contention
-rules, review requirements).
+Whether to maintain a changelog file that is updated with each release.
 
-**Default:** `1`
+**Default:** `true`
 
 **Prompt:**
-> "How many developers are on the team?
-> Default: `1`"
+> "Would you like to maintain a changelog file?
+> This will automatically record changes for each release during the deployment process.
+> Default: `true` (yes)"
 
-**Config key:** `teamSize`
+**Config key:** `changelog.enabled`
 
 ---
 
-### 15. Commit Message Prefixes
+### 15. Changelog Format
 
-Whether commit messages should include a conventional-commit-style prefix
-(e.g. `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`).
+The format to use for changelog entries.
 
-When enabled, every commit proposed by DeployNOPE must include an appropriate prefix.
-The prefix is chosen based on the nature of the change:
+**Default:** `keepachangelog`
 
-| Prefix | Use when |
-|--------|----------|
-| `feat` | Adding new functionality |
-| `fix` | Fixing a bug |
-| `chore` | Maintenance, dependency updates, config changes |
-| `refactor` | Code restructuring with no behaviour change |
-| `docs` | Documentation only |
-| `test` | Adding or updating tests |
+**Prompt (only if changelog is enabled):**
+> "Changelog format:
+> 1. `keepachangelog` — [Keep a Changelog](https://keepachangelog.com) format with Added/Changed/Fixed/Removed sections ← recommended
+> 2. `simple` — flat list of changes per version with date
+> 3. `conventional` — grouped by conventional commit type (feat/fix/chore/etc.)
+>
+> Default: `keepachangelog`"
 
-**Default:** `false`
+**Config key:** `changelog.format`
 
-**Prompt:**
-> "Would you like to enforce commit message prefixes? (e.g. `feat: add login`,
-> `fix: resolve null pointer`)
-> Default: `false` (no prefixes)"
+---
 
-**Config key:** `commitPrefixes`
+### 16. Changelog File Path
+
+The path to the changelog file, relative to the project root.
+
+**Default:** `CHANGELOG.md`
+
+**Prompt (only if changelog is enabled):**
+> "Changelog file path (relative to project root):
+> Default: `CHANGELOG.md`"
+
+**Config key:** `changelog.filePath`
+
+---
+
+### 17. Auto-Populate Changelog from Commits
+
+Whether to scan commit history between releases to pre-fill the changelog entry.
+
+**Default:** `true`
+
+**Prompt (only if changelog is enabled):**
+> "Auto-populate changelog entries from commit history between releases?
+> If enabled, commits will be scanned and grouped into the changelog entry for review
+> before it is written. You will always have the chance to edit before it is saved.
+> Default: `true` (yes)"
+
+**Config key:** `changelog.autoPopulate`
+
+---
+
+### 18. Include Links in Changelog
+
+Whether to include GitHub compare links between versions and links to PRs/issues.
+
+**Default:** `true`
+
+**Prompt (only if changelog is enabled):**
+> "Include links in changelog entries?
+> This adds GitHub compare links between versions and links to referenced PRs/issues.
+> Default: `true` (yes)"
+
+**Config key:** `changelog.includeLinks`
 
 ---
 
@@ -292,14 +327,19 @@ After all values are collected, write `.deploynope.json` to the project root:
     "cloudId": "<value or null>",
     "folderId": "<value or null>"
   },
+  "changelog": {
+    "enabled": "<true or false>",
+    "format": "<keepachangelog, simple, or conventional>",
+    "filePath": "<value>",
+    "autoPopulate": "<true or false>",
+    "includeLinks": "<true or false>"
+  },
   "frontend": {
     "npmInstallCommand": "<value>"
   },
   "backend": {
     "npmInstallCommand": "<value>"
-  },
-  "teamSize": "<value>",
-  "commitPrefixes": "<true or false>"
+  }
 }
 ```
 
@@ -324,10 +364,13 @@ After writing, display:
 > | Confluence space | `<spaceKey>` (ID: `<spaceId>`) |
 > | Confluence cloud ID | `<cloudId>` |
 > | Confluence folder ID | `<folderId>` |
+> | Changelog enabled | `<value>` |
+> | Changelog format | `<value or N/A>` |
+> | Changelog file path | `<value or N/A>` |
+> | Changelog auto-populate | `<value or N/A>` |
+> | Changelog include links | `<value or N/A>` |
 > | Frontend npm install | `<value>` |
 > | Backend npm install | `<value>` |
-> | Team size | `<value>` |
-> | Commit prefixes | `<enabled or disabled>` |
 >
 > Other DeployNOPE commands will read from this file. Run `/deploynope-configure`
 > again at any time to update.
@@ -370,6 +413,11 @@ the values and substitute them for the placeholders:
 | `staging` (as staging branch) | `stagingBranch` |
 | `development` (as dev branch) | `developmentBranch` |
 | `2:00 PM` (cutoff time) | `deploymentCutoffTime` |
+| Changelog enabled | `changelog.enabled` |
+| Changelog format | `changelog.format` |
+| Changelog file path | `changelog.filePath` |
+| Changelog auto-populate | `changelog.autoPopulate` |
+| Changelog include links | `changelog.includeLinks` |
 
 If `.deploynope.json` is not found, the commands should still work but will use the
 placeholder names as-is (current behaviour) and suggest running `/deploynope-configure`.

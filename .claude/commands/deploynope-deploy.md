@@ -77,7 +77,8 @@ Example:
 | 11 | Create GitHub Release (both repos) | — |
 | 12 | Merge release branch into `development` | — |
 | 13 | Clear staging | — |
-| 14 | Write Confluence release notes | — |
+| 14 | Update changelog | — |
+| 15 | Write Confluence release notes | — |
 
 Always mark where we currently are (⬅️ Next) and what's already done (✅ Done).
 Update the table as steps are completed throughout the conversation.
@@ -425,8 +426,9 @@ All work types follow the same staging → master reset process.
 12. Create GitHub Release on **both** repos
 13. Merge release branch into `development`
 14. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
-15. Write Confluence release notes
-16. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
+15. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below)
+16. Write Confluence release notes
+17. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
 
 ### Hotfix
 
@@ -442,8 +444,9 @@ All work types follow the same staging → master reset process.
 10. Merge hotfix branch into `development`
 11. Notify in-flight feature branches to pull from `development`
 12. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
-13. Write Confluence release notes
-14. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
+13. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below)
+14. Write Confluence release notes
+15. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
 
 ### Chore / Config
 
@@ -457,7 +460,8 @@ All work types follow the same staging → master reset process.
 8. Confirm deployment is healthy
 9. Merge `master` into `development`
 10. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
-11. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
+11. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below)
+12. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
 
 ---
 
@@ -516,6 +520,150 @@ Write a release note page **after every production deployment**.
 - **Format:** Match existing pages — Branch, Author, Date, Jira ticket(s),
   What Changed, Deployment Checks, Notes.
 - Confirm content with the user before publishing.
+
+---
+
+## Changelog
+
+If `changelog.enabled` is `true` in `.deploynope.json`, update the changelog file after
+each production deployment. If `changelog.enabled` is `false` or the `changelog` key is
+missing from the config, skip this step entirely.
+
+The changelog is updated **after clearing staging** and **before writing Confluence release
+notes**. This positions it alongside other post-deployment documentation steps.
+
+### Procedure
+
+#### Step 1: Determine the previous version
+
+Check the most recent entry in the changelog file, or use the `previousVersion` from the
+release manifest if available.
+
+#### Step 2: Gather changes
+
+If `changelog.autoPopulate` is `true`, scan the commit history between the previous
+version and the current version:
+
+```shell
+git log v<previous-version>..v<current-version> --oneline --no-merges
+```
+
+If no tags exist yet, fall back to:
+
+```shell
+git log origin/master --oneline -20
+```
+
+Group the commits according to the configured format (see Step 3).
+
+If `changelog.autoPopulate` is `false`, present an empty template for the user to fill in.
+
+#### Step 3: Format the entry
+
+Format the changelog entry according to `changelog.format`:
+
+**`keepachangelog` format:**
+
+```markdown
+## [<version>] - <YYYY-MM-DD>
+
+### Added
+- <new features>
+
+### Changed
+- <changes to existing functionality>
+
+### Fixed
+- <bug fixes>
+
+### Removed
+- <removed features>
+```
+
+Omit any section that has no entries. When auto-populating, categorise commits by their
+prefix (`feat:` → Added, `fix:` → Fixed, `chore:`/`refactor:` → Changed, etc.). Commits
+without a recognised prefix go under Changed.
+
+**`simple` format:**
+
+```markdown
+## <version> (<YYYY-MM-DD>)
+
+- <change description>
+- <change description>
+```
+
+**`conventional` format:**
+
+```markdown
+## <version> (<YYYY-MM-DD>)
+
+### Features
+- <feat: commits>
+
+### Bug Fixes
+- <fix: commits>
+
+### Chores
+- <chore: commits>
+
+### Other
+- <uncategorised commits>
+```
+
+Omit any section that has no entries.
+
+#### Step 4: Add links (if enabled)
+
+If `changelog.includeLinks` is `true`, append a compare link at the bottom of the entry:
+
+```markdown
+[<version>]: https://github.com/<owner>/<repo>/compare/v<previous-version>...v<version>
+```
+
+Also convert any PR references (`#123`) or issue references to full links.
+
+#### Step 5: Present for review
+
+**[HUMAN GATE]** — Show the drafted changelog entry to the user before writing it:
+
+> "Here is the changelog entry for version `<version>`. Please review and let me know
+> if you'd like to make any changes before I write it to `<filePath>`."
+
+Display the full formatted entry. Wait for approval or edits.
+
+#### Step 6: Write to file
+
+Prepend the new entry to the changelog file at the configured `changelog.filePath`
+(default: `CHANGELOG.md`).
+
+- If the file does not exist, create it with a header:
+  ```markdown
+  # Changelog
+
+  All notable changes to this project will be documented in this file.
+
+  ```
+  Then append the entry.
+
+- If the file exists, insert the new entry after the header and before the previous
+  version's entry.
+
+#### Step 7: Commit
+
+```shell
+git add <changelog.filePath>
+git commit -m "docs: update changelog for <version>"
+```
+
+This commit goes directly to `master` alongside the release manifest — it is a
+post-deployment record, not a code change.
+
+**[HUMAN GATE]** — Ask before pushing: "Shall I push the changelog update to `master`?"
+
+```shell
+git push origin master
+```
 
 ---
 
