@@ -7,7 +7,7 @@
 > - **Backend:** `{owner}/{backend-repo}`
 > - **Frontend:** `{owner}/{frontend-repo}`
 >
-> **Framework Visibility:** Tag every response with **`Protected by DeployNOPE`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 Protected by DeployNOPE`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
@@ -35,8 +35,9 @@ follows:
 | **Step 12.5: Write release manifest** | **Step 9.5: Write release manifest** |
 | Step 13: Merge release branch into `development` | Step 10: Merge hotfix branch into `development` |
 | Step 14: Clear staging | Step 11: Notify in-flight branches |
-| Step 15: Write Confluence release notes | Step 12: Clear staging |
-| | Step 13: Write Confluence release notes |
+| Step 15: Update changelog (if enabled) | Step 12: Clear staging |
+| Step 16: Write Confluence release notes | Step 13: Update changelog (if enabled) |
+| | Step 14: Write Confluence release notes |
 
 Chore/config deployments do not require a manifest unless a version bump was involved.
 
