@@ -19,6 +19,22 @@ for the full mapping). If it does not exist, use the placeholder names as-is and
 
 ---
 
+## Framework Visibility
+
+**Every response** produced while DeployNOPE rules are active must begin with the tag
+**`Protected by DeployNOPE`** so the user can immediately see which framework is driving decisions.
+
+- Tag every message — not just the first one — for the duration of the workflow.
+- If a DeployNOPE command is invoked alongside another framework (e.g. Agile V), tag
+  both: **`Protected by DeployNOPE`** **`[Agile V]`**.
+- If an action *should* be governed by DeployNOPE but you are about to skip it, state
+  that explicitly rather than proceeding silently.
+
+This rule exists because silent framework compliance (or non-compliance) is invisible
+to the user and has caused missed steps in the past.
+
+---
+
 ## ⚠️ Incomplete Picture Warning
 
 If planning, reviewing, or executing a deployment without access to any of the following,
@@ -542,6 +558,42 @@ If everything is aligned:
 > are all on version `<version>`. Ready for new work."
 
 If issues are found, list them in priority order with recommended actions.
+
+---
+
+## Commit Confirmation Format
+
+**No commit may be executed without showing this confirmation block first** — regardless
+of whether you or the user initiates the commit. This includes when the user says "yes",
+"let's commit", "commit this", "go ahead", or any other approval. The confirmation block
+is the last step before `git commit` runs.
+
+**Flow:**
+1. User approves or requests a commit (or you propose one).
+2. Gather the current branch, version, and draft a commit message.
+3. Display the confirmation block below.
+4. Wait for the user to approve or request changes.
+5. Only after explicit approval, run `git commit`.
+
+**Confirmation block format:**
+
+> **`Protected by DeployNOPE`**
+>
+> | | |
+> |---|---|
+> | **Branch** | `<current-branch>` |
+> | **Version** | `<version from package.json, or N/A if no package.json>` |
+> | **Message** | `<proposed commit message>` |
+>
+> Confirm commit?
+
+**Rules:**
+- Always check `git branch --show-current` and `package.json` version (if present) before
+  presenting the confirmation.
+- Never skip this block — even if the user has already said "yes" or "commit it". The
+  block IS the final gate.
+- If the user wants to change the message, branch, or anything else, update and re-present
+  the block before committing.
 
 ---
 

@@ -6,6 +6,9 @@
 >
 > - **Backend:** `{owner}/{backend-repo}`
 > - **Frontend:** `{owner}/{frontend-repo}`
+>
+> **Framework Visibility:** Tag every response with **`Protected by DeployNOPE`** while this command
+> is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
 

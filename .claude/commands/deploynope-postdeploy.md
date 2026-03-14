@@ -4,6 +4,9 @@
 > was missed. It answers one question: "Am I actually done?"
 >
 > This is a read-only check. It does not modify any state.
+>
+> **Framework Visibility:** Tag every response with **`Protected by DeployNOPE`** while this command
+> is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
 

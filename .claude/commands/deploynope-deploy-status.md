@@ -3,6 +3,9 @@
 When this command is run, perform the following checks and then display the
 deployment status table. Always use the exact same format and emoji set.
 
+> **Framework Visibility:** Tag every response with **`Protected by DeployNOPE`** while this command
+> is active. See `/deploynope-deploy` § Framework Visibility for full details.
+
 ---
 
 ## Checks to Run

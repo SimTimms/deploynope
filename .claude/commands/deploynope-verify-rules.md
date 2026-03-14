@@ -4,6 +4,9 @@
 > the deployment rules from `/deploynope-deploy` have been correctly loaded and understood.
 >
 > This is a non-destructive read-only check. It does not modify any state.
+>
+> **Framework Visibility:** Tag every response with **`Protected by DeployNOPE`** while this command
+> is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
 
