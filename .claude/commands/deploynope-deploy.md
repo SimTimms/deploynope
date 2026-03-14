@@ -167,6 +167,22 @@ Whenever a new task, feature, fix, or piece of work begins — before doing anyt
    | Ticket/feature branch | The current release branch (e.g. `6.51.0`) | Ticket branches feed into the release branch |
    | Chore / config | `master` | All work types follow the same staging → master process |
 
+   **Before suggesting a release branch as a base**, fetch from the remote and verify it
+   has not already been released:
+
+   ```shell
+   git fetch origin
+   git tag -l 'v*' --sort=-v:refname
+   gh release list --limit 10
+   ```
+
+   If a tag or GitHub Release exists matching the release branch version, that branch has
+   already been deployed. **Do not suggest it as a base.** Instead, prompt the user to create
+   a new release branch:
+
+   > "The release branch `<version>` has already been deployed (tag `v<version>` exists).
+   > Would you like to create a new release branch? The next available version is `<next-version>`."
+
    Present the recommendation with a short explanation, then offer alternatives:
    > "Based on the deployment process, I'd recommend branching from `master` because [reason].
    > Would you like to use that, or a different base?
@@ -396,6 +412,32 @@ The `{owner}/{repo}` placeholders should be replaced with your actual repository
 - **Always run the staging contention check** before resetting staging.
 - **All work types follow the same process** — feature releases, hotfixes, and chore/config changes all go through staging → master reset. No shortcuts.
 - Branches are created off `master` unless explicitly told otherwise.
+
+---
+
+## PR Target Validation
+
+**Before creating or suggesting a PR**, fetch from the remote and verify the target branch
+has not already been released:
+
+```shell
+git fetch origin
+git tag -l 'v*' --sort=-v:refname
+gh release list --limit 10
+```
+
+If the target branch is a release branch (version-patterned like `X.Y.Z`) and a matching
+tag or GitHub Release already exists, that release branch has already been deployed.
+**Do not create a PR targeting it.**
+
+> "The release branch `<version>` has already been deployed (tag `v<version>` exists).
+> A PR targeting this branch would add changes to an already-released version.
+> Would you like to create a new release branch (`<next-version>`) and target that instead?"
+
+**[HUMAN GATE]** — wait for the user to confirm the new target before creating the PR.
+
+This check also applies when suggesting a PR target after pushing a feature branch.
+Never assume the current release branch is still active — always verify against the remote.
 
 ---
 

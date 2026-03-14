@@ -62,6 +62,22 @@ Suggest the most appropriate base branch according to the deployment process, an
 | Ticket/feature branch | The current release branch (e.g. `6.51.0`) | Ticket branches feed into the release branch |
 | Chore / config | `master` | All work types follow the same staging → master process |
 
+**Before suggesting a release branch as a base**, fetch from the remote and verify it
+has not already been released:
+
+```shell
+git fetch origin
+git tag -l 'v*' --sort=-v:refname
+gh release list --limit 10
+```
+
+If a tag or GitHub Release exists matching the release branch version, that branch has
+already been deployed. **Do not suggest it as a base.** Instead, prompt the user to create
+a new release branch:
+
+> "The release branch `<version>` has already been deployed (tag `v<version>` exists).
+> Would you like to create a new release branch? The next available version is `<next-version>`."
+
 Present the recommendation with a short explanation, then offer alternatives:
 
 > "Based on the deployment process, I'd recommend branching from `master` because [reason].
