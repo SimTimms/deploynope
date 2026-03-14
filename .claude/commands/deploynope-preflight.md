@@ -48,25 +48,25 @@ Flag any uncommitted changes or unpushed commits on the current branch.
 
 ```shell
 git fetch origin --quiet
-git log $(git branch --show-current)..origin/master --oneline
+git log $(git branch --show-current)..origin/<production-branch> --oneline
 ```
 
-If the current branch is behind `master`, it needs to be synced before deploying.
+If the current branch is behind `<production-branch>`, it needs to be synced before deploying.
 
 ### 4. Staging Contention
 
 ```shell
-git log origin/master..origin/staging --oneline
+git log origin/<production-branch>..origin/<staging-branch> --oneline
 git tag -l "staging/active"
 git tag -n1 "staging/active"
 ```
 
-If staging has unreleased commits or an active claim tag, staging is not available.
+If <staging-branch> has unreleased commits or an active claim tag, <staging-branch> is not available.
 
 ### 4b. Stale Release Branch
 
 ```shell
-git log <current-branch>..origin/master --oneline
+git log <current-branch>..origin/<production-branch> --oneline
 ```
 
 If the production branch has commits not in the current release branch, the branch is
@@ -90,19 +90,19 @@ compare versions. If not accessible, note it as unchecked.
 gh pr list --state open
 ```
 
-List any open PRs — particularly those targeting `staging` or `master`, which could
+List any open PRs — particularly those targeting `<staging-branch>` or `<production-branch>`, which could
 indicate in-flight work.
 
 ### 8. Branch Drift
 
 ```shell
-git log origin/master..origin/staging --oneline
-git log origin/staging..origin/master --oneline
-git log origin/master..origin/development --oneline
-git log origin/development..origin/master --oneline
+git log origin/<production-branch>..origin/<staging-branch> --oneline
+git log origin/<staging-branch>..origin/<production-branch> --oneline
+git log origin/<production-branch>..origin/<development-branch> --oneline
+git log origin/<development-branch>..origin/<production-branch> --oneline
 ```
 
-If `master`, `staging`, and `development` are not aligned, a previous deployment may
+If `<production-branch>`, `<staging-branch>`, and `<development-branch>` are not aligned, a previous deployment may
 not have completed fully. Flag it.
 
 ---
@@ -118,7 +118,7 @@ _Date: `<today>` | Time: `<current time>` | Branch: `<current-branch>`_
 |---|-------|--------|--------|
 | 1 | Deployment rules loaded | ✅ / ❌ | Loaded / Not loaded — run `/deploynope-deploy` first |
 | 2 | Working tree clean | ✅ / ⚠️ | Clean / X uncommitted changes, Y unpushed commits |
-| 3 | Branch synced with production | ✅ / ⚠️ | Up to date / X commits behind `master` |
+| 3 | Branch synced with production | ✅ / ⚠️ | Up to date / X commits behind `<production-branch>` |
 | 4 | Staging available | ✅ / ❌ | Clear / Claimed by `<name>` or X unreleased commits |
 | 4b | Release branch current | ✅ / ❌ | Contains all production commits / Stale — X commits behind production |
 | 5 | Deployment window | ✅ / ⚠️ | Within window / After cutoff (`<time>`) |
@@ -166,6 +166,6 @@ After the table, display one of:
 
 | Severity | Meaning | Examples |
 |----------|---------|----------|
-| ❌ Blocker | Cannot deploy until resolved | Rules not loaded, staging claimed, staging has unreleased commits, release branch stale (behind production) |
+| ❌ Blocker | Cannot deploy until resolved | Rules not loaded, <staging-branch> claimed, <staging-branch> has unreleased commits, release branch stale (behind production) |
 | ⚠️ Warning | Can proceed but should be aware | After cutoff time, uncommitted changes, branch drift, other repo not checked |
 | ✅ Pass | No issues | — |
