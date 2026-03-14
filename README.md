@@ -79,25 +79,74 @@ When DeployNOPE is active, every response is tagged with `🤓 DeployNOPE @ <Sta
 git clone https://github.com/<your-user>/deploynope.git ~/GitHub/deploynope
 ```
 
-### 2. Create the user-level commands directory
+### 2. Run the installer
 
 ```shell
-mkdir -p ~/.claude/commands
+cd ~/GitHub/deploynope
+./install.sh
 ```
 
-### 3. Symlink the commands
+This will:
+- Symlink all `/deploynope-*` commands to `~/.claude/commands/`
+- Symlink the hooks directory to `~/.claude/hooks/`
+- Merge hook configuration into `~/.claude/settings.json` (preserving existing settings like MCP servers)
 
+The hooks are what make DeployNOPE say "nope" — they intercept `git push`, `git commit`, `gh pr create`, and other commands **before** they run, blocking unsafe operations and requiring confirmation for everything else. Without the hooks installed, DeployNOPE's slash commands still work but the safety net is missing.
+
+To uninstall: `./uninstall.sh`
+
+### 3. Verify
+
+Open a terminal in your project repo, start Claude Code, and type `/deploynope-deploy`. If it loads the deployment ruleset, you're good to go. The hooks fire automatically — try asking Claude to push to `master` and the hook will block it.
+
+<details>
+<summary>Manual installation (without the script)</summary>
+
+**Symlink commands:**
 ```shell
+mkdir -p ~/.claude/commands
 for f in ~/GitHub/deploynope/.claude/commands/*.md; do
   ln -sf "$f" ~/.claude/commands/"$(basename "$f")"
 done
 ```
 
-### 4. Verify
+**Symlink hooks:**
+```shell
+ln -sf ~/GitHub/deploynope/.claude/hooks ~/.claude/hooks
+```
 
-Open a terminal in your project repo, start Claude Code, and type `/deploynope-deploy`. If it loads the deployment ruleset, you're good to go.
+**Add hooks to `~/.claude/settings.json`:**
 
-### 5. (Optional) Add deploy rules to your project's CLAUDE.md
+Merge the following into your existing `~/.claude/settings.json` (create the file if it doesn't exist). Replace `/Users/you` with your actual home directory path:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "/Users/you/.claude/hooks/check-git-commit.sh", "timeout": 10},
+          {"type": "command", "command": "/Users/you/.claude/hooks/check-git-push.sh", "timeout": 15},
+          {"type": "command", "command": "/Users/you/.claude/hooks/check-git-reset.sh", "timeout": 15},
+          {"type": "command", "command": "/Users/you/.claude/hooks/check-gh-pr-create.sh", "timeout": 10},
+          {"type": "command", "command": "/Users/you/.claude/hooks/check-gh-release.sh", "timeout": 10},
+          {"type": "command", "command": "/Users/you/.claude/hooks/check-gh-api-protection.sh", "timeout": 10},
+          {"type": "command", "command": "/Users/you/.claude/hooks/check-git-branch-delete.sh", "timeout": 10},
+          {"type": "command", "command": "/Users/you/.claude/hooks/check-git-tag.sh", "timeout": 10},
+          {"type": "command", "command": "/Users/you/.claude/hooks/check-git-merge.sh", "timeout": 10}
+        ]
+      }
+    ]
+  }
+}
+```
+
+If you already have a `settings.json` with other config (e.g. MCP servers), add the `hooks` key alongside your existing keys — don't replace the file.
+
+</details>
+
+### 4. (Optional) Add deploy rules to your project's CLAUDE.md
 
 So that Claude **automatically** loads the deployment ruleset when you do deployment, PR, or release work (instead of you having to remember to run `/deploynope-deploy`), add the deploy rules to your repo's `CLAUDE.md` (or equivalent rules file).
 
@@ -112,12 +161,14 @@ This way, if someone asks Claude to merge a PR or deploy without having run `/de
 
 ## How it works
 
-Claude Code loads slash commands from two places:
+Claude Code has two extension points that DeployNOPE uses:
 
-1. **Project-level:** `.claude/commands/` inside the current repository
-2. **User-level:** `~/.claude/commands/` in your home directory
+1. **Slash commands** (`~/.claude/commands/`) — the `/deploynope-*` commands that guide you through workflows
+2. **PreToolUse hooks** (`~/.claude/settings.json`) — shell scripts that fire **before** Claude executes a tool, letting DeployNOPE block or confirm dangerous operations
 
-DeployNOPE lives in its own repo and symlinks into the user-level directory. That means the commands are available in every project without copying files around. Claude still runs in the context of whichever repo you're working in, so it has full access to that repo's git history, branches, and code.
+The installer symlinks both into your user-level Claude config. Commands are available in every project without copying files around. Hooks fire automatically in every Claude Code session — they intercept `git push`, `git commit`, `gh pr create`, and other commands before they run.
+
+Claude still runs in the context of whichever repo you're working in, so it has full access to that repo's git history, branches, and code. The hooks read context from the current working directory (branch names, `.deploynope.json` config, etc.) to make per-project decisions.
 
 ### Typical workflow
 

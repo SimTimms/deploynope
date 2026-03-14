@@ -13,6 +13,36 @@
 
 ## Instructions
 
+### Pre-Check: Hook Installation
+
+Before starting configuration, verify that DeployNOPE hooks are installed globally:
+
+```shell
+test -f ~/.claude/hooks/check-git-commit.sh && echo "hooks-present" || echo "hooks-missing"
+grep -l "check-git-commit.sh" ~/.claude/settings.json 2>/dev/null && echo "settings-present" || echo "settings-missing"
+```
+
+- If hooks are **missing** (either the files or the settings entry), display:
+
+  > "**Warning:** DeployNOPE hooks are not installed globally. Without hooks, Claude can
+  > commit, push, and merge without safety checks — the slash commands still work but the
+  > automatic safety net is missing.
+  >
+  > Run the installer from the DeployNOPE repo:
+  > ```shell
+  > cd <path-to-deploynope-repo> && ./install.sh
+  > ```
+  >
+  > Or see the DeployNOPE README for manual installation steps."
+
+- If hooks **are** installed, note this briefly:
+
+  > "DeployNOPE hooks: installed (global)"
+
+Continue with configuration regardless — hooks are not required for configure to run.
+
+---
+
 When this command is run, walk through each configuration section below **in order**.
 For each setting:
 
