@@ -32,18 +32,31 @@ if [ -z "$PROD_BRANCH" ]; then
   fi
 fi
 
+# Determine development branch
+DEV_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.developmentBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$DEV_BRANCH" ]; then
+  DEV_BRANCH="development"
+fi
+
 EXTRA=""
+DECISION="ask"
 if [ "$BRANCH" = "$PROD_BRANCH" ]; then
   EXTRA="\n\nYou are merging INTO the production branch. DeployNOPE requires all changes reach production via staging reset, not direct merge."
 elif [ "$BRANCH" = "staging" ]; then
   EXTRA="\n\nYou are merging into staging. Ensure staging contention check has passed and staging/active tag is claimed."
+elif [ "$BRANCH" = "$DEV_BRANCH" ] || [ "$BRANCH" = "develop" ] || [ "$BRANCH" = "dev" ]; then
+  # Only main/master should be merged into development (post-deployment step)
+  if [ "$MERGE_SOURCE" != "$PROD_BRANCH" ] && [ "$MERGE_SOURCE" != "main" ] && [ "$MERGE_SOURCE" != "master" ]; then
+    DECISION="deny"
+    EXTRA="\n\nBLOCKED: Only the production branch ('${PROD_BRANCH}') should be merged into '${DEV_BRANCH}'. Merging other branches into development causes drift and breaks branch alignment.\n\nThe correct flow is:\n1. Feature/release branch → staging reset → validate → production reset\n2. THEN merge '${PROD_BRANCH}' into '${DEV_BRANCH}' (post-deployment step)\n\nThe branch '${MERGE_SOURCE}' must go through the full deployment process first."
+  fi
 fi
 
 cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
+    "permissionDecision": "${DECISION}",
     "permissionDecisionReason": "[DeployNOPE] Git merge intercepted.\n\nMerging: ${MERGE_SOURCE} → ${BRANCH}\nVersion: ${VERSION}\nCommand: ${COMMAND}${EXTRA}\n\nApprove this merge?"
   }
 }
