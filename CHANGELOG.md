@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.0] - 2026-03-14
+
+### Added
+- Interactive HTML demo pages for all DeployNOPE features (7 pages + index)
+- Staging contention polling option in deployment workflow
+
+### Fixed
+- Preserve non-DeployNOPE hooks during install and uninstall
+
+### Changed
+- Branch references made configuration-driven across all commands
+- Reset-hook test expectations aligned with production lock state
+
+[2.5.0]: https://github.com/SimTimms/deploynope/compare/v2.4.0...v2.5.0
+
 ## [2.3.0] - 2026-03-14
 
 ### Added
