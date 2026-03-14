@@ -33,9 +33,9 @@ follows:
 |---|---|
 | Step 12: Create GitHub Release | Step 9: Create GitHub Release |
 | **Step 12.5: Write release manifest** | **Step 9.5: Write release manifest** |
-| Step 13: Merge release branch into `development` | Step 10: Merge hotfix branch into `development` |
-| Step 14: Clear staging | Step 11: Notify in-flight branches |
-| Step 15: Update changelog (if enabled) | Step 12: Clear staging |
+| Step 13: Merge release branch into `<development-branch>` | Step 10: Merge hotfix branch into `<development-branch>` |
+| Step 14: Clear <staging-branch> | Step 11: Notify in-flight branches |
+| Step 15: Update changelog (if enabled) | Step 12: Clear <staging-branch> |
 | Step 16: Write Confluence release notes | Step 13: Update changelog (if enabled) |
 | | Step 14: Write Confluence release notes |
 
@@ -130,8 +130,8 @@ process. Collect:
 - **type** — ask the user if not obvious from context
 - **timestamp** — current UTC time in ISO 8601
 - **deployer** — `git config user.name`
-- **backend sha** — `git rev-parse HEAD` on `master` after the reset (backend repo)
-- **frontend sha** — `git rev-parse HEAD` on `master` after the reset (frontend repo)
+- **backend sha** — `git rev-parse HEAD` on `<production-branch>` after the reset (backend repo)
+- **frontend sha** — `git rev-parse HEAD` on `<production-branch>` after the reset (frontend repo)
 - **branch** — the release/hotfix branch name
 - **githubReleaseUrl** — from the GitHub Releases just created in the previous step
 - **jiraTickets** — from PR descriptions, commit messages, or ask the user
@@ -153,15 +153,15 @@ cat > releases/<version>.json << 'EOF'
 EOF
 ```
 
-### Step 3: Commit directly to `master`
+### Step 3: Commit directly to `<production-branch>`
 
-The manifest is committed **directly to `master`** after the master reset has already
+The manifest is committed **directly to `<production-branch>`** after the <production-branch> reset has already
 completed. This is the recommended approach because:
 
-- The release branch has already been merged/reset into `master` at this point.
+- The release branch has already been merged/reset into `<production-branch>` at this point.
   Committing to the release branch would require another reset cycle.
 - The manifest is a post-deployment record, not a code change. It does not need
-  staging validation.
+  <staging-branch> validation.
 - This keeps the deployment process linear — no backtracking.
 
 ```shell
@@ -169,14 +169,14 @@ git add releases/<version>.json
 git commit -m "release: add manifest for <version>"
 ```
 
-**[HUMAN GATE]** — Ask before pushing: "Shall I push the release manifest to `master`?"
+**[HUMAN GATE]** — Ask before pushing: "Shall I push the release manifest to `<production-branch>`?"
 
 ```shell
-git push origin master
+git push origin <production-branch>
 ```
 
 > **Note:** This is a normal push (not a force-push), so branch protection does not
-> need to be toggled. The push will succeed because `master` is not behind `origin/master`
+> need to be toggled. The push will succeed because `<production-branch>` is not behind `origin/<production-branch>`
 > at this point — we just reset it.
 
 ### Step 4: Update after Confluence notes
@@ -204,7 +204,7 @@ If a release is rolled back, update the manifest for the rolled-back version:
 
 1. Set `status` to `"rolled-back"`.
 2. Set `rollback` to `{ "timestamp": "<ISO 8601>", "reason": "<reason>", "rolledBackTo": "<version>" }`.
-3. Commit and push to `master`.
+3. Commit and push to `<production-branch>`.
 
 The `previousVersion` field on the rolled-back manifest tells you what version was
 running before the bad release. The `rollback.rolledBackTo` field confirms what version

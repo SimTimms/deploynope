@@ -41,8 +41,8 @@ State clearly what is missing and what impact it may have before proceeding.
 Ask the user before proceeding:
 
 > "Which rollback mode do you need?
-> 1. **Standard Rollback** — goes through staging validation (same safety gates as a forward deployment)
-> 2. **Emergency Rollback** — skips staging validation for critical production outages (extra human gates apply)
+> 1. **Standard Rollback** — goes through <staging-branch> validation (same safety gates as a forward deployment)
+> 2. **Emergency Rollback** — skips <staging-branch> validation for critical production outages (extra human gates apply)
 >
 > If production is down or severely degraded, choose Emergency."
 
@@ -161,7 +161,7 @@ Example: `6.44.2` is broken, `6.44.1` was the last good version.
    ```
 
 This cache-bust branch then replaces `<rollback-target-tag>` in the Standard or
-Emergency process steps below. Instead of resetting staging/master to the old tag,
+Emergency process steps below. Instead of resetting `<staging-branch>`/`<production-branch>` to the old tag,
 reset them to the cache-bust branch.
 
 > **Key point:** The backend can reset directly to the previous tag. The frontend
@@ -172,7 +172,7 @@ reset them to the cache-bust branch.
 
 ## Standard Rollback Process
 
-Standard rollback follows the same staging -> validate -> master reset flow as a
+Standard rollback follows the same <staging-branch> -> validate -> <production-branch> reset flow as a
 forward deployment. The only difference is that the target is the previous release
 tag (backend) or the cache-bust branch (frontend) instead of a release branch.
 
@@ -185,39 +185,39 @@ git fetch origin
 # Check for other Claude instances
 ps aux | grep -i claude | grep -v grep
 
-# Current state of master
-git log origin/master --oneline -5
+# Current state of <production-branch>
+git log origin/<production-branch> --oneline -5
 
-# Current state of staging
-git log origin/staging --oneline -5
+# Current state of <staging-branch>
+git log origin/<staging-branch> --oneline -5
 ```
 
 ### Process
 
-1. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim)
+1. **[STAGING CHECK]** Run <staging-branch> contention check (unreleased commits + active claim)
 2. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
 3. If frontend is in scope, **create the cache-bust branch** (see Frontend Rollback — Cache Busting above)
-4. Reset `staging` to match the rollback target:
+4. Reset `<staging-branch>` to match the rollback target:
    - **Backend:** `git reset --hard <rollback-target-tag>`
    - **Frontend:** `git reset --hard <cache-bust-branch>` (e.g. `6.44.3`)
    ```shell
-   git checkout staging
+   git checkout <staging-branch>
    git reset --hard <target>
-   git push --force-with-lease origin staging
+   git push --force-with-lease origin <staging-branch>
    ```
-5. **[HUMAN GATE]** Validate on staging — wait for explicit "it's validated" sign-off
+5. **[HUMAN GATE]** Validate on <staging-branch> — wait for explicit "it's validated" sign-off
 6. **[CROSS-REPO CHECK]** Confirm both repos will be on matching versions after rollback
-7. **[HUMAN GATE]** Confirm before resetting `master`:
-   > "Ready to roll back `master` from `<current-version>` to `<rollback-target>`.
-   > This will temporarily enable force-push on `master`, perform the reset, and
+7. **[HUMAN GATE]** Confirm before resetting `<production-branch>`:
+   > "Ready to roll back `<production-branch>` from `<current-version>` to `<rollback-target>`.
+   > This will temporarily enable force-push on `<production-branch>`, perform the reset, and
    > immediately re-lock it. Proceed?"
-8. Reset backend `master` using the Branch Protection Toggle procedure (see deploynope-deploy.md):
-   - Enable force-push on `master`
+8. Reset backend `<production-branch>` using the Branch Protection Toggle procedure (see deploynope-deploy.md):
+   - Enable force-push on `<production-branch>`
    - `git reset --hard <rollback-target-tag>`
-   - `git push --force-with-lease origin master`
-   - Re-lock `master` immediately (even if the reset fails)
+   - `git push --force-with-lease origin <production-branch>`
+   - Re-lock `<production-branch>` immediately (even if the reset fails)
 9. **Deploy backend first** — confirm CodePipeline healthy before rolling back frontend
-10. If frontend is in scope, repeat the master reset on `{owner}/{frontend-repo}`
+10. If frontend is in scope, repeat the <production-branch> reset on `{owner}/{frontend-repo}`
     using the **cache-bust branch** (not the old tag):
     - `git reset --hard <cache-bust-branch>`
 11. Create GitHub Release for the frontend cache-bust version (note in description that
@@ -229,18 +229,18 @@ git log origin/staging --oneline -5
 
 ## Emergency Rollback Process
 
-Emergency rollback skips staging validation. Use only when production is down or
-severely degraded and the cost of waiting for staging validation exceeds the risk
+Emergency rollback skips <staging-branch> validation. Use only when production is down or
+severely degraded and the cost of waiting for <staging-branch> validation exceeds the risk
 of rolling back without it.
 
 ### Extra Safety Gates
 
-Because staging validation is skipped, emergency rollback requires additional
+Because <staging-branch> validation is skipped, emergency rollback requires additional
 human gates to compensate:
 
 - **[HUMAN GATE]** Explicit confirmation that this is a genuine emergency
 - **[HUMAN GATE]** Confirmation of the exact rollback target before any reset
-- **[HUMAN GATE]** Confirmation before each master reset (backend and frontend separately)
+- **[HUMAN GATE]** Confirmation before each <production-branch> reset (backend and frontend separately)
 - **[HUMAN GATE]** Mandatory post-rollback validation on production
 
 ### Pre-Flight
@@ -250,7 +250,7 @@ human gates to compensate:
 git fetch origin
 
 # Confirm current production state
-git log origin/master --oneline -3
+git log origin/<production-branch> --oneline -3
 
 # Confirm rollback target exists
 git tag -l "<rollback-target-tag>"
@@ -260,17 +260,17 @@ git log <rollback-target-tag> --oneline -3
 ### Process
 
 1. **[HUMAN GATE]** Confirm emergency:
-   > "You are requesting an Emergency Rollback. This will skip staging validation
-   > and reset `master` directly to `<rollback-target>`. Please confirm:
+   > "You are requesting an Emergency Rollback. This will skip <staging-branch> validation
+   > and reset `<production-branch>` directly to `<rollback-target>`. Please confirm:
    > - This is a genuine production emergency
-   > - You accept the risk of deploying without staging validation
+   > - You accept the risk of deploying without <staging-branch> validation
    >
    > Type 'confirmed' to proceed."
 
-2. **Staging contention bypass:** In emergency mode, staging contention checks are
+2. **Staging contention bypass:** In emergency mode, <staging-branch> contention checks are
    skipped. However, if the `staging/active` tag exists, warn the user:
-   > "Warning: staging is currently claimed by another deployment. Emergency rollback
-   > will not touch staging, but be aware that another deployment may be in progress."
+   > "Warning: <staging-branch> is currently claimed by another deployment. Emergency rollback
+   > will not touch `<staging-branch>`, but be aware that another deployment may be in progress."
 
    **[HUMAN GATE]** — wait for acknowledgement.
 
@@ -279,26 +279,26 @@ git log <rollback-target-tag> --oneline -3
    because browsers will not fetch assets from an older version number.
 
 4. **[HUMAN GATE]** Confirm the exact rollback target:
-   > "About to reset `master`:
+   > "About to reset `<production-branch>`:
    > - Backend: tag `<rollback-target>` (`<commit-sha>`)
    > - Frontend: cache-bust branch `<cache-bust-branch>` _(if in scope)_
    >
    > Confirm this is correct."
 
-5. Reset backend `master` using the Branch Protection Toggle procedure:
-   - Enable force-push on `master`
+5. Reset backend `<production-branch>` using the Branch Protection Toggle procedure:
+   - Enable force-push on `<production-branch>`
    - `git reset --hard <rollback-target-tag>`
-   - `git push --force-with-lease origin master`
-   - Re-lock `master` immediately (even if the reset fails)
+   - `git push --force-with-lease origin <production-branch>`
+   - Re-lock `<production-branch>` immediately (even if the reset fails)
 
 6. **[HUMAN GATE]** Confirm CodePipeline triggered and backend is recovering:
-   > "Backend `master` has been reset. CodePipeline should trigger automatically.
+   > "Backend `<production-branch>` has been reset. CodePipeline should trigger automatically.
    > Please confirm the backend deployment is progressing before we proceed to
    > the frontend."
 
 7. If frontend is in scope:
-   **[HUMAN GATE]** Confirm before resetting frontend `master`:
-   > "Ready to reset frontend `master` to cache-bust branch `<cache-bust-branch>`. Proceed?"
+   **[HUMAN GATE]** Confirm before resetting frontend `<production-branch>`:
+   > "Ready to reset frontend `<production-branch>` to cache-bust branch `<cache-bust-branch>`. Proceed?"
 
    Reset using the **cache-bust branch** (not the old tag):
    - `git reset --hard <cache-bust-branch>`
@@ -418,12 +418,12 @@ _Mode: Standard | Repos: `<scope>` | Date: `<today>`_
 | 4 | Frontend cache-bust branch created | Branch `<cache-bust>` from `<target>` tag _(if frontend in scope)_ | — |
 | 5 | Staging contention check passed | No unreleased commits on staging; no `staging/active` tag | — |
 | 6 | Staging claimed | `staging/active` tag created; team notified in Slack | — |
-| 7 | `staging` reset to rollback target | Backend: tag; Frontend: cache-bust branch | — |
-| 8 | Validated on staging | Human sign-off: "it's validated" | — |
+| 7 | `<staging-branch>` reset to rollback target | Backend: tag; Frontend: cache-bust branch | — |
+| 8 | Validated on <staging-branch> | Human sign-off: "it's validated" | — |
 | 9 | Cross-repo version parity confirmed | Backend and frontend on matching versions | — |
-| 10 | `master` reset — backend | `git reset --hard <rollback-target>` | — |
+| 10 | `<production-branch>` reset — backend | `git reset --hard <rollback-target>` | — |
 | 11 | Backend CodePipeline confirmed healthy | Before frontend proceeds | — |
-| 12 | `master` reset — frontend (if applicable) | `git reset --hard <cache-bust-branch>` | — |
+| 12 | `<production-branch>` reset — frontend (if applicable) | `git reset --hard <cache-bust-branch>` | — |
 | 13 | Frontend CodePipeline confirmed healthy | If applicable | — |
 | 14 | GitHub Release — frontend cache-bust | Tag: `<cache-bust-version>` _(if applicable)_ | — |
 | 15 | Production smoke test passed | Human sign-off | — |
@@ -447,9 +447,9 @@ _Mode: EMERGENCY | Repos: `<scope>` | Date: `<today>`_
 | 5 | Frontend cache-bust branch created | Branch `<cache-bust>` from `<target>` tag _(if frontend in scope)_ | — |
 | 6 | Staging contention acknowledged | Warned if `staging/active` tag exists | — |
 | 7 | Rollback target confirmed | Human confirmed exact tag/branch and commit | — |
-| 8 | `master` reset — backend | `git reset --hard <rollback-target>` | — |
+| 8 | `<production-branch>` reset — backend | `git reset --hard <rollback-target>` | — |
 | 9 | Backend CodePipeline confirmed healthy | Human sign-off | — |
-| 10 | `master` reset — frontend (if applicable) | `git reset --hard <cache-bust-branch>` | — |
+| 10 | `<production-branch>` reset — frontend (if applicable) | `git reset --hard <cache-bust-branch>` | — |
 | 11 | Frontend CodePipeline confirmed healthy | If applicable | — |
 | 12 | GitHub Release — frontend cache-bust | Tag: `<cache-bust-version>` _(if applicable)_ | — |
 | 13 | Production smoke test passed | Human sign-off — mandatory in emergency mode | — |
@@ -460,20 +460,20 @@ _Mode: EMERGENCY | Repos: `<scope>` | Date: `<today>`_
 
 ---
 
-## Resetting `master` — Branch Protection Toggle
+## Resetting `<production-branch>` — Branch Protection Toggle
 
 Follow the exact same procedure as defined in deploynope-deploy.md. For reference:
 
 1. **[HUMAN GATE]** — Confirm before starting
-2. Enable force-push on `master` via `gh api`
-3. `git reset --hard <rollback-target-tag>` and `git push --force-with-lease origin master`
-4. Re-lock `master` immediately — even if the reset fails
+2. Enable force-push on `<production-branch>` via `gh api`
+3. `git reset --hard <rollback-target-tag>` and `git push --force-with-lease origin <production-branch>`
+4. Re-lock `<production-branch>` immediately — even if the reset fails
 
 The `{owner}/{repo}` placeholders:
 - Backend: `{owner}/{backend-repo}`
 - Frontend: `{owner}/{frontend-repo}`
 
-> **Never leave master unprotected.** If re-locking fails, warn the user immediately
+> **Never leave <production-branch> unprotected.** If re-locking fails, warn the user immediately
 > so they can manually re-enable protection in GitHub settings.
 
 ---
@@ -494,7 +494,7 @@ All cross-repo rules from deploy.md apply during rollback:
 ## General Safety
 
 - **Never push without permission.**
-- **Never force-push `master` without toggling branch protection** (same procedure as deploynope-deploy.md).
+- **Never force-push `<production-branch>` without toggling branch protection** (same procedure as deploynope-deploy.md).
 - **Always use `--force-with-lease`** instead of `--force`.
 - Before any destructive operation, state exactly what will happen and confirm.
 - **When in doubt, do less and ask more.**

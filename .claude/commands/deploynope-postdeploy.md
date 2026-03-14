@@ -34,12 +34,12 @@ results table and a clear done / not-done verdict.
 
 ```shell
 git fetch origin --quiet
-git log origin/staging..origin/master --oneline
-git log origin/master..origin/staging --oneline
+git log origin/<staging-branch>..origin/<production-branch> --oneline
+git log origin/<production-branch>..origin/<staging-branch> --oneline
 ```
 
-`master` and `staging` should be identical (or `master` may be 1 commit ahead if the
-release manifest was committed). If `staging` is ahead of `master`, the reset has not
+`<production-branch>` and `<staging-branch>` should be identical (or `<production-branch>` may be 1 commit ahead if the
+release manifest was committed). If `<staging-branch>` is ahead of `<production-branch>`, the reset has not
 been completed.
 
 ### 2. GitHub Releases Created
@@ -62,21 +62,21 @@ Check that a release manifest file exists for the deployed version in `releases/
 ### 4. Release Branch Merged into Development
 
 ```shell
-git log origin/development..origin/master --oneline
+git log origin/<development-branch>..origin/<production-branch> --oneline
 ```
 
-If `master` has commits not in `development`, the release branch has not been merged
-back. This is required to keep `development` aligned.
+If `<production-branch>` has commits not in `<development-branch>`, the release branch has not been merged
+back. This is required to keep `<development-branch>` aligned.
 
 ### 5. Branch Protection Re-Enabled
 
 ```shell
-gh api repos/{owner}/{repo}/branches/master/protection --jq '.allow_force_pushes.enabled'
+gh api repos/{owner}/{repo}/branches/<production-branch>/protection --jq '.allow_force_pushes.enabled'
 ls -la .deploynope-protection-unlocked 2>/dev/null
 ```
 
 Force-push must be `false`. If it is `true`, branch protection was not re-locked after
-the master reset. Also check for the `.deploynope-protection-unlocked` state file — if
+the <production-branch> reset. Also check for the `.deploynope-protection-unlocked` state file — if
 it exists, the protection toggle hook did not clean up properly. Remove the state file
 after confirming protection is re-locked.
 
@@ -86,7 +86,7 @@ after confirming protection is re-locked.
 git tag -l "staging/active"
 ```
 
-The `staging/active` tag should not exist. If it does, staging has not been released
+The `staging/active` tag should not exist. If it does, <staging-branch> has not been released
 back to the team.
 
 ### 7. Confluence Release Notes
@@ -100,13 +100,13 @@ If Confluence is not configured, mark as skipped.
 ### 8. Branch Alignment
 
 ```shell
-git log origin/master..origin/staging --oneline
-git log origin/staging..origin/master --oneline
-git log origin/master..origin/development --oneline
-git log origin/development..origin/master --oneline
+git log origin/<production-branch>..origin/<staging-branch> --oneline
+git log origin/<staging-branch>..origin/<production-branch> --oneline
+git log origin/<production-branch>..origin/<development-branch> --oneline
+git log origin/<development-branch>..origin/<production-branch> --oneline
 ```
 
-All three branches (`master`, `staging`, `development`) should be aligned. Small
+All three branches (`<production-branch>`, `<staging-branch>`, `<development-branch>`) should be aligned. Small
 discrepancies (e.g. the release manifest commit) are acceptable — flag anything larger.
 
 ### 9. Changelog Updated
@@ -138,10 +138,10 @@ _Date: `<today>` | Version: `<version>` | Type: `<feature/hotfix/chore>`_
 
 | # | Check | Status | Detail |
 |---|-------|--------|--------|
-| 1 | Master reset completed | ✅ / ❌ | `master` and `staging` aligned / `staging` is X commits ahead |
+| 1 | Master reset completed | ✅ / ❌ | `<production-branch>` and `<staging-branch>` aligned / `<staging-branch>` is X commits ahead |
 | 2 | GitHub Releases created | ✅ / ❌ | Release `<version>` found / No release found |
 | 3 | Release manifest written | ✅ / ❌ | `releases/<version>.json` exists / Not found |
-| 4 | Merged into development | ✅ / ❌ | `development` aligned / X commits behind `master` |
+| 4 | Merged into <development-branch> | ✅ / ❌ | `<development-branch>` aligned / X commits behind `<production-branch>` |
 | 5 | Branch protection re-enabled | ✅ / ❌ | Force-push disabled / Force-push still enabled or state file present |
 | 6 | Staging cleared | ✅ / ❌ | No active claim / `staging/active` tag still present |
 | 7 | Confluence release notes | ✅ / ⏭️ / ❌ | Written / Skipped (not configured) / Not written |
@@ -188,7 +188,7 @@ After the table, display one of:
 
 | Severity | Meaning | Examples |
 |----------|---------|----------|
-| ❌ Outstanding | Deployment is not finished | Master not reset, branch protection still unlocked, staging not cleared |
+| ❌ Outstanding | Deployment is not finished | Master not reset, branch protection still unlocked, <staging-branch> not cleared |
 | ⚠️ Note | Done but worth flagging | Smoke test not confirmed, minor branch drift, Confluence not configured |
 | ✅ Pass | Completed | — |
 | ⏭️ Skipped | Not applicable | Confluence not configured, changelog not enabled, single-repo setup |
