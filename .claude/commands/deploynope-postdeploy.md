@@ -106,7 +106,20 @@ git log origin/development..origin/master --oneline
 All three branches (`master`, `staging`, `development`) should be aligned. Small
 discrepancies (e.g. the release manifest commit) are acceptable — flag anything larger.
 
-### 9. Production Smoke Test
+### 9. Changelog Updated
+
+If `changelog.enabled` is `true` in `.deploynope.json`:
+
+```shell
+head -20 <changelog.filePath>
+```
+
+Check that the changelog file exists at the configured path and that the latest entry
+matches the deployed version.
+
+If changelog is not enabled (or the `changelog` key is missing from config), mark as skipped.
+
+### 10. Production Smoke Test
 
 Check conversation history for whether the user confirmed a production smoke test
 during this session. This is a human responsibility — just check if it was acknowledged.
@@ -130,7 +143,8 @@ _Date: `<today>` | Version: `<version>` | Type: `<feature/hotfix/chore>`_
 | 6 | Staging cleared | ✅ / ❌ | No active claim / `staging/active` tag still present |
 | 7 | Confluence release notes | ✅ / ⏭️ / ❌ | Written / Skipped (not configured) / Not written |
 | 8 | Branch alignment | ✅ / ⚠️ | All aligned / Drift detected — details |
-| 9 | Production smoke test | ✅ / ⚠️ | Confirmed by user / Not confirmed this session |
+| 9 | Changelog updated | ✅ / ⏭️ / ❌ | Updated for `<version>` / Skipped (not enabled) / Not updated |
+| 10 | Production smoke test | ✅ / ⚠️ | Confirmed by user / Not confirmed this session |
 
 ---
 
@@ -174,4 +188,4 @@ After the table, display one of:
 | ❌ Outstanding | Deployment is not finished | Master not reset, branch protection still unlocked, staging not cleared |
 | ⚠️ Note | Done but worth flagging | Smoke test not confirmed, minor branch drift, Confluence not configured |
 | ✅ Pass | Completed | — |
-| ⏭️ Skipped | Not applicable | Confluence not configured, single-repo setup |
+| ⏭️ Skipped | Not applicable | Confluence not configured, changelog not enabled, single-repo setup |
