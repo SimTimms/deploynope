@@ -348,6 +348,56 @@ Set any blank/skipped values to `null`.
 **[HUMAN GATE]** — Show the complete config and ask: "Does this look correct? I'll save
 it to `.deploynope.json` in the project root."
 
+---
+
+## Validation
+
+After writing the config file, run the following validation checks and display the results.
+These are **non-blocking** — the config is saved regardless — but they surface problems
+early rather than mid-deployment.
+
+### Repos accessible
+
+```shell
+gh repo view <owner>/<frontendRepo> --json name --jq '.name' 2>/dev/null
+gh repo view <owner>/<backendRepo> --json name --jq '.name' 2>/dev/null
+```
+
+If either repo is not accessible, warn: "Could not access `<owner>/<repo>`. Check the
+repo name and that `gh` is authenticated."
+
+### Branches exist on remote
+
+```shell
+git ls-remote --heads origin <productionBranch> <stagingBranch> <developmentBranch>
+```
+
+For each branch that does not appear in the output, warn: "Branch `<name>` not found
+on remote. It may need to be created."
+
+### GitHub API access
+
+```shell
+gh api repos/<owner>/<frontendRepo>/branches/<productionBranch>/protection --jq '.allow_force_pushes.enabled' 2>/dev/null
+```
+
+If this fails, warn: "Could not read branch protection settings for `<productionBranch>`.
+Branch protection toggling during deployment may fail. Check that your GitHub token has
+`repo` scope."
+
+Display the validation results in a table:
+
+| Check | Status | Detail |
+|-------|--------|--------|
+| Frontend repo accessible | ✅ / ⚠️ | Found / Not accessible |
+| Backend repo accessible | ✅ / ⚠️ / ⏭️ | Found / Not accessible / Not configured |
+| Production branch exists | ✅ / ⚠️ | Found / Not found on remote |
+| Staging branch exists | ✅ / ⚠️ | Found / Not found on remote |
+| Development branch exists | ✅ / ⚠️ | Found / Not found on remote |
+| Branch protection API | ✅ / ⚠️ | Accessible / Cannot read protection settings |
+
+---
+
 After writing, display:
 
 > **Configuration saved to `.deploynope.json`**

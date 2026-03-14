@@ -12,12 +12,12 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/check-git-push.sh",
-            "timeout": 10
+            "timeout": 15
           },
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/check-git-reset.sh",
-            "timeout": 10
+            "timeout": 15
           },
           {
             "type": "command",
