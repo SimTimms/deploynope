@@ -9,19 +9,37 @@ printf "${CYAN}═══ check-git-reset.sh ═══${NC}\n"
 
 TEMP_DIR=$(setup_temp_repo)
 
-# ── Production branch reset → ask with PRODUCTION severity ───────────────────
+# ── Production branch reset guards ────────────────────────────────────────────
 
-begin_test "reset --hard on main → ask"
+begin_test "reset --hard on main without state file → deny"
+OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
+assert_decision "$OUTPUT" "deny"
+
+begin_test "production deny reason mentions BLOCKED"
+OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
+assert_reason_contains "$OUTPUT" "BLOCKED"
+
+begin_test "production deny reason mentions unlock state file"
+OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
+assert_reason_contains "$OUTPUT" ".deploynope-protection-unlocked"
+
+begin_test "production deny reason mentions deploy workflow"
+OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
+assert_reason_contains "$OUTPUT" "/deploynope-deploy"
+
+cd "$TEMP_DIR" && echo "2026-03-14T10:00:00Z" > .deploynope-protection-unlocked
+
+begin_test "reset --hard on main with state file → ask"
 OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
 assert_decision "$OUTPUT" "ask"
 
-begin_test "production reset reason mentions PRODUCTION BRANCH"
+begin_test "production ask reason mentions verified unlocked"
 OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
-assert_reason_contains "$OUTPUT" "PRODUCTION BRANCH"
+assert_reason_contains "$OUTPUT" "verified unlocked"
 
-begin_test "production reset reason mentions protection toggle"
+begin_test "production ask reason includes reset target"
 OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
-assert_reason_contains "$OUTPUT" "branch protection toggle"
+assert_reason_contains "$OUTPUT" "Reset target: origin/staging"
 
 # ── Staging reset → ask ──────────────────────────────────────────────────────
 
@@ -51,10 +69,6 @@ cd "$TEMP_DIR" && git checkout -q -b feature/cd-test
 OUTPUT=$(run_hook "$HOOK" 'cd /tmp && git reset --hard HEAD')
 assert_decision "$OUTPUT" "ask"
 cd "$TEMP_DIR" && git checkout -q main
-
-begin_test "reason includes reset target"
-OUTPUT=$(run_hook "$HOOK" 'git reset --hard origin/staging')
-assert_reason_contains "$OUTPUT" "Reset target: origin/staging"
 
 # ── Should NOT intercept ─────────────────────────────────────────────────────
 
