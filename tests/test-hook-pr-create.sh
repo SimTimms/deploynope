@@ -77,6 +77,16 @@ begin_test "PR to release with && chain → ask"
 OUTPUT=$(run_hook "$HOOK" 'echo ok && gh pr create --base 1.5.0 --title ok')
 assert_decision "$OUTPUT" "ask"
 
+# ── JSON safety: quoted titles must produce valid JSON ────────────────────────
+
+begin_test "PR with quoted title produces valid JSON"
+OUTPUT=$(run_hook "$HOOK" 'gh pr create --base 1.5.0 --title "my feature with spaces"')
+assert_decision "$OUTPUT" "ask"
+
+begin_test "deny with quoted title produces valid JSON"
+OUTPUT=$(run_hook "$HOOK" 'gh pr create --base main --title "sneaky PR"')
+assert_decision "$OUTPUT" "deny"
+
 # ── Should NOT intercept ─────────────────────────────────────────────────────
 
 begin_test "gh pr list (not create)"

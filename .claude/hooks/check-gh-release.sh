@@ -29,14 +29,7 @@ fi
 # Get the remote URL for context
 REMOTE=$(cd "$CWD" 2>/dev/null && git remote get-url origin 2>/dev/null || echo "unknown")
 
-cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] GitHub Release creation intercepted.\n\nTag: ${TAG}\nRepo: ${REPO}\nBranch: ${BRANCH}\nVersion (package.json): ${VERSION}\nRemote: ${REMOTE}\nCommand: ${COMMAND}\n\nRemember: releases must be created on BOTH repos with matching versions.\n\nApprove this release?"
-  }
-}
-EOF
+REASON=$(printf '[DeployNOPE] GitHub Release creation intercepted.\n\nTag: %s\nRepo: %s\nBranch: %s\nVersion (package.json): %s\nRemote: %s\n\nRemember: releases must be created on BOTH repos with matching versions.\n\nApprove this release?' "$TAG" "$REPO" "$BRANCH" "$VERSION" "$REMOTE")
+jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
 exit 0

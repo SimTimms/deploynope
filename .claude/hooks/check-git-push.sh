@@ -26,8 +26,12 @@ if [ -z "$PROD_BRANCH" ]; then
 fi
 
 # Check if staging branch exists
+STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$STAGING_BRANCH" ]; then
+  STAGING_BRANCH="staging"
+fi
 HAS_STAGING="false"
-if cd "$CWD" 2>/dev/null && git rev-parse --verify origin/staging &>/dev/null; then
+if cd "$CWD" 2>/dev/null && git rev-parse --verify "origin/${STAGING_BRANCH}" &>/dev/null; then
   HAS_STAGING="true"
 fi
 
@@ -53,58 +57,29 @@ if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "true" ]; then
 
   # ALLOW with confirmation: --force-with-lease is the controlled staging → production reset
   if echo "$COMMAND" | grep -q '\-\-force-with-lease'; then
-    # Verify staging and local production are aligned (this IS the reset step)
-    STAGING_SHA=$(cd "$CWD" 2>/dev/null && git rev-parse origin/staging 2>/dev/null || echo "unknown")
+    STAGING_SHA=$(cd "$CWD" 2>/dev/null && git rev-parse "origin/${STAGING_BRANCH}" 2>/dev/null || echo "unknown")
     LOCAL_SHA=$(cd "$CWD" 2>/dev/null && git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-    cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] PRODUCTION RESET — force-with-lease push to '${PROD_BRANCH}' detected.\n\nThis appears to be the staging → production reset step.\n\nLocal HEAD: ${LOCAL_SHA}\norigin/staging: ${STAGING_SHA}\nVersion: ${VERSION}\n\nThis will update production to match staging. Approve this production reset?"
-  }
-}
-EOF
+    REASON=$(printf '[DeployNOPE] PRODUCTION RESET — force-with-lease push to '\''%s'\'' detected.\n\nThis appears to be the staging → production reset step.\n\nLocal HEAD: %s\norigin/%s: %s\nVersion: %s\n\nThis will update production to match staging. Approve this production reset?' "$PROD_BRANCH" "$LOCAL_SHA" "$STAGING_BRANCH" "$STAGING_SHA" "$VERSION")
+    jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
     exit 0
   fi
 
   # HARD BLOCK: regular push to production when staging exists
-  cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "deny",
-    "permissionDecisionReason": "[DeployNOPE] BLOCKED — Direct push to production branch '${PROD_BRANCH}' is not allowed. A staging branch exists. All changes must go through the staging → production reset process. Use /deploynope-deploy to follow the correct procedure."
-  }
-}
-EOF
+  REASON=$(printf '[DeployNOPE] BLOCKED — Direct push to production branch '\''%s'\'' is not allowed. A staging branch exists. All changes must go through the staging → production reset process. Use /deploynope-deploy to follow the correct procedure.' "$PROD_BRANCH")
+  jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$reason}}'
   exit 0
 fi
 
 # WARNING: pushing to production without staging
 if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "false" ]; then
-  cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Push to production branch '${PROD_BRANCH}' — NO STAGING BRANCH detected.\n\nBranch: ${BRANCH} → origin/${BRANCH}\nVersion: ${VERSION}\nCommits: ${COMMIT_COUNT}\n${COMMITS}\n\nNo staging validation is possible. Consider running /deploynope-configure to set up staging infrastructure.\n\nApprove this direct push to production?"
-  }
-}
-EOF
+  REASON=$(printf '[DeployNOPE] Push to production branch '\''%s'\'' — NO STAGING BRANCH detected.\n\nBranch: %s → origin/%s\nVersion: %s\nCommits: %s\n%s\n\nNo staging validation is possible. Consider running /deploynope-configure to set up staging infrastructure.\n\nApprove this direct push to production?' "$PROD_BRANCH" "$BRANCH" "$BRANCH" "$VERSION" "$COMMIT_COUNT" "$COMMITS")
+  jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
   exit 0
 fi
 
 # All other pushes: ask for approval with details
-cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Git push intercepted.\n\nBranch: ${BRANCH} → origin/${BRANCH}\nVersion: ${VERSION}\nCommits: ${COMMIT_COUNT}\n${COMMITS}\n\nReview and approve this push."
-  }
-}
-EOF
+REASON=$(printf '[DeployNOPE] Git push intercepted.\n\nBranch: %s → origin/%s\nVersion: %s\nCommits: %s\n%s\n\nReview and approve this push.' "$BRANCH" "$BRANCH" "$VERSION" "$COMMIT_COUNT" "$COMMITS")
+jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
 exit 0

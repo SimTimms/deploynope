@@ -1,6 +1,6 @@
 #!/bin/bash
 # DeployNOPE hook: intercept git reset --hard for user approval
-# Shows what will be overwritten and flags staging/master resets.
+# Shows what will be overwritten and flags staging/production resets.
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
@@ -33,25 +33,24 @@ if [ -z "$PROD_BRANCH" ]; then
   fi
 fi
 
+# Determine staging branch from config
+STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$STAGING_BRANCH" ]; then
+  STAGING_BRANCH="staging"
+fi
+
 # Flag if resetting a critical branch
 SEVERITY="WARNING"
 EXTRA=""
 if [ "$BRANCH" = "$PROD_BRANCH" ]; then
   SEVERITY="PRODUCTION BRANCH"
-  EXTRA="\n\nThis resets the PRODUCTION branch. Ensure branch protection toggle procedure is being followed."
-elif [ "$BRANCH" = "staging" ]; then
+  EXTRA=$(printf '\n\nThis resets the PRODUCTION branch. Ensure branch protection toggle procedure is being followed.')
+elif [ "$BRANCH" = "$STAGING_BRANCH" ]; then
   SEVERITY="STAGING BRANCH"
-  EXTRA="\n\nThis resets STAGING. Ensure staging contention check has passed and staging/active tag is claimed."
+  EXTRA=$(printf '\n\nThis resets STAGING. Ensure staging contention check has passed and staging/active tag is claimed.')
 fi
 
-cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] ${SEVERITY} — git reset --hard intercepted.\n\nBranch: ${BRANCH}\nCurrent HEAD: ${CURRENT_HEAD}\nReset target: ${RESET_TARGET}\nVersion: ${VERSION}\nCommand: ${COMMAND}${EXTRA}\n\nThis is destructive and cannot be undone. Approve this reset?"
-  }
-}
-EOF
+REASON=$(printf '[DeployNOPE] %s — git reset --hard intercepted.\n\nBranch: %s\nCurrent HEAD: %s\nReset target: %s\nVersion: %s\nCommand: %s%s\n\nThis is destructive and cannot be undone. Approve this reset?' "$SEVERITY" "$BRANCH" "$CURRENT_HEAD" "$RESET_TARGET" "$VERSION" "$COMMAND" "$EXTRA")
+jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
 exit 0

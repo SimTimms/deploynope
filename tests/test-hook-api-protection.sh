@@ -27,6 +27,14 @@ begin_test "reason mentions security-critical"
 OUTPUT=$(run_hook "$HOOK" 'gh api repos/Owner/repo/branches/main/protection -X PUT -f allow_force_pushes=false')
 assert_reason_contains "$OUTPUT" "security-critical"
 
+# ── JSON safety: quoted JSON in command must produce valid output ─────────────
+
+begin_test "PUT with quoted JSON body produces valid JSON"
+OUTPUT=$(run_hook "$HOOK" 'gh api repos/Owner/repo/branches/main/protection -X PUT --input - <<EOF
+{"allow_force_pushes": true}
+EOF')
+assert_decision "$OUTPUT" "ask"
+
 # ── Should NOT intercept: GET protection (read-only) ─────────────────────────
 
 begin_test "GET protection → passthrough"
