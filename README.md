@@ -41,7 +41,33 @@ All commands are prefixed with `deploynope-` so they stay distinct in your slash
 | `/deploynope-release-manifest` | Creates a `releases/<version>.json` audit trail for every production deployment — who deployed, what SHAs, which Jira tickets, rollback status. |
 | `/deploynope-postdeploy` | Post-deployment completion check. Answers "am I actually done?" — checks branch protection, staging cleared, GitHub Releases, manifest, merge-back, and branch alignment. |
 | `/deploynope-rollback` | Guides you through rolling back production to a previous release. Supports standard (through staging) and emergency (skip staging) modes. Handles frontend cache-busting automatically. |
+| `/deploynope-stale-check` | Identifies stale branches, aging PRs, and pipeline bottlenecks. Helps keep the repo tidy and surfaces work that may have been forgotten. |
 | `/deploynope-verify-rules` | A read-only self-check that confirms the deployment ruleset is loaded and Claude understands all 10 critical safety rules. Good for sanity-checking before a big release. |
+
+---
+
+## Stage Tags
+
+When DeployNOPE is active, every response is tagged with `🤓 DeployNOPE @ <Stage>` so you always know which stage of the workflow you're in. If the tag is missing from a deployment-related response, that's a red flag — the framework wasn't loaded.
+
+| Context | Tag |
+|---------|-----|
+| Starting new work or `/deploynope-new-work` | `🤓 DeployNOPE @ New Work` |
+| Feature/ticket work (coding, committing) | `🤓 DeployNOPE @ Feature` |
+| `/deploynope-preflight` | `🤓 DeployNOPE @ Preflight` |
+| `/deploynope-configure` | `🤓 DeployNOPE @ Configure` |
+| `/deploynope-deploy-status` | `🤓 DeployNOPE @ Deploy Status` |
+| `/deploynope-verify-rules` | `🤓 DeployNOPE @ Verify Rules` |
+| `/deploynope-stale-check` | `🤓 DeployNOPE @ Stale Check` |
+| `/deploynope-release-manifest` | `🤓 DeployNOPE @ Release Manifest` |
+| `/deploynope-postdeploy` | `🤓 DeployNOPE @ Post-Deploy` |
+| `/deploynope-rollback` | `🤓 DeployNOPE @ Rollback` |
+| Staging contention check or claiming staging | `🤓 DeployNOPE @ Staging` |
+| Validating on staging | `🤓 DeployNOPE @ Staging Validation` |
+| Resetting master / production deployment | `🤓 DeployNOPE @ Production` |
+| Creating a GitHub Release | `🤓 DeployNOPE @ Release` |
+| Post-deployment alignment check | `🤓 DeployNOPE @ Post-Deploy` |
+| General deployment work (no specific step) | `🤓 DeployNOPE @ Deploy` |
 
 ---
 
@@ -132,7 +158,51 @@ If you previously had these commands inside a project's `.claude/commands/`, you
 
 ---
 
+## Version History
+
+### v1.5.0
+
+- Replaced the static "Protected by DeployNOPE" tag with contextual stage labels (`🤓 DeployNOPE @ <Stage>`) so you always know where you are in the workflow
+- Added release branch validation before suggesting a base branch or PR target
+- Added merge guard to block non-production merges into `development`, preventing branch drift
+
+### v1.4.0
+
+- Added `🤓` emoji tagging and release version check rule
+- Improved production push hook to catch more bypass patterns
+- Added `/deploynope-stale-check` command to identify stale branches, aging PRs, and pipeline bottlenecks
+- Added changelog configuration and deployment integration
+- Fixed hook bypass vulnerability where commands with `cd`/`&&` prefixes were not intercepted
+
+### v1.3.0
+
+- Added changelog configuration and deployment integration
+- Added emoji to "Protected by DeployNOPE" tags for visibility
+
+### v1.2.0
+
+- Added team size and commit message prefix configuration options
+- Fixed `development` being offered as a base branch option, preventing PR target mismatch
+
+### v1.1.0
+
+- Added PreToolUse hooks for all DeployNOPE-governed git and GitHub operations
+- Added production branch guard to block direct pushes and detect missing staging infrastructure
+- Added push confirmation format with commit table
+- Added framework visibility tagging and auto-activation
+- Enforced correct PR targets: block PRs to production, staging, and development
+- Fixed hooks to use macOS-compatible `grep`/`sed`/`awk` instead of GNU `grep -oP`
+
+### v1.0.0
+
+- Initial release — deployment safety commands for Claude Code
+- Added `/deploynope-configure`, `/deploynope-deploy`, `/deploynope-preflight`, `/deploynope-postdeploy`
+- Added `/deploynope-deploy-status`, `/deploynope-release-manifest`, `/deploynope-rollback`
+- Added `/deploynope-new-work` and `/deploynope-verify-rules`
+
+---
+
 ## What's Next
 
-- choose a deployment strategy from a list  or point it to a custom strategy document 
-- choose a version strategy
+- Choose a deployment strategy from a list or point it to a custom strategy document
+- Choose a version strategy
