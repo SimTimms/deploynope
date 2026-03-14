@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeployNOPE — Staging Contention Polling</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+    position: relative;
+  }
+
+  header h1 {
+    font-size: 2.4rem;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+  }
+
+  header h1 span.nerd { font-size: 2rem; }
+  header h1 span.nope { color: #f85149; }
+
+  header p {
+    font-size: 1.1rem;
+    color: #8b949e;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #1f2937;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    color: #58a6ff;
+    margin-top: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* --- Stage container --- */
+  .stage-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 1.5rem 4rem;
+    position: relative;
+  }
+
+  /* Vertical timeline line */
+  .stage-container::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #30363d 0%, #30363d 90%, transparent 100%);
+    transform: translateX(-50%);
+  }
+
+  /* --- Individual stage --- */
+  .stage {
+    position: relative;
+    margin-bottom: 3rem;
+    opacity: 0;
+    transform: translateY(30px);
+    animation: fadeSlideIn 0.6s ease forwards;
+  }
+
+  .stage:nth-child(1) { animation-delay: 0.3s; }
+  .stage:nth-child(2) { animation-delay: 0.8s; }
+  .stage:nth-child(3) { animation-delay: 1.3s; }
+  .stage:nth-child(4) { animation-delay: 1.8s; }
+  .stage:nth-child(5) { animation-delay: 2.3s; }
+
+  @keyframes fadeSlideIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Timeline dot */
+  .stage .dot {
+    position: absolute;
+    left: 50%;
+    top: 1.5rem;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #30363d;
+    border: 3px solid #0d1117;
+    transform: translateX(-50%);
+    z-index: 2;
+    transition: background 0.4s, box-shadow 0.4s;
+  }
+
+  .stage.active .dot {
+    background: #58a6ff;
+    box-shadow: 0 0 12px rgba(88, 166, 255, 0.5);
+  }
+
+  .stage.blocked .dot {
+    background: #f85149;
+    box-shadow: 0 0 12px rgba(248, 81, 73, 0.5);
+  }
+
+  .stage.polling .dot {
+    background: #d29922;
+    box-shadow: 0 0 12px rgba(210, 153, 34, 0.5);
+    animation: pulseDot 1.5s ease-in-out infinite;
+  }
+
+  .stage.cleared .dot {
+    background: #3fb950;
+    box-shadow: 0 0 12px rgba(63, 185, 80, 0.5);
+  }
+
+  @keyframes pulseDot {
+    0%, 100% { box-shadow: 0 0 12px rgba(210, 153, 34, 0.5); }
+    50% { box-shadow: 0 0 24px rgba(210, 153, 34, 0.8); }
+  }
+
+  /* Stage card */
+  .stage .card {
+    width: 42%;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    position: relative;
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+
+  .stage:nth-child(odd) .card { margin-left: 0; }
+  .stage:nth-child(even) .card { margin-left: auto; }
+
+  .stage.active .card { border-color: #58a6ff; }
+  .stage.blocked .card { border-color: #f85149; }
+  .stage.polling .card { border-color: #d29922; }
+  .stage.cleared .card { border-color: #3fb950; }
+
+  .card h3 {
+    font-size: 1rem;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .card h3 .icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  .card p {
+    font-size: 0.9rem;
+    color: #8b949e;
+    line-height: 1.5;
+  }
+
+  .card .code-block {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin-top: 0.75rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    color: #c9d1d9;
+    overflow-x: auto;
+  }
+
+  .card .code-block .cmd { color: #79c0ff; }
+  .card .code-block .tag-name { color: #ffa657; }
+  .card .code-block .comment { color: #8b949e; }
+
+  /* --- Interactive demo --- */
+  .demo-section {
+    max-width: 900px;
+    margin: 0 auto 4rem;
+    padding: 0 1.5rem;
+  }
+
+  .demo-section h2 {
+    text-align: center;
+    font-size: 1.5rem;
+    color: #f0f6fc;
+    margin-bottom: 1.5rem;
+  }
+
+  .demo-panel {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Agents row */
+  .agents-row {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    margin-bottom: 2rem;
+  }
+
+  .agent {
+    text-align: center;
+    position: relative;
+  }
+
+  .agent-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    margin: 0 auto 0.5rem;
+    border: 2px solid transparent;
+    transition: all 0.4s;
+  }
+
+  .agent-icon.deploying {
+    background: #1a2332;
+    border-color: #58a6ff;
+    box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+  }
+
+  .agent-icon.waiting {
+    background: #2a1f0e;
+    border-color: #d29922;
+    animation: waitPulse 2s ease-in-out infinite;
+  }
+
+  .agent-icon.ready {
+    background: #0f291a;
+    border-color: #3fb950;
+    box-shadow: 0 0 20px rgba(63, 185, 80, 0.2);
+  }
+
+  .agent-icon.idle {
+    background: #1c1c1c;
+    border-color: #30363d;
+  }
+
+  @keyframes waitPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(210, 153, 34, 0.15); }
+    50% { box-shadow: 0 0 30px rgba(210, 153, 34, 0.35); }
+  }
+
+  .agent-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #f0f6fc;
+  }
+
+  .agent-status {
+    font-size: 0.75rem;
+    color: #8b949e;
+    margin-top: 0.2rem;
+    min-height: 1.2em;
+  }
+
+  /* Staging box */
+  .staging-box {
+    margin: 0 auto;
+    max-width: 400px;
+    background: #0d1117;
+    border: 2px solid #30363d;
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+    transition: all 0.5s;
+    position: relative;
+  }
+
+  .staging-box.claimed {
+    border-color: #f85149;
+    box-shadow: 0 0 30px rgba(248, 81, 73, 0.15);
+  }
+
+  .staging-box.free {
+    border-color: #3fb950;
+    box-shadow: 0 0 30px rgba(63, 185, 80, 0.15);
+  }
+
+  .staging-box h4 {
+    font-size: 1rem;
+    color: #f0f6fc;
+    margin-bottom: 0.3rem;
+  }
+
+  .staging-box .staging-status {
+    font-size: 0.85rem;
+    transition: color 0.4s;
+  }
+
+  .staging-box.claimed .staging-status { color: #f85149; }
+  .staging-box.free .staging-status { color: #3fb950; }
+
+  /* Lock icon */
+  .lock-icon {
+    font-size: 1.4rem;
+    margin-bottom: 0.3rem;
+    transition: transform 0.4s;
+  }
+
+  .staging-box.free .lock-icon { transform: rotate(-15deg); }
+
+  /* Polling indicator */
+  .poll-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    height: 2rem;
+    font-size: 0.85rem;
+    color: #d29922;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .poll-indicator.visible { opacity: 1; }
+
+  .poll-dots span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #d29922;
+    border-radius: 50%;
+    margin: 0 2px;
+    animation: pollBounce 1.4s ease-in-out infinite;
+  }
+
+  .poll-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .poll-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes pollBounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-8px); opacity: 1; }
+  }
+
+  /* Connector lines */
+  .connector {
+    width: 2px;
+    height: 2rem;
+    background: #30363d;
+    margin: 0 auto;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .btn {
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: #c9d1d9;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .btn:hover {
+    background: #30363d;
+    border-color: #8b949e;
+    color: #f0f6fc;
+  }
+
+  .btn.primary {
+    background: #238636;
+    border-color: #2ea043;
+    color: #fff;
+  }
+
+  .btn.primary:hover {
+    background: #2ea043;
+  }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Terminal log */
+  .terminal {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1.5rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    max-height: 200px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  .terminal .line {
+    opacity: 0;
+    animation: typeLine 0.3s ease forwards;
+  }
+
+  @keyframes typeLine {
+    to { opacity: 1; }
+  }
+
+  .terminal .time { color: #484f58; }
+  .terminal .info { color: #58a6ff; }
+  .terminal .warn { color: #d29922; }
+  .terminal .success { color: #3fb950; }
+  .terminal .error { color: #f85149; }
+
+  /* How it works section */
+  .how-section {
+    max-width: 900px;
+    margin: 0 auto 4rem;
+    padding: 0 1.5rem;
+  }
+
+  .how-section h2 {
+    text-align: center;
+    font-size: 1.5rem;
+    color: #f0f6fc;
+    margin-bottom: 2rem;
+  }
+
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .how-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .how-card:hover {
+    border-color: #58a6ff;
+    transform: translateY(-2px);
+  }
+
+  .how-card .how-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .how-card h4 {
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+  }
+
+  .how-card p {
+    font-size: 0.85rem;
+    color: #8b949e;
+    line-height: 1.5;
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    color: #484f58;
+    font-size: 0.8rem;
+    border-top: 1px solid #21262d;
+  }
+
+  footer a {
+    color: #58a6ff;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="nerd">&#129299;</span> Deploy<span class="nope">NOPE</span></h1>
+  <p>Staging Contention Polling — never lose your deployment flow when staging is busy</p>
+  <div class="tag">v2.3.0 &mdash; Staging Contention Polling</div>
+</header>
+
+<!-- Timeline: How the flow works -->
+<div class="stage-container">
+
+  <div class="stage active">
+    <div class="dot"></div>
+    <div class="card">
+      <h3><span class="icon">&#128640;</span> Deploy Request</h3>
+      <p>You're ready to deploy <strong>2.3.0</strong> and ask Claude to start the deployment process. DeployNOPE loads automatically.</p>
+      <div class="code-block">
+        <span class="comment"># DeployNOPE activates</span><br>
+        <span class="cmd">&#129299; DeployNOPE @ Staging</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage blocked">
+    <div class="dot"></div>
+    <div class="card" style="margin-left: auto;">
+      <h3><span class="icon">&#128721;</span> Staging Blocked</h3>
+      <p>Contention check finds <code>staging/active</code> — another release has claimed staging.</p>
+      <div class="code-block">
+        <span class="cmd">git tag -l</span> <span class="tag-name">"staging/active"</span><br>
+        <span class="comment"># Claimed by Tim for 2.4.0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage polling">
+    <div class="dot"></div>
+    <div class="card">
+      <h3><span class="icon">&#9203;</span> Polling Offered</h3>
+      <p>Instead of stopping, DeployNOPE offers to poll every minute until staging clears.</p>
+      <div class="code-block">
+        <span class="comment"># CronCreate: */1 * * * *</span><br>
+        <span class="cmd">git fetch origin</span><br>
+        <span class="cmd">git tag -l</span> <span class="tag-name">"staging/active"</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage cleared">
+    <div class="dot"></div>
+    <div class="card" style="margin-left: auto;">
+      <h3><span class="icon">&#9989;</span> Staging Cleared</h3>
+      <p>The tag is gone, no unreleased commits remain. Cron job is cleaned up immediately via <code>CronDelete</code>.</p>
+      <div class="code-block">
+        <span class="cmd">CronDelete</span> <span class="tag-name">dee018eb</span><br>
+        <span class="comment"># Polling cancelled</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage active">
+    <div class="dot"></div>
+    <div class="card">
+      <h3><span class="icon">&#127881;</span> Auto-Resume</h3>
+      <p>Deployment continues automatically from where it left off — claim staging, reset, validate, ship.</p>
+      <div class="code-block">
+        <span class="cmd">git tag -a</span> <span class="tag-name">staging/active</span> <span class="comment">-m "Claimed for 2.3.0"</span><br>
+        <span class="cmd">git push origin</span> <span class="tag-name">staging/active</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Interactive demo -->
+<div class="demo-section">
+  <h2>Interactive Demo</h2>
+  <div class="demo-panel">
+
+    <div class="agents-row">
+      <div class="agent">
+        <div class="agent-icon deploying" id="agent-a-icon">&#129302;</div>
+        <div class="agent-label">Agent A</div>
+        <div class="agent-status" id="agent-a-status">Deploying 2.4.0</div>
+      </div>
+      <div class="agent">
+        <div class="agent-icon waiting" id="agent-b-icon">&#129302;</div>
+        <div class="agent-label">Agent B</div>
+        <div class="agent-status" id="agent-b-status">Waiting for staging</div>
+      </div>
+    </div>
+
+    <div class="connector"></div>
+
+    <div class="staging-box claimed" id="staging-box">
+      <div class="lock-icon" id="lock-icon">&#128274;</div>
+      <h4>Staging Environment</h4>
+      <div class="staging-status" id="staging-status">Claimed by Agent A for 2.4.0</div>
+    </div>
+
+    <div class="poll-indicator visible" id="poll-indicator">
+      <div class="poll-dots">
+        <span></span><span></span><span></span>
+      </div>
+      Agent B polling every 60s&hellip;
+    </div>
+
+    <div class="controls">
+      <button class="btn primary" id="btn-release" onclick="releaseStaging()">Release Staging</button>
+      <button class="btn" id="btn-reset" onclick="resetDemo()">Reset Demo</button>
+    </div>
+
+    <div class="terminal" id="terminal">
+      <div class="line"><span class="time">[00:00]</span> <span class="info">Agent A</span> claims staging for 2.4.0</div>
+      <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> staging contention detected &mdash; staging/active exists</div>
+      <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> polling started (CronCreate */1 * * * *)</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- How it works -->
+<div class="how-section">
+  <h2>How It Works</h2>
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-icon">&#128270;</div>
+      <h4>Detect</h4>
+      <p>Three-point contention check: unreleased commits, <code>staging/active</code> tag, and stale branch guard.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#128172;</div>
+      <h4>Offer</h4>
+      <p>"Would you like me to poll every minute until staging is released and then automatically continue?"</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#9203;</div>
+      <h4>Poll</h4>
+      <p><code>CronCreate</code> checks <code>staging/active</code> every minute. Reports status each tick.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#128465;</div>
+      <h4>Clean Up</h4>
+      <p><code>CronDelete</code> fires immediately when staging clears or the user cancels. No orphaned jobs.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#9654;</div>
+      <h4>Resume</h4>
+      <p>Deployment picks up right where it left off &mdash; no need to re-invoke the command.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#128737;</div>
+      <h4>Safe</h4>
+      <p>All human gates remain in place. Polling only monitors &mdash; it never takes action without confirmation.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>&#129299; DeployNOPE v2.3.0 &mdash; <a href="https://github.com/SimTimms/deploynope">GitHub</a></p>
+</footer>
+
+<script>
+  let pollCount = 3;
+  let pollInterval = null;
+  let released = false;
+
+  function addLog(agent, msg, level) {
+    const terminal = document.getElementById('terminal');
+    const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const line = document.createElement('div');
+    line.className = 'line';
+    line.innerHTML = `<span class="time">[${time}]</span> <span class="${level}">${agent}</span> ${msg}`;
+    terminal.appendChild(line);
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  // Start polling simulation
+  function startPolling() {
+    pollInterval = setInterval(() => {
+      if (released) return;
+      pollCount++;
+      addLog('Agent B', `poll #${pollCount}: staging/active still exists`, 'warn');
+    }, 3000);
+  }
+
+  function releaseStaging() {
+    if (released) return;
+    released = true;
+
+    clearInterval(pollInterval);
+
+    const box = document.getElementById('staging-box');
+    const status = document.getElementById('staging-status');
+    const lock = document.getElementById('lock-icon');
+    const poll = document.getElementById('poll-indicator');
+    const agentAIcon = document.getElementById('agent-a-icon');
+    const agentAStatus = document.getElementById('agent-a-status');
+    const agentBIcon = document.getElementById('agent-b-icon');
+    const agentBStatus = document.getElementById('agent-b-status');
+    const btn = document.getElementById('btn-release');
+
+    // Agent A finishes
+    addLog('Agent A', 'deployment complete, clearing staging/active', 'info');
+    agentAIcon.className = 'agent-icon idle';
+    agentAStatus.textContent = 'Done';
+
+    setTimeout(() => {
+      // Staging clears
+      box.className = 'staging-box free';
+      status.textContent = 'Available';
+      lock.innerHTML = '&#128275;';
+      poll.className = 'poll-indicator';
+      btn.disabled = true;
+
+      addLog('Agent B', 'staging/active cleared!', 'success');
+      addLog('Agent B', 'CronDelete dee018eb — polling cancelled', 'success');
+
+      setTimeout(() => {
+        // Agent B claims
+        agentBIcon.className = 'agent-icon deploying';
+        agentBStatus.textContent = 'Deploying 2.3.0';
+        box.className = 'staging-box claimed';
+        box.style.borderColor = '#58a6ff';
+        box.style.boxShadow = '0 0 30px rgba(88, 166, 255, 0.15)';
+        status.textContent = 'Claimed by Agent B for 2.3.0';
+        status.style.color = '#58a6ff';
+        lock.innerHTML = '&#128274;';
+
+        addLog('Agent B', 'claiming staging for 2.3.0 — auto-resuming deployment', 'success');
+      }, 1500);
+    }, 1000);
+  }
+
+  function resetDemo() {
+    released = false;
+    pollCount = 3;
+    clearInterval(pollInterval);
+
+    const box = document.getElementById('staging-box');
+    const status = document.getElementById('staging-status');
+    const lock = document.getElementById('lock-icon');
+    const poll = document.getElementById('poll-indicator');
+    const agentAIcon = document.getElementById('agent-a-icon');
+    const agentAStatus = document.getElementById('agent-a-status');
+    const agentBIcon = document.getElementById('agent-b-icon');
+    const agentBStatus = document.getElementById('agent-b-status');
+    const btn = document.getElementById('btn-release');
+    const terminal = document.getElementById('terminal');
+
+    box.className = 'staging-box claimed';
+    box.style.borderColor = '';
+    box.style.boxShadow = '';
+    status.textContent = 'Claimed by Agent A for 2.4.0';
+    status.style.color = '';
+    lock.innerHTML = '&#128274;';
+    poll.className = 'poll-indicator visible';
+    agentAIcon.className = 'agent-icon deploying';
+    agentAStatus.textContent = 'Deploying 2.4.0';
+    agentBIcon.className = 'agent-icon waiting';
+    agentBStatus.textContent = 'Waiting for staging';
+    btn.disabled = false;
+
+    terminal.innerHTML = `
+      <div class="line"><span class="time">[00:00]</span> <span class="info">Agent A</span> claims staging for 2.4.0</div>
+      <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> staging contention detected &mdash; staging/active exists</div>
+      <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> polling started (CronCreate */1 * * * *)</div>
+    `;
+
+    startPolling();
+  }
+
+  // Auto-start polling simulation
+  startPolling();
+</script>
+
+</body>
+</html>

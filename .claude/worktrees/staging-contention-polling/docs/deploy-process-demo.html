@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeployNOPE — Deployment Process</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+    position: relative;
+  }
+
+  header h1 {
+    font-size: 2.4rem;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+  }
+
+  header h1 span.nerd { font-size: 2rem; }
+  header h1 span.nope { color: #f85149; }
+
+  header p {
+    font-size: 1.1rem;
+    color: #8b949e;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #1f2937;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    color: #58a6ff;
+    margin-top: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* --- Workflow Tabs --- */
+  .tabs-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 1.5rem 1.5rem;
+    text-align: center;
+  }
+
+  .tab-group {
+    display: inline-flex;
+    gap: 0.5rem;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 0.35rem;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 1.2rem;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: #8b949e;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+  }
+
+  .tab-btn:hover { color: #c9d1d9; background: #21262d; }
+
+  .tab-btn.active {
+    background: #21262d;
+    color: #58a6ff;
+    border: 1px solid #30363d;
+  }
+
+  .tab-count {
+    font-size: 0.7rem;
+    background: #30363d;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    margin-left: 0.3rem;
+    vertical-align: middle;
+    color: #8b949e;
+  }
+
+  .tab-btn.active .tab-count { background: #1f3a5f; color: #58a6ff; }
+
+  /* --- Pipeline --- */
+  .pipeline-container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 0 1.5rem 3rem;
+    position: relative;
+  }
+
+  /* Vertical line */
+  .pipeline-container::before {
+    content: '';
+    position: absolute;
+    left: 2.25rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #30363d 0%, #30363d 95%, transparent 100%);
+  }
+
+  .step {
+    position: relative;
+    padding-left: 4.5rem;
+    margin-bottom: 1rem;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .step.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .step.hidden { display: none; }
+
+  /* Node dot */
+  .step .node {
+    position: absolute;
+    left: 1.5rem;
+    top: 0.85rem;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #30363d;
+    border: 3px solid #0d1117;
+    z-index: 2;
+    transition: all 0.4s;
+  }
+
+  /* Step number */
+  .step .step-num {
+    position: absolute;
+    left: 0;
+    top: 0.75rem;
+    width: 1.2rem;
+    text-align: right;
+    font-size: 0.7rem;
+    color: #484f58;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* Step states */
+  .step.state-pending .node { background: #30363d; }
+  .step.state-active .node {
+    background: #58a6ff;
+    box-shadow: 0 0 14px rgba(88, 166, 255, 0.6);
+    animation: pulseNode 1.5s ease-in-out infinite;
+  }
+  .step.state-complete .node {
+    background: #3fb950;
+    box-shadow: 0 0 10px rgba(63, 185, 80, 0.4);
+  }
+  .step.state-gate .node {
+    background: #d29922;
+    box-shadow: 0 0 14px rgba(210, 153, 34, 0.6);
+    animation: pulseNode 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulseNode {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.25); }
+  }
+
+  /* Step card */
+  .step .step-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 0.9rem 1.2rem;
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+
+  .step.state-active .step-card { border-color: #58a6ff; box-shadow: 0 0 20px rgba(88, 166, 255, 0.08); }
+  .step.state-complete .step-card { border-color: #3fb950; }
+  .step.state-gate .step-card { border-color: #d29922; box-shadow: 0 0 20px rgba(210, 153, 34, 0.08); }
+
+  .step-card .step-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .step-card .step-icon { font-size: 1.1rem; flex-shrink: 0; }
+
+  .step-card .step-title {
+    font-size: 0.9rem;
+    color: #f0f6fc;
+    font-weight: 600;
+  }
+
+  .step-card .step-desc {
+    font-size: 0.8rem;
+    color: #8b949e;
+    line-height: 1.45;
+  }
+
+  /* Human gate badge */
+  .gate-badge {
+    display: inline-block;
+    background: #3d1e1e;
+    border: 1px solid #f8514966;
+    color: #f85149;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  /* Status indicators in step cards */
+  .step-status {
+    font-size: 0.7rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    margin-top: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 5px;
+    display: none;
+  }
+
+  .step.state-active .step-status,
+  .step.state-gate .step-status,
+  .step.state-complete .step-status { display: block; }
+
+  .step.state-active .step-status { color: #58a6ff; }
+  .step.state-complete .step-status { color: #3fb950; }
+  .step.state-gate .step-status { color: #d29922; }
+
+  /* --- Simulation Section --- */
+  .sim-section {
+    max-width: 700px;
+    margin: 0 auto 3rem;
+    padding: 0 1.5rem;
+  }
+
+  .sim-section h2 {
+    text-align: center;
+    font-size: 1.5rem;
+    color: #f0f6fc;
+    margin-bottom: 1.5rem;
+  }
+
+  .sim-panel {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  .sim-progress {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .sim-progress-bar {
+    flex: 1;
+    height: 6px;
+    background: #21262d;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .sim-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #58a6ff, #3fb950);
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+
+  .sim-progress-text {
+    font-size: 0.8rem;
+    color: #8b949e;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    white-space: nowrap;
+  }
+
+  .sim-current {
+    text-align: center;
+    font-size: 0.95rem;
+    color: #f0f6fc;
+    margin-bottom: 1rem;
+    min-height: 1.5em;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .btn {
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: #c9d1d9;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .btn:hover { background: #30363d; border-color: #8b949e; color: #f0f6fc; }
+
+  .btn.primary { background: #238636; border-color: #2ea043; color: #fff; }
+  .btn.primary:hover { background: #2ea043; }
+
+  .btn.confirm-btn { background: #7c3a00; border-color: #d29922; color: #d29922; }
+  .btn.confirm-btn:hover { background: #9a4e00; color: #f0f6fc; }
+
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Terminal log */
+  .terminal {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    max-height: 220px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  .terminal .line {
+    opacity: 0;
+    animation: typeLine 0.3s ease forwards;
+  }
+
+  @keyframes typeLine { to { opacity: 1; } }
+
+  .terminal .time { color: #484f58; }
+  .terminal .info { color: #58a6ff; }
+  .terminal .warn { color: #d29922; }
+  .terminal .success { color: #3fb950; }
+  .terminal .error { color: #f85149; }
+  .terminal .dim { color: #6e7681; }
+
+  /* --- How it works section --- */
+  .how-section {
+    max-width: 900px;
+    margin: 0 auto 4rem;
+    padding: 0 1.5rem;
+  }
+
+  .how-section h2 {
+    text-align: center;
+    font-size: 1.5rem;
+    color: #f0f6fc;
+    margin-bottom: 2rem;
+  }
+
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .how-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .how-card:hover { border-color: #58a6ff; transform: translateY(-2px); }
+
+  .how-card .how-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+  .how-card h4 { color: #f0f6fc; margin-bottom: 0.5rem; }
+  .how-card p { font-size: 0.85rem; color: #8b949e; line-height: 1.5; }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    color: #484f58;
+    font-size: 0.8rem;
+    border-top: 1px solid #21262d;
+  }
+
+  footer a { color: #58a6ff; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="nerd">&#129299;</span> Deploy<span class="nope">NOPE</span></h1>
+  <p>Deployment Process &mdash; the core 17-step workflow that all releases follow from staging to master to release</p>
+  <div class="tag">staging &rarr; master &rarr; release</div>
+</header>
+
+<!-- Workflow Tabs -->
+<div class="tabs-container">
+  <div class="tab-group">
+    <button class="tab-btn active" onclick="switchTab('feature')" id="tab-feature">Feature Release <span class="tab-count">17</span></button>
+    <button class="tab-btn" onclick="switchTab('hotfix')" id="tab-hotfix">Hotfix <span class="tab-count">15</span></button>
+    <button class="tab-btn" onclick="switchTab('chore')" id="tab-chore">Chore / Config <span class="tab-count">13</span></button>
+  </div>
+</div>
+
+<!-- Pipeline -->
+<div class="pipeline-container" id="pipeline">
+</div>
+
+<!-- Interactive Simulation -->
+<div class="sim-section">
+  <h2>Interactive Simulation</h2>
+  <div class="sim-panel">
+    <div class="sim-progress">
+      <div class="sim-progress-bar"><div class="sim-progress-fill" id="sim-fill"></div></div>
+      <div class="sim-progress-text" id="sim-counter">0 / 17</div>
+    </div>
+    <div class="sim-current" id="sim-current">Press Start to begin the deployment simulation</div>
+    <div class="controls">
+      <button class="btn primary" id="btn-start" onclick="startSim()">&#9654; Start Deployment</button>
+      <button class="btn confirm-btn" id="btn-confirm" onclick="confirmGate()" style="display:none;">&#128272; Confirm Gate</button>
+      <button class="btn" id="btn-reset" onclick="resetSim()">Reset</button>
+    </div>
+    <div class="terminal" id="terminal"></div>
+  </div>
+</div>
+
+<!-- How it works -->
+<div class="how-section">
+  <h2>How It Works</h2>
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-icon">&#128737;</div>
+      <h4>Branch Protection</h4>
+      <p>Direct pushes to <code>staging</code>, <code>master</code>, and <code>development</code> are blocked. All changes flow through release branches with controlled resets.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#128721;</div>
+      <h4>Human Gates</h4>
+      <p>Three mandatory human checkpoints: release readiness, staging validation, and master reset. No gate can be skipped or automated away.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#128274;</div>
+      <h4>Staging Contention</h4>
+      <p>The <code>staging/active</code> tag ensures only one release occupies staging at a time. Contention polling waits automatically if busy.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#128260;</div>
+      <h4>Cross-Repo Parity</h4>
+      <p>Before promoting to master, version numbers are checked across all related repositories to prevent mismatched deployments.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#128203;</div>
+      <h4>Release Manifests</h4>
+      <p>Every release gets a manifest written immediately after the GitHub Release &mdash; a permanent record of what shipped and when.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">&#9989;</div>
+      <h4>Auto Post-Deploy</h4>
+      <p>After master is updated, branches are synced, staging is cleared, Confluence notes are written, and health checks run automatically.</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>&#129299; DeployNOPE &mdash; <a href="https://github.com/SimTimms/deploynope">GitHub</a></p>
+</footer>
+
+<script>
+  // --- Step definitions ---
+  const ALL_STEPS = [
+    { id: 'merge-features',    icon: '&#128256;', title: 'Merge feature branches into release branch',      desc: 'All approved feature branches are merged into the release branch via fast-forward merges.', gate: false, tags: ['feature'] },
+    { id: 'sync-master',       icon: '&#128260;', title: 'Sync release branch with master',                 desc: 'Rebase or merge master into the release branch to pick up any hotfix commits.',             gate: false, tags: ['feature', 'chore'] },
+    { id: 'update-changelog',  icon: '&#128221;', title: 'Update changelog',                                desc: 'CHANGELOG.md is updated with all changes included in this release.',                        gate: false, tags: ['feature', 'hotfix'] },
+    { id: 'confirm-ready',     icon: '&#128227;', title: 'Confirm release branch ready',                    desc: 'Human reviews the release branch and confirms it is ready to proceed.',                     gate: true,  tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'contention-check',  icon: '&#128270;', title: 'Staging contention check',                        desc: 'Three-point check: unreleased commits, staging/active tag, stale branch guard.',            gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'claim-staging',     icon: '&#128274;', title: 'Claim staging (tag staging/active)',               desc: 'Creates staging/active tag annotated with release name and deployer.',                      gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'reset-staging',     icon: '&#128259;', title: 'Reset staging to release branch',                 desc: 'git reset --hard staging to the release branch HEAD, then force push.',                     gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'validate-staging',  icon: '&#128065;', title: 'Validate on staging',                             desc: 'Human verifies the release works correctly on the staging environment.',                    gate: true,  tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'cross-repo-parity', icon: '&#128260;', title: 'Cross-repo version parity check',                 desc: 'Verify version numbers match across all related repositories before promotion.',            gate: false, tags: ['feature', 'hotfix'] },
+    { id: 'reset-master',      icon: '&#128721;', title: 'Reset master to match staging',                   desc: 'Human confirms master reset. Master is force-reset to match staging exactly.',              gate: true,  tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'codepipeline',      icon: '&#9881;',   title: 'Confirm CodePipeline healthy',                    desc: 'Wait for CI/CD pipeline to report all green after the master push.',                        gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'github-release',    icon: '&#127873;', title: 'Create GitHub Release',                           desc: 'Tag and publish a GitHub Release with auto-generated release notes.',                       gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'write-manifest',    icon: '&#128203;', title: 'Write release manifest',                          desc: 'Immediately write the release manifest to the repository after the GitHub Release.',        gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'sync-branches',     icon: '&#128257;', title: 'Sync staging + development with master',          desc: 'Reset staging and development branches to match the new master.',                           gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'clear-staging',     icon: '&#128275;', title: 'Clear staging (remove tag)',                       desc: 'Delete the staging/active tag to release the staging lock for other deployments.',           gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'confluence',        icon: '&#128220;', title: 'Write Confluence release notes',                   desc: 'Publish structured release notes to the team Confluence space.',                            gate: false, tags: ['feature', 'hotfix'] },
+    { id: 'post-deploy',       icon: '&#9989;',   title: 'Post-deploy checks',                              desc: 'Automatic health checks, smoke tests, and deployment verification.',                        gate: false, tags: ['feature', 'hotfix', 'chore'] },
+  ];
+
+  const TERMINAL_COMMANDS = {
+    'merge-features':    'git checkout release/2.5.0 && git merge --ff-only feature/new-widget',
+    'sync-master':       'git fetch origin master && git rebase origin/master',
+    'update-changelog':  'echo "## 2.5.0" >> CHANGELOG.md && git add CHANGELOG.md',
+    'confirm-ready':     '# HUMAN GATE: Awaiting confirmation that release branch is ready...',
+    'contention-check':  'git fetch origin && git tag -l "staging/active"',
+    'claim-staging':     'git tag -a staging/active -m "Claimed by Tim for 2.5.0" && git push origin staging/active',
+    'reset-staging':     'git checkout staging && git reset --hard release/2.5.0 && git push --force origin staging',
+    'validate-staging':  '# HUMAN GATE: Validate release on staging environment...',
+    'cross-repo-parity': 'node scripts/check-parity.js --repos api,frontend,shared --version 2.5.0',
+    'reset-master':      '# HUMAN GATE: git checkout master && git reset --hard staging && git push --force origin master',
+    'codepipeline':      'aws codepipeline get-pipeline-state --name prod-pipeline | jq .stageStates[].latestExecution.status',
+    'github-release':    'gh release create v2.5.0 --generate-notes --target master',
+    'write-manifest':    'echo \'{"version":"2.5.0","date":"2026-03-14","sha":"abc1234"}\' > manifests/2.5.0.json',
+    'sync-branches':     'git checkout staging && git reset --hard master && git push --force origin staging development',
+    'clear-staging':     'git tag -d staging/active && git push origin :refs/tags/staging/active',
+    'confluence':        'node scripts/publish-confluence.js --version 2.5.0 --space DEPLOY',
+    'post-deploy':       'curl -sf https://api.example.com/health && echo "All checks passed"',
+  };
+
+  let currentTab = 'feature';
+  let simRunning = false;
+  let simPaused = false;
+  let simIndex = -1;
+  let simTimer = null;
+  let activeSteps = [];
+
+  // --- Render pipeline ---
+  function getStepsForTab(tab) {
+    if (tab === 'feature') return ALL_STEPS.filter(s => s.tags.includes('feature'));
+    if (tab === 'hotfix')  return ALL_STEPS.filter(s => s.tags.includes('hotfix'));
+    if (tab === 'chore')   return ALL_STEPS.filter(s => s.tags.includes('chore'));
+    return ALL_STEPS;
+  }
+
+  function renderPipeline() {
+    const container = document.getElementById('pipeline');
+    activeSteps = getStepsForTab(currentTab);
+    container.innerHTML = '';
+
+    activeSteps.forEach((step, i) => {
+      const div = document.createElement('div');
+      div.className = 'step state-pending';
+      div.id = 'step-' + step.id;
+      div.innerHTML = `
+        <div class="step-num">${i + 1}</div>
+        <div class="node"></div>
+        <div class="step-card">
+          <div class="step-header">
+            <span class="step-icon">${step.icon}</span>
+            <span class="step-title">${step.title}</span>
+            ${step.gate ? '<span class="gate-badge">Human Gate</span>' : ''}
+          </div>
+          <div class="step-desc">${step.desc}</div>
+          <div class="step-status" id="status-${step.id}"></div>
+        </div>
+      `;
+      container.appendChild(div);
+
+      // Staggered entrance animation
+      setTimeout(() => div.classList.add('visible'), 80 * (i + 1));
+    });
+
+    // Update counter
+    document.getElementById('sim-counter').textContent = `0 / ${activeSteps.length}`;
+  }
+
+  // --- Tab switching ---
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    resetSim();
+    renderPipeline();
+  }
+
+  // --- Simulation ---
+  function addLog(msg, level) {
+    const terminal = document.getElementById('terminal');
+    const time = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const line = document.createElement('div');
+    line.className = 'line';
+    line.innerHTML = `<span class="time">[${time}]</span> <span class="${level}">${msg}</span>`;
+    terminal.appendChild(line);
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  function updateProgress() {
+    const total = activeSteps.length;
+    const completed = simIndex + 1;
+    const pct = Math.round((completed / total) * 100);
+    document.getElementById('sim-fill').style.width = pct + '%';
+    document.getElementById('sim-counter').textContent = `${completed} / ${total}`;
+  }
+
+  function advanceSim() {
+    if (!simRunning) return;
+
+    // Complete previous step
+    if (simIndex >= 0) {
+      const prevStep = activeSteps[simIndex];
+      const prevEl = document.getElementById('step-' + prevStep.id);
+      prevEl.className = 'step visible state-complete';
+      document.getElementById('status-' + prevStep.id).textContent = 'Completed';
+    }
+
+    simIndex++;
+    updateProgress();
+
+    if (simIndex >= activeSteps.length) {
+      // Done
+      simRunning = false;
+      document.getElementById('btn-start').disabled = true;
+      document.getElementById('sim-current').innerHTML = '<span style="color:#3fb950;">&#9989; Deployment complete &mdash; all steps passed</span>';
+      addLog('Deployment complete. All steps passed.', 'success');
+      return;
+    }
+
+    const step = activeSteps[simIndex];
+    const el = document.getElementById('step-' + step.id);
+
+    // Scroll step into view
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    if (step.gate) {
+      // Human gate - pause
+      el.className = 'step visible state-gate';
+      document.getElementById('status-' + step.id).textContent = 'Awaiting human confirmation...';
+      document.getElementById('sim-current').innerHTML = `&#128721; <strong>${step.title}</strong> &mdash; waiting for confirmation`;
+      addLog(TERMINAL_COMMANDS[step.id], 'warn');
+      simPaused = true;
+      document.getElementById('btn-confirm').style.display = '';
+      document.getElementById('btn-start').disabled = true;
+    } else {
+      // Auto step
+      el.className = 'step visible state-active';
+      document.getElementById('status-' + step.id).textContent = 'Running...';
+      document.getElementById('sim-current').innerHTML = `&#9881; <strong>${step.title}</strong>`;
+      addLog(`$ ${TERMINAL_COMMANDS[step.id]}`, 'info');
+
+      simTimer = setTimeout(() => advanceSim(), 1000);
+    }
+  }
+
+  function startSim() {
+    if (simRunning) return;
+    simRunning = true;
+    simPaused = false;
+    simIndex = -1;
+
+    document.getElementById('btn-start').disabled = true;
+    document.getElementById('terminal').innerHTML = '';
+    addLog('DeployNOPE @ Staging &mdash; deployment initiated', 'info');
+
+    // Reset all steps to pending
+    activeSteps.forEach(s => {
+      const el = document.getElementById('step-' + s.id);
+      el.className = 'step visible state-pending';
+      document.getElementById('status-' + s.id).textContent = '';
+    });
+
+    simTimer = setTimeout(() => advanceSim(), 500);
+  }
+
+  function confirmGate() {
+    if (!simPaused) return;
+    simPaused = false;
+    document.getElementById('btn-confirm').style.display = 'none';
+    addLog('Human confirmation received.', 'success');
+    advanceSim();
+  }
+
+  function resetSim() {
+    simRunning = false;
+    simPaused = false;
+    simIndex = -1;
+    clearTimeout(simTimer);
+
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-confirm').style.display = 'none';
+    document.getElementById('sim-fill').style.width = '0%';
+    document.getElementById('sim-current').textContent = 'Press Start to begin the deployment simulation';
+    document.getElementById('terminal').innerHTML = '';
+
+    activeSteps.forEach(s => {
+      const el = document.getElementById('step-' + s.id);
+      if (el) {
+        el.className = 'step visible state-pending';
+        document.getElementById('status-' + s.id).textContent = '';
+      }
+    });
+
+    if (activeSteps.length) {
+      document.getElementById('sim-counter').textContent = `0 / ${activeSteps.length}`;
+    }
+  }
+
+  // --- Init ---
+  renderPipeline();
+</script>
+
+</body>
+</html>

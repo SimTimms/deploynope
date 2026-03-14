@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeployNOPE — Hook System</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+    position: relative;
+  }
+
+  header h1 {
+    font-size: 2.4rem;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+  }
+
+  header h1 span.nerd { font-size: 2rem; }
+  header h1 span.nope { color: #f85149; }
+
+  header p {
+    font-size: 1.1rem;
+    color: #8b949e;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #1f2937;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    color: #58a6ff;
+    margin-top: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* --- Section headings --- */
+  .section {
+    max-width: 1100px;
+    margin: 0 auto 4rem;
+    padding: 0 1.5rem;
+  }
+
+  .section h2 {
+    text-align: center;
+    font-size: 1.5rem;
+    color: #f0f6fc;
+    margin-bottom: 1.5rem;
+  }
+
+  .section h2 .subtitle {
+    display: block;
+    font-size: 0.9rem;
+    color: #8b949e;
+    font-weight: 400;
+    margin-top: 0.4rem;
+  }
+
+  /* --- Hook grid --- */
+  .hook-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .hook-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeSlideIn 0.5s ease forwards;
+  }
+
+  .hook-card:nth-child(1) { animation-delay: 0.1s; }
+  .hook-card:nth-child(2) { animation-delay: 0.2s; }
+  .hook-card:nth-child(3) { animation-delay: 0.3s; }
+  .hook-card:nth-child(4) { animation-delay: 0.4s; }
+  .hook-card:nth-child(5) { animation-delay: 0.5s; }
+  .hook-card:nth-child(6) { animation-delay: 0.6s; }
+  .hook-card:nth-child(7) { animation-delay: 0.7s; }
+  .hook-card:nth-child(8) { animation-delay: 0.8s; }
+  .hook-card:nth-child(9) { animation-delay: 0.9s; }
+
+  @keyframes fadeSlideIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hook-card:hover {
+    border-color: #58a6ff;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 20px rgba(88, 166, 255, 0.1);
+  }
+
+  .hook-card .hook-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+  }
+
+  .hook-card .hook-name {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    color: #79c0ff;
+    font-weight: 600;
+  }
+
+  .hook-card .hook-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+  }
+
+  .badge-deny {
+    background: rgba(248, 81, 73, 0.15);
+    color: #f85149;
+    border: 1px solid rgba(248, 81, 73, 0.3);
+  }
+
+  .badge-ask {
+    background: rgba(210, 153, 34, 0.15);
+    color: #d29922;
+    border: 1px solid rgba(210, 153, 34, 0.3);
+  }
+
+  .badge-deny-ask {
+    background: linear-gradient(135deg, rgba(248, 81, 73, 0.15), rgba(210, 153, 34, 0.15));
+    border: 1px solid rgba(248, 81, 73, 0.25);
+  }
+
+  .badge-deny-ask .deny-text { color: #f85149; }
+  .badge-deny-ask .ask-text { color: #d29922; }
+  .badge-deny-ask .sep { color: #484f58; }
+
+  .hook-card .hook-intercepts {
+    font-size: 0.8rem;
+    color: #8b949e;
+    margin-bottom: 0.5rem;
+  }
+
+  .hook-card .hook-intercepts strong {
+    color: #c9d1d9;
+  }
+
+  .hook-card .hook-desc {
+    font-size: 0.85rem;
+    color: #8b949e;
+    line-height: 1.5;
+  }
+
+  /* --- Interactive demo --- */
+  .demo-panel {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cmd-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .cmd-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: #c9d1d9;
+    font-size: 0.8rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .cmd-btn:hover {
+    background: #30363d;
+    border-color: #8b949e;
+    color: #f0f6fc;
+  }
+
+  .cmd-btn.active {
+    border-color: #58a6ff;
+    background: #1a2332;
+    color: #58a6ff;
+  }
+
+  .cmd-btn .cmd-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+  }
+
+  .cmd-badge.deny-badge {
+    background: #f85149;
+    color: #fff;
+  }
+
+  .cmd-badge.ask-badge {
+    background: #d29922;
+    color: #fff;
+  }
+
+  .terminal {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    min-height: 180px;
+    max-height: 300px;
+    overflow-y: auto;
+    line-height: 1.7;
+  }
+
+  .terminal .line {
+    opacity: 0;
+    animation: typeLine 0.3s ease forwards;
+  }
+
+  @keyframes typeLine {
+    to { opacity: 1; }
+  }
+
+  .terminal .prompt { color: #3fb950; }
+  .terminal .cmd-text { color: #79c0ff; }
+  .terminal .info { color: #58a6ff; }
+  .terminal .warn { color: #d29922; }
+  .terminal .success { color: #3fb950; }
+  .terminal .error { color: #f85149; }
+  .terminal .dim { color: #484f58; }
+  .terminal .hook-label { color: #ffa657; }
+
+  .terminal-placeholder {
+    color: #484f58;
+    text-align: center;
+    padding: 3rem 0;
+    font-size: 0.85rem;
+  }
+
+  /* --- Bypass section --- */
+  .bypass-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .bypass-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    transition: border-color 0.3s;
+  }
+
+  .bypass-card:hover {
+    border-color: #f85149;
+  }
+
+  .bypass-card .bypass-label {
+    grid-column: 1 / -1;
+    font-size: 0.9rem;
+    color: #f0f6fc;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .bypass-half {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+
+  .bypass-half .label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+    font-weight: 700;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  .bypass-half .label-attack { color: #f85149; }
+  .bypass-half .label-caught { color: #3fb950; }
+
+  .bypass-half .attack-cmd { color: #f85149; }
+  .bypass-half .caught-msg { color: #3fb950; }
+  .bypass-half .dim { color: #484f58; }
+
+  /* --- Architecture --- */
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0;
+    padding: 1rem 0;
+  }
+
+  .arch-box {
+    background: #161b22;
+    border: 2px solid #30363d;
+    border-radius: 10px;
+    padding: 1rem 1.5rem;
+    text-align: center;
+    min-width: 150px;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .arch-box:hover {
+    transform: translateY(-2px);
+  }
+
+  .arch-box .arch-icon {
+    font-size: 1.6rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .arch-box h4 {
+    font-size: 0.85rem;
+    color: #f0f6fc;
+    margin-bottom: 0.25rem;
+  }
+
+  .arch-box p {
+    font-size: 0.75rem;
+    color: #8b949e;
+    line-height: 1.4;
+  }
+
+  .arch-box.box-command { border-color: #58a6ff; }
+  .arch-box.box-hook { border-color: #ffa657; }
+  .arch-box.box-check { border-color: #d29922; }
+  .arch-box.box-allow { border-color: #3fb950; }
+  .arch-box.box-deny { border-color: #f85149; }
+  .arch-box.box-ask { border-color: #d29922; }
+
+  .arch-arrow {
+    font-size: 1.5rem;
+    color: #30363d;
+    padding: 0 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .arch-decision {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* --- Footer --- */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    color: #484f58;
+    font-size: 0.8rem;
+    border-top: 1px solid #21262d;
+  }
+
+  footer a {
+    color: #58a6ff;
+    text-decoration: none;
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 700px) {
+    .hook-grid {
+      grid-template-columns: 1fr;
+    }
+    .bypass-card {
+      grid-template-columns: 1fr;
+    }
+    .arch-flow {
+      flex-direction: column;
+    }
+    .arch-arrow {
+      transform: rotate(90deg);
+      padding: 0.5rem 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="nerd">&#129299;</span> Deploy<span class="nope">NOPE</span></h1>
+  <p>Hook System &mdash; 9 bash hooks that intercept dangerous git/gh commands before they execute</p>
+  <div class="tag">Pre-Tool Hooks &mdash; Ask / Deny / Allow</div>
+</header>
+
+<!-- Hook Overview Grid -->
+<div class="section">
+  <h2>Hook Overview
+    <span class="subtitle">Each hook fires before its target command, checking branch targets and enforcing rules</span>
+  </h2>
+  <div class="hook-grid">
+
+    <div class="hook-card">
+      <div class="hook-header">
+        <span class="hook-name">check-git-commit.sh</span>
+        <span class="hook-badge badge-ask">Ask</span>
+      </div>
+      <div class="hook-intercepts">Intercepts: <strong>git commit</strong></div>
+      <div class="hook-desc">Flags commits targeting protected branches. Prompts for confirmation before any commit proceeds, ensuring you never accidentally commit to the wrong branch.</div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-header">
+        <span class="hook-name">check-git-push.sh</span>
+        <span class="hook-badge badge-deny-ask"><span class="deny-text">Deny</span><span class="sep"> / </span><span class="ask-text">Ask</span></span>
+      </div>
+      <div class="hook-intercepts">Intercepts: <strong>git push</strong></div>
+      <div class="hook-desc">Blocks direct pushes to production when a staging branch exists. Normal pushes to feature branches prompt for confirmation.</div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-header">
+        <span class="hook-name">check-git-merge.sh</span>
+        <span class="hook-badge badge-deny-ask"><span class="deny-text">Deny</span><span class="sep"> / </span><span class="ask-text">Ask</span></span>
+      </div>
+      <div class="hook-intercepts">Intercepts: <strong>git merge</strong></div>
+      <div class="hook-desc">Blocks merges into production branches. Also blocks merging non-production branches into development to keep the branch hierarchy clean.</div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-header">
+        <span class="hook-name">check-gh-pr-create.sh</span>
+        <span class="hook-badge badge-deny">Deny</span>
+      </div>
+      <div class="hook-intercepts">Intercepts: <strong>gh pr create</strong></div>
+      <div class="hook-desc">Hard-blocks PRs targeting master, main, staging, or development. Only release branches are valid PR targets &mdash; no exceptions.</div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-header">
+        <span class="hook-name">check-git-reset.sh</span>
+        <span class="hook-badge badge-deny-ask"><span class="deny-text">Deny</span><span class="sep"> / </span><span class="ask-text">Ask</span></span>
+      </div>
+      <div class="hook-intercepts">Intercepts: <strong>git reset</strong></div>
+      <div class="hook-desc">Hard-blocks reset on production branches unless branch protection is explicitly unlocked. All other resets require confirmation.</div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-header">
+        <span class="hook-name">check-gh-release.sh</span>
+        <span class="hook-badge badge-ask">Ask</span>
+      </div>
+      <div class="hook-intercepts">Intercepts: <strong>gh release create</strong></div>
+      <div class="hook-desc">Intercepts GitHub Release creation and prompts for human confirmation. Ensures releases are intentional and follow the deployment workflow.</div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-header">
+        <span class="hook-name">check-gh-api-protection.sh</span>
+        <span class="hook-badge badge-ask">Ask</span>
+      </div>
+      <div class="hook-intercepts">Intercepts: <strong>gh api (branch protection)</strong></div>
+      <div class="hook-desc">Intercepts API calls that modify branch protection rules. Prevents accidental or unauthorized changes to protection settings.</div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-header">
+        <span class="hook-name">check-git-branch-delete.sh</span>
+        <span class="hook-badge badge-ask">Ask</span>
+      </div>
+      <div class="hook-intercepts">Intercepts: <strong>git branch -d / -D</strong></div>
+      <div class="hook-desc">Intercepts branch deletion commands and requires confirmation. Guards against accidentally deleting important branches.</div>
+    </div>
+
+    <div class="hook-card">
+      <div class="hook-header">
+        <span class="hook-name">check-git-tag.sh</span>
+        <span class="hook-badge badge-ask">Ask</span>
+      </div>
+      <div class="hook-intercepts">Intercepts: <strong>git tag (staging/active)</strong></div>
+      <div class="hook-desc">Flags staging claim and clear operations. When tagging or deleting staging/active, warns about contention implications before proceeding.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Interactive Demo -->
+<div class="section">
+  <h2>Try a Command
+    <span class="subtitle">Click a command to see the hook intercept and respond in real time</span>
+  </h2>
+  <div class="demo-panel">
+    <div class="cmd-buttons">
+      <button class="cmd-btn" onclick="runDemo(0)">
+        git push origin main
+        <span class="cmd-badge deny-badge">Deny</span>
+      </button>
+      <button class="cmd-btn" onclick="runDemo(1)">
+        git merge feature into dev
+        <span class="cmd-badge deny-badge">Deny</span>
+      </button>
+      <button class="cmd-btn" onclick="runDemo(2)">
+        gh pr create --base main
+        <span class="cmd-badge deny-badge">Deny</span>
+      </button>
+      <button class="cmd-btn" onclick="runDemo(3)">
+        git push origin feature-branch
+        <span class="cmd-badge ask-badge">Ask</span>
+      </button>
+      <button class="cmd-btn" onclick="runDemo(4)">
+        git tag staging/active
+        <span class="cmd-badge ask-badge">Ask</span>
+      </button>
+      <button class="cmd-btn" onclick="runDemo(5)">
+        git reset --hard origin/main
+        <span class="cmd-badge ask-badge">Ask</span>
+      </button>
+    </div>
+    <div class="terminal" id="demo-terminal">
+      <div class="terminal-placeholder">Select a command above to see the hook in action</div>
+    </div>
+  </div>
+</div>
+
+<!-- Bypass Resistance -->
+<div class="section">
+  <h2>Bypass Resistance
+    <span class="subtitle">Hooks defend against common patterns that try to slip past argument parsing</span>
+  </h2>
+  <div class="bypass-list">
+
+    <div class="bypass-card">
+      <div class="bypass-label">CWD Manipulation</div>
+      <div class="bypass-half">
+        <span class="label label-attack">Attempted bypass</span>
+        <span class="attack-cmd">cd /tmp && git push origin main</span><br>
+        <span class="dim"># change directory to dodge repo detection</span>
+      </div>
+      <div class="bypass-half">
+        <span class="label label-caught">Hook catches it</span>
+        <span class="caught-msg">check-git-push.sh resolves the real repo root via git rev-parse, ignoring CWD tricks. DENIED.</span>
+      </div>
+    </div>
+
+    <div class="bypass-card">
+      <div class="bypass-label">Command Chaining (&&)</div>
+      <div class="bypass-half">
+        <span class="label label-attack">Attempted bypass</span>
+        <span class="attack-cmd">echo "hello" && git push origin main</span><br>
+        <span class="dim"># hide push behind an innocuous command</span>
+      </div>
+      <div class="bypass-half">
+        <span class="label label-caught">Hook catches it</span>
+        <span class="caught-msg">Pre-tool hooks fire per-command, not per-shell-line. The git push is intercepted independently. DENIED.</span>
+      </div>
+    </div>
+
+    <div class="bypass-card">
+      <div class="bypass-label">Semicolon Chaining</div>
+      <div class="bypass-half">
+        <span class="label label-attack">Attempted bypass</span>
+        <span class="attack-cmd">git push origin main; echo "done"</span><br>
+        <span class="dim"># append trailing command to confuse parsing</span>
+      </div>
+      <div class="bypass-half">
+        <span class="label label-caught">Hook catches it</span>
+        <span class="caught-msg">Hook parses the tool input arguments directly, not the raw shell string. Trailing commands are irrelevant. DENIED.</span>
+      </div>
+    </div>
+
+    <div class="bypass-card">
+      <div class="bypass-label">Multiple && Chains</div>
+      <div class="bypass-half">
+        <span class="label label-attack">Attempted bypass</span>
+        <span class="attack-cmd">git fetch && git checkout main && git push origin main</span><br>
+        <span class="dim"># bury push deep in a chain</span>
+      </div>
+      <div class="bypass-half">
+        <span class="label label-caught">Hook catches it</span>
+        <span class="caught-msg">Each git command in the chain triggers its own hook check. The push is caught regardless of chain depth. DENIED.</span>
+      </div>
+    </div>
+
+    <div class="bypass-card">
+      <div class="bypass-label">Worktree Path Resolution</div>
+      <div class="bypass-half">
+        <span class="label label-attack">Attempted bypass</span>
+        <span class="attack-cmd">git -C /path/to/worktree push origin main</span><br>
+        <span class="dim"># operate on a different worktree to dodge hooks</span>
+      </div>
+      <div class="bypass-half">
+        <span class="label label-caught">Hook catches it</span>
+        <span class="caught-msg">Hooks resolve the actual worktree root with git rev-parse --show-toplevel, catching pushes from any path context. DENIED.</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Architecture Diagram -->
+<div class="section">
+  <h2>Architecture
+    <span class="subtitle">How commands flow through the hook system</span>
+  </h2>
+  <div class="demo-panel" style="padding: 2.5rem 1.5rem;">
+    <div class="arch-flow">
+      <div class="arch-box box-command">
+        <div class="arch-icon">&#9000;</div>
+        <h4>Command Entered</h4>
+        <p>git push, gh pr create,<br>git merge, etc.</p>
+      </div>
+      <div class="arch-arrow">&#10132;</div>
+      <div class="arch-box box-hook">
+        <div class="arch-icon">&#128737;</div>
+        <h4>Pre-Tool Hook Fires</h4>
+        <p>Matching hook script<br>intercepts the command</p>
+      </div>
+      <div class="arch-arrow">&#10132;</div>
+      <div class="arch-box box-check">
+        <div class="arch-icon">&#128269;</div>
+        <h4>Branch / Target Check</h4>
+        <p>Inspects arguments, resolves<br>branches, checks protection</p>
+      </div>
+      <div class="arch-arrow">&#10132;</div>
+      <div class="arch-decision">
+        <div class="arch-box box-allow">
+          <div class="arch-icon">&#9989;</div>
+          <h4>Allow</h4>
+          <p>Command executes</p>
+        </div>
+        <div class="arch-box box-ask">
+          <div class="arch-icon">&#9888;</div>
+          <h4>Ask</h4>
+          <p>Human confirms</p>
+        </div>
+        <div class="arch-box box-deny">
+          <div class="arch-icon">&#128721;</div>
+          <h4>Deny</h4>
+          <p>Command blocked</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>&#129299; DeployNOPE &mdash; <a href="https://github.com/SimTimms/deploynope">GitHub</a></p>
+</footer>
+
+<script>
+  const demos = [
+    {
+      // git push origin main (DENIED)
+      lines: [
+        { text: '<span class="prompt">$</span> <span class="cmd-text">git push origin main</span>', delay: 0 },
+        { text: '', delay: 300 },
+        { text: '<span class="hook-label">[hook] check-git-push.sh</span> intercepting git push...', delay: 600 },
+        { text: '<span class="dim">Resolving repository root...</span>', delay: 900 },
+        { text: '<span class="dim">Target branch: main</span>', delay: 1100 },
+        { text: '<span class="dim">Checking for staging branch...</span>', delay: 1300 },
+        { text: '<span class="warn">Staging branch exists. Direct push to production is not allowed.</span>', delay: 1600 },
+        { text: '', delay: 1800 },
+        { text: '<span class="error">&#128721; DENIED &mdash; Direct push to main blocked.</span>', delay: 2000 },
+        { text: '<span class="error">Use the staging &rarr; production deployment flow instead.</span>', delay: 2200 },
+        { text: '<span class="dim">Exit code: 2 (block)</span>', delay: 2500 },
+      ]
+    },
+    {
+      // git merge feature into development (DENIED)
+      lines: [
+        { text: '<span class="prompt">$</span> <span class="cmd-text">git merge feature-login --no-ff</span> <span class="dim">(on branch: development)</span>', delay: 0 },
+        { text: '', delay: 300 },
+        { text: '<span class="hook-label">[hook] check-git-merge.sh</span> intercepting git merge...', delay: 600 },
+        { text: '<span class="dim">Current branch: development</span>', delay: 900 },
+        { text: '<span class="dim">Source branch: feature-login</span>', delay: 1100 },
+        { text: '<span class="warn">Non-production branch merging into development detected.</span>', delay: 1400 },
+        { text: '<span class="warn">Only production-track merges (staging &rarr; development) are permitted.</span>', delay: 1700 },
+        { text: '', delay: 1900 },
+        { text: '<span class="error">&#128721; DENIED &mdash; Cannot merge feature branches directly into development.</span>', delay: 2100 },
+        { text: '<span class="error">Merge into a release branch first, then follow the release flow.</span>', delay: 2300 },
+        { text: '<span class="dim">Exit code: 2 (block)</span>', delay: 2600 },
+      ]
+    },
+    {
+      // gh pr create --base main (DENIED)
+      lines: [
+        { text: '<span class="prompt">$</span> <span class="cmd-text">gh pr create --base main --title "Ship it"</span>', delay: 0 },
+        { text: '', delay: 300 },
+        { text: '<span class="hook-label">[hook] check-gh-pr-create.sh</span> intercepting gh pr create...', delay: 600 },
+        { text: '<span class="dim">PR target: main</span>', delay: 900 },
+        { text: '<span class="dim">Checking protected branch list: master, main, staging, development</span>', delay: 1200 },
+        { text: '<span class="warn">Target branch "main" is protected.</span>', delay: 1500 },
+        { text: '', delay: 1700 },
+        { text: '<span class="error">&#128721; DENIED &mdash; PRs to main are not allowed.</span>', delay: 1900 },
+        { text: '<span class="error">Only release branches (e.g., release/2.3.0) are valid PR targets.</span>', delay: 2100 },
+        { text: '<span class="dim">Exit code: 2 (block)</span>', delay: 2400 },
+      ]
+    },
+    {
+      // git push origin feature-branch (ASK)
+      lines: [
+        { text: '<span class="prompt">$</span> <span class="cmd-text">git push origin feature-branch</span>', delay: 0 },
+        { text: '', delay: 300 },
+        { text: '<span class="hook-label">[hook] check-git-push.sh</span> intercepting git push...', delay: 600 },
+        { text: '<span class="dim">Resolving repository root...</span>', delay: 900 },
+        { text: '<span class="dim">Target branch: feature-branch</span>', delay: 1100 },
+        { text: '<span class="dim">Not a protected branch. Standard push.</span>', delay: 1400 },
+        { text: '', delay: 1600 },
+        { text: '<span class="warn">&#9888; ASK &mdash; Push feature-branch to origin?</span>', delay: 1800 },
+        { text: '<span class="warn">Confirm this push before proceeding.</span>', delay: 2000 },
+        { text: '', delay: 2300 },
+        { text: '<span class="success">&#9989; User confirmed. Proceeding with push.</span>', delay: 2600 },
+        { text: '<span class="dim">Exit code: 0 (allow)</span>', delay: 2900 },
+      ]
+    },
+    {
+      // git tag staging/active (ASK with warning)
+      lines: [
+        { text: '<span class="prompt">$</span> <span class="cmd-text">git tag -a staging/active -m "Claimed for 2.3.0"</span>', delay: 0 },
+        { text: '', delay: 300 },
+        { text: '<span class="hook-label">[hook] check-git-tag.sh</span> intercepting git tag...', delay: 600 },
+        { text: '<span class="dim">Tag name: staging/active</span>', delay: 900 },
+        { text: '<span class="dim">Detected staging contention tag operation.</span>', delay: 1200 },
+        { text: '', delay: 1400 },
+        { text: '<span class="warn">&#9888; WARNING &mdash; You are claiming the staging environment.</span>', delay: 1600 },
+        { text: '<span class="warn">This will block other deployments until staging/active is cleared.</span>', delay: 1900 },
+        { text: '<span class="warn">Make sure no one else is mid-deploy before proceeding.</span>', delay: 2200 },
+        { text: '', delay: 2500 },
+        { text: '<span class="warn">&#9888; ASK &mdash; Claim staging for 2.3.0?</span>', delay: 2700 },
+        { text: '<span class="success">&#9989; User confirmed. Tag created.</span>', delay: 3100 },
+        { text: '<span class="dim">Exit code: 0 (allow)</span>', delay: 3400 },
+      ]
+    },
+    {
+      // git reset --hard origin/main (ASK with warning)
+      lines: [
+        { text: '<span class="prompt">$</span> <span class="cmd-text">git reset --hard origin/main</span>', delay: 0 },
+        { text: '', delay: 300 },
+        { text: '<span class="hook-label">[hook] check-git-reset.sh</span> intercepting git reset...', delay: 600 },
+        { text: '<span class="dim">Reset target: origin/main</span>', delay: 900 },
+        { text: '<span class="dim">Reset mode: --hard</span>', delay: 1100 },
+        { text: '<span class="dim">Checking current branch protection status...</span>', delay: 1400 },
+        { text: '', delay: 1600 },
+        { text: '<span class="warn">&#9888; WARNING &mdash; Hard reset targeting production reference.</span>', delay: 1800 },
+        { text: '<span class="warn">This will discard all local changes and force-align with origin/main.</span>', delay: 2100 },
+        { text: '<span class="warn">Branch protection status: UNLOCKED (reset permitted during deployment)</span>', delay: 2400 },
+        { text: '', delay: 2700 },
+        { text: '<span class="warn">&#9888; ASK &mdash; Proceed with hard reset to origin/main?</span>', delay: 2900 },
+        { text: '<span class="success">&#9989; User confirmed. Reset executed.</span>', delay: 3300 },
+        { text: '<span class="dim">Exit code: 0 (allow)</span>', delay: 3600 },
+      ]
+    },
+  ];
+
+  let activeTimeout = [];
+
+  function runDemo(index) {
+    // Clear previous
+    activeTimeout.forEach(t => clearTimeout(t));
+    activeTimeout = [];
+
+    // Update active button
+    document.querySelectorAll('.cmd-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', i === index);
+    });
+
+    const terminal = document.getElementById('demo-terminal');
+    terminal.innerHTML = '';
+
+    const demo = demos[index];
+    demo.lines.forEach((item, i) => {
+      const t = setTimeout(() => {
+        if (item.text === '') {
+          terminal.appendChild(document.createElement('br'));
+        } else {
+          const div = document.createElement('div');
+          div.className = 'line';
+          div.style.animationDelay = '0s';
+          div.innerHTML = item.text;
+          terminal.appendChild(div);
+        }
+        terminal.scrollTop = terminal.scrollHeight;
+      }, item.delay);
+      activeTimeout.push(t);
+    });
+  }
+</script>
+
+</body>
+</html>
