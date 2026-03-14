@@ -21,12 +21,38 @@ for the full mapping). If it does not exist, use the placeholder names as-is and
 
 ## Framework Visibility
 
-**Every response** produced while DeployNOPE rules are active must begin with the tag
-**`🤓 Protected by DeployNOPE`** so the user can immediately see which framework is driving decisions.
+**Every response** produced while DeployNOPE rules are active must begin with a contextual
+stage tag so the user can immediately see which framework is driving decisions **and what
+stage of the process they are in**.
 
+The tag format is: **`🤓 DeployNOPE @ <Stage>`**
+
+Each command and deployment step has its own stage label:
+
+| Context | Tag |
+|---|---|
+| `/deploynope-new-work` or starting new work | `🤓 DeployNOPE @ New Work` |
+| `/deploynope-preflight` | `🤓 DeployNOPE @ Preflight` |
+| `/deploynope-configure` | `🤓 DeployNOPE @ Configure` |
+| `/deploynope-deploy-status` | `🤓 DeployNOPE @ Deploy Status` |
+| `/deploynope-verify-rules` | `🤓 DeployNOPE @ Verify Rules` |
+| `/deploynope-stale-check` | `🤓 DeployNOPE @ Stale Check` |
+| `/deploynope-release-manifest` | `🤓 DeployNOPE @ Release Manifest` |
+| `/deploynope-postdeploy` | `🤓 DeployNOPE @ Post-Deploy` |
+| `/deploynope-rollback` | `🤓 DeployNOPE @ Rollback` |
+| Feature/ticket work (coding, committing) | `🤓 DeployNOPE @ Feature` |
+| Staging contention check or claiming staging | `🤓 DeployNOPE @ Staging` |
+| Validating on staging | `🤓 DeployNOPE @ Staging Validation` |
+| Resetting master / production deployment | `🤓 DeployNOPE @ Production` |
+| Creating a GitHub Release | `🤓 DeployNOPE @ Release` |
+| Post-deployment alignment check | `🤓 DeployNOPE @ Post-Deploy` |
+| General deployment work (no specific step) | `🤓 DeployNOPE @ Deploy` |
+
+**Rules:**
 - Tag every message — not just the first one — for the duration of the workflow.
+- Update the stage label as the workflow progresses through different steps.
 - If a DeployNOPE command is invoked alongside another framework (e.g. Agile V), tag
-  both: **`🤓 Protected by DeployNOPE`** **`[Agile V]`**.
+  both: **`🤓 DeployNOPE @ <Stage>`** **`[Agile V]`**.
 - If an action *should* be governed by DeployNOPE but you are about to skip it, state
   that explicitly rather than proceeding silently.
 
@@ -768,7 +794,7 @@ is the last step before `git commit` runs.
 
 **Confirmation block format:**
 
-> **`🤓 Protected by DeployNOPE`**
+> **`🤓 DeployNOPE @ <Stage>`**
 >
 > | | |
 > |---|---|
@@ -777,6 +803,8 @@ is the last step before `git commit` runs.
 > | **Message** | `<proposed commit message>` |
 >
 > Confirm commit?
+
+Use the stage label that matches the current workflow context (e.g. `Feature`, `Staging`, `Production`).
 
 **Rules:**
 - Always check `git branch --show-current` and `package.json` version (if present) before
@@ -816,7 +844,7 @@ before `git push` runs.
 
 **Confirmation block format:**
 
-> **`🤓 Protected by DeployNOPE`**
+> **`🤓 DeployNOPE @ <Stage>`**
 >
 > | | |
 > |---|---|
@@ -830,6 +858,8 @@ before `git push` runs.
 > | `<short-sha>` | `<commit message first line>` |
 >
 > Confirm push?
+
+Use the stage label that matches the current workflow context (e.g. `Feature`, `Staging`, `Production`).
 
 **Rules:**
 - Always run `git log origin/<branch>..HEAD --oneline` to get the exact commits that
