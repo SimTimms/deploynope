@@ -21,12 +21,38 @@ for the full mapping). If it does not exist, use the placeholder names as-is and
 
 ## Framework Visibility
 
-**Every response** produced while DeployNOPE rules are active must begin with the tag
-**`Protected by DeployNOPE`** so the user can immediately see which framework is driving decisions.
+**Every response** produced while DeployNOPE rules are active must begin with a contextual
+stage tag so the user can immediately see which framework is driving decisions **and what
+stage of the process they are in**.
 
+The tag format is: **`🤓 DeployNOPE @ <Stage>`**
+
+Each command and deployment step has its own stage label:
+
+| Context | Tag |
+|---|---|
+| `/deploynope-new-work` or starting new work | `🤓 DeployNOPE @ New Work` |
+| `/deploynope-preflight` | `🤓 DeployNOPE @ Preflight` |
+| `/deploynope-configure` | `🤓 DeployNOPE @ Configure` |
+| `/deploynope-deploy-status` | `🤓 DeployNOPE @ Deploy Status` |
+| `/deploynope-verify-rules` | `🤓 DeployNOPE @ Verify Rules` |
+| `/deploynope-stale-check` | `🤓 DeployNOPE @ Stale Check` |
+| `/deploynope-release-manifest` | `🤓 DeployNOPE @ Release Manifest` |
+| `/deploynope-postdeploy` | `🤓 DeployNOPE @ Post-Deploy` |
+| `/deploynope-rollback` | `🤓 DeployNOPE @ Rollback` |
+| Feature/ticket work (coding, committing) | `🤓 DeployNOPE @ Feature` |
+| Staging contention check or claiming staging | `🤓 DeployNOPE @ Staging` |
+| Validating on staging | `🤓 DeployNOPE @ Staging Validation` |
+| Resetting master / production deployment | `🤓 DeployNOPE @ Production` |
+| Creating a GitHub Release | `🤓 DeployNOPE @ Release` |
+| Post-deployment alignment check | `🤓 DeployNOPE @ Post-Deploy` |
+| General deployment work (no specific step) | `🤓 DeployNOPE @ Deploy` |
+
+**Rules:**
 - Tag every message — not just the first one — for the duration of the workflow.
+- Update the stage label as the workflow progresses through different steps.
 - If a DeployNOPE command is invoked alongside another framework (e.g. Agile V), tag
-  both: **`Protected by DeployNOPE`** **`[Agile V]`**.
+  both: **`🤓 DeployNOPE @ <Stage>`** **`[Agile V]`**.
 - If an action *should* be governed by DeployNOPE but you are about to skip it, state
   that explicitly rather than proceeding silently.
 
@@ -77,7 +103,8 @@ Example:
 | 11 | Create GitHub Release (both repos) | — |
 | 12 | Merge release branch into `development` | — |
 | 13 | Clear staging | — |
-| 14 | Write Confluence release notes | — |
+| 14 | Update changelog | — |
+| 15 | Write Confluence release notes | — |
 
 Always mark where we currently are (⬅️ Next) and what's already done (✅ Done).
 Update the table as steps are completed throughout the conversation.
@@ -140,14 +167,73 @@ Whenever a new task, feature, fix, or piece of work begins — before doing anyt
    | Ticket/feature branch | The current release branch (e.g. `6.51.0`) | Ticket branches feed into the release branch |
    | Chore / config | `master` | All work types follow the same staging → master process |
 
+   **Before suggesting a release branch as a base**, fetch from the remote and verify it
+   has not already been released:
+
+   ```shell
+   git fetch origin
+   git tag -l 'v*' --sort=-v:refname
+   gh release list --limit 10
+   ```
+
+   If a tag or GitHub Release exists matching the release branch version, that branch has
+   already been deployed. **Do not suggest it as a base.** Instead, prompt the user to create
+   a new release branch:
+
+   > "The release branch `<version>` has already been deployed (tag `v<version>` exists).
+   > Would you like to create a new release branch? The next available version is `<next-version>`."
+
    Present the recommendation with a short explanation, then offer alternatives:
    > "Based on the deployment process, I'd recommend branching from `master` because [reason].
    > Would you like to use that, or a different base?
    > 1. `master` ← recommended
-   > 2. `development`
+   > 2. An existing release branch (e.g. `release/1.2.0`) — for ticket/feature work feeding into a release
    > 3. Other — please specify"
 
-4. **Run the branch drift check** before creating the branch (see below).
+   **Warning:** Do **not** offer `development` as a base branch. The `development` branch is
+   only updated by merging the release branch into it **after** production deployment. Branching
+   from `development` creates a mismatch: the PR hook will block PRs targeting `development`,
+   and the work cannot follow the correct release flow (`feature → release → staging → master → development`).
+
+   If the user's work is a feature or ticket and no release branch exists yet, prompt them to
+   create one first:
+
+   > "There's no active release branch. Would you like to create one (e.g. `release/X.Y.Z`)
+   > from `master` first? Feature branches should target a release branch, not `development`."
+
+4. **If creating a release branch, run the release version check** (see below).
+
+5. **Run the branch drift check** before creating the branch (see below).
+
+---
+
+## Release Version Check
+
+**Before creating any release branch** (a branch named with a version pattern like `X.Y.Z`),
+fetch from the remote and check all existing versions to determine the next available version.
+
+```shell
+git fetch origin
+# Check existing version tags
+git tag -l 'v*' --sort=-v:refname
+# Check existing version-patterned branches
+git branch -r | grep -E 'origin/[0-9]+\.[0-9]+\.[0-9]+'
+# Check existing GitHub releases
+gh release list --limit 10
+```
+
+**Rules:**
+- The new release branch version **must be higher** than any existing tag, release, or
+  version-patterned branch.
+- If the user provides a version number, validate it against the remote before using it.
+  If it conflicts with an existing version, warn the user and suggest the next available version.
+- If the user provides only a major version (e.g. "1"), look up the latest `1.x.y` release
+  and suggest the next minor bump (e.g. if `1.3.0` exists, suggest `1.4.0`).
+- **Never create a release branch without running this check first.** This prevents
+  version collisions with already-released or in-progress versions.
+
+> "I've checked the remote — the latest version is `<version>`. The next available
+> release branch would be `<next-version>`. Shall I use that?"
 
 ---
 
@@ -329,6 +415,32 @@ The `{owner}/{repo}` placeholders should be replaced with your actual repository
 
 ---
 
+## PR Target Validation
+
+**Before creating or suggesting a PR**, fetch from the remote and verify the target branch
+has not already been released:
+
+```shell
+git fetch origin
+git tag -l 'v*' --sort=-v:refname
+gh release list --limit 10
+```
+
+If the target branch is a release branch (version-patterned like `X.Y.Z`) and a matching
+tag or GitHub Release already exists, that release branch has already been deployed.
+**Do not create a PR targeting it.**
+
+> "The release branch `<version>` has already been deployed (tag `v<version>` exists).
+> A PR targeting this branch would add changes to an already-released version.
+> Would you like to create a new release branch (`<next-version>`) and target that instead?"
+
+**[HUMAN GATE]** — wait for the user to confirm the new target before creating the PR.
+
+This check also applies when suggesting a PR target after pushing a feature branch.
+Never assume the current release branch is still active — always verify against the remote.
+
+---
+
 ## Branch Drift Check
 
 Before creating any new release or feature branch, check:
@@ -382,8 +494,9 @@ All work types follow the same staging → master reset process.
 12. Create GitHub Release on **both** repos
 13. Merge release branch into `development`
 14. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
-15. Write Confluence release notes
-16. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
+15. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below)
+16. Write Confluence release notes
+17. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
 
 ### Hotfix
 
@@ -399,8 +512,9 @@ All work types follow the same staging → master reset process.
 10. Merge hotfix branch into `development`
 11. Notify in-flight feature branches to pull from `development`
 12. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
-13. Write Confluence release notes
-14. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
+13. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below)
+14. Write Confluence release notes
+15. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
 
 ### Chore / Config
 
@@ -414,7 +528,8 @@ All work types follow the same staging → master reset process.
 8. Confirm deployment is healthy
 9. Merge `master` into `development`
 10. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
-11. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
+11. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below)
+12. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
 
 ---
 
@@ -473,6 +588,150 @@ Write a release note page **after every production deployment**.
 - **Format:** Match existing pages — Branch, Author, Date, Jira ticket(s),
   What Changed, Deployment Checks, Notes.
 - Confirm content with the user before publishing.
+
+---
+
+## Changelog
+
+If `changelog.enabled` is `true` in `.deploynope.json`, update the changelog file after
+each production deployment. If `changelog.enabled` is `false` or the `changelog` key is
+missing from the config, skip this step entirely.
+
+The changelog is updated **after clearing staging** and **before writing Confluence release
+notes**. This positions it alongside other post-deployment documentation steps.
+
+### Procedure
+
+#### Step 1: Determine the previous version
+
+Check the most recent entry in the changelog file, or use the `previousVersion` from the
+release manifest if available.
+
+#### Step 2: Gather changes
+
+If `changelog.autoPopulate` is `true`, scan the commit history between the previous
+version and the current version:
+
+```shell
+git log v<previous-version>..v<current-version> --oneline --no-merges
+```
+
+If no tags exist yet, fall back to:
+
+```shell
+git log origin/master --oneline -20
+```
+
+Group the commits according to the configured format (see Step 3).
+
+If `changelog.autoPopulate` is `false`, present an empty template for the user to fill in.
+
+#### Step 3: Format the entry
+
+Format the changelog entry according to `changelog.format`:
+
+**`keepachangelog` format:**
+
+```markdown
+## [<version>] - <YYYY-MM-DD>
+
+### Added
+- <new features>
+
+### Changed
+- <changes to existing functionality>
+
+### Fixed
+- <bug fixes>
+
+### Removed
+- <removed features>
+```
+
+Omit any section that has no entries. When auto-populating, categorise commits by their
+prefix (`feat:` → Added, `fix:` → Fixed, `chore:`/`refactor:` → Changed, etc.). Commits
+without a recognised prefix go under Changed.
+
+**`simple` format:**
+
+```markdown
+## <version> (<YYYY-MM-DD>)
+
+- <change description>
+- <change description>
+```
+
+**`conventional` format:**
+
+```markdown
+## <version> (<YYYY-MM-DD>)
+
+### Features
+- <feat: commits>
+
+### Bug Fixes
+- <fix: commits>
+
+### Chores
+- <chore: commits>
+
+### Other
+- <uncategorised commits>
+```
+
+Omit any section that has no entries.
+
+#### Step 4: Add links (if enabled)
+
+If `changelog.includeLinks` is `true`, append a compare link at the bottom of the entry:
+
+```markdown
+[<version>]: https://github.com/<owner>/<repo>/compare/v<previous-version>...v<version>
+```
+
+Also convert any PR references (`#123`) or issue references to full links.
+
+#### Step 5: Present for review
+
+**[HUMAN GATE]** — Show the drafted changelog entry to the user before writing it:
+
+> "Here is the changelog entry for version `<version>`. Please review and let me know
+> if you'd like to make any changes before I write it to `<filePath>`."
+
+Display the full formatted entry. Wait for approval or edits.
+
+#### Step 6: Write to file
+
+Prepend the new entry to the changelog file at the configured `changelog.filePath`
+(default: `CHANGELOG.md`).
+
+- If the file does not exist, create it with a header:
+  ```markdown
+  # Changelog
+
+  All notable changes to this project will be documented in this file.
+
+  ```
+  Then append the entry.
+
+- If the file exists, insert the new entry after the header and before the previous
+  version's entry.
+
+#### Step 7: Commit
+
+```shell
+git add <changelog.filePath>
+git commit -m "docs: update changelog for <version>"
+```
+
+This commit goes directly to `master` alongside the release manifest — it is a
+post-deployment record, not a code change.
+
+**[HUMAN GATE]** — Ask before pushing: "Shall I push the changelog update to `master`?"
+
+```shell
+git push origin master
+```
 
 ---
 
@@ -577,7 +836,7 @@ is the last step before `git commit` runs.
 
 **Confirmation block format:**
 
-> **`Protected by DeployNOPE`**
+> **`🤓 DeployNOPE @ <Stage>`**
 >
 > | | |
 > |---|---|
@@ -587,6 +846,8 @@ is the last step before `git commit` runs.
 >
 > Confirm commit?
 
+Use the stage label that matches the current workflow context (e.g. `Feature`, `Staging`, `Production`).
+
 **Rules:**
 - Always check `git branch --show-current` and `package.json` version (if present) before
   presenting the confirmation.
@@ -594,6 +855,17 @@ is the last step before `git commit` runs.
   block IS the final gate.
 - If the user wants to change the message, branch, or anything else, update and re-present
   the block before committing.
+- **Commit prefixes:** If `commitPrefixes` is `true` in `.deploynope.json`, every commit
+  message **must** start with a prefix followed by a colon and space (e.g. `feat: add login`).
+  Choose the prefix based on the change:
+  - `feat` — new functionality
+  - `fix` — bug fix
+  - `chore` — maintenance, deps, config
+  - `refactor` — restructuring, no behaviour change
+  - `docs` — documentation only
+  - `test` — adding or updating tests
+  If the user provides a message without a prefix, prepend the appropriate one.
+  If `commitPrefixes` is `false` or not set, do not add prefixes.
 
 ---
 
@@ -614,7 +886,7 @@ before `git push` runs.
 
 **Confirmation block format:**
 
-> **`Protected by DeployNOPE`**
+> **`🤓 DeployNOPE @ <Stage>`**
 >
 > | | |
 > |---|---|
@@ -628,6 +900,8 @@ before `git push` runs.
 > | `<short-sha>` | `<commit message first line>` |
 >
 > Confirm push?
+
+Use the stage label that matches the current workflow context (e.g. `Feature`, `Staging`, `Production`).
 
 **Rules:**
 - Always run `git log origin/<branch>..HEAD --oneline` to get the exact commits that

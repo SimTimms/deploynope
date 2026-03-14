@@ -6,7 +6,7 @@
 > Config is saved to `.deploynope.json` in the current project root.
 > All other DeployNOPE commands read from this file to fill in placeholders.
 >
-> **Framework Visibility:** Tag every response with **`Protected by DeployNOPE`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 DeployNOPE @ Configure`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
@@ -230,6 +230,84 @@ The command used to regenerate `package-lock.json` on the backend.
 
 ---
 
+### 14. Enable Changelog
+
+Whether to maintain a changelog file that is updated with each release.
+
+**Default:** `true`
+
+**Prompt:**
+> "Would you like to maintain a changelog file?
+> This will automatically record changes for each release during the deployment process.
+> Default: `true` (yes)"
+
+**Config key:** `changelog.enabled`
+
+---
+
+### 15. Changelog Format
+
+The format to use for changelog entries.
+
+**Default:** `keepachangelog`
+
+**Prompt (only if changelog is enabled):**
+> "Changelog format:
+> 1. `keepachangelog` — [Keep a Changelog](https://keepachangelog.com) format with Added/Changed/Fixed/Removed sections ← recommended
+> 2. `simple` — flat list of changes per version with date
+> 3. `conventional` — grouped by conventional commit type (feat/fix/chore/etc.)
+>
+> Default: `keepachangelog`"
+
+**Config key:** `changelog.format`
+
+---
+
+### 16. Changelog File Path
+
+The path to the changelog file, relative to the project root.
+
+**Default:** `CHANGELOG.md`
+
+**Prompt (only if changelog is enabled):**
+> "Changelog file path (relative to project root):
+> Default: `CHANGELOG.md`"
+
+**Config key:** `changelog.filePath`
+
+---
+
+### 17. Auto-Populate Changelog from Commits
+
+Whether to scan commit history between releases to pre-fill the changelog entry.
+
+**Default:** `true`
+
+**Prompt (only if changelog is enabled):**
+> "Auto-populate changelog entries from commit history between releases?
+> If enabled, commits will be scanned and grouped into the changelog entry for review
+> before it is written. You will always have the chance to edit before it is saved.
+> Default: `true` (yes)"
+
+**Config key:** `changelog.autoPopulate`
+
+---
+
+### 18. Include Links in Changelog
+
+Whether to include GitHub compare links between versions and links to PRs/issues.
+
+**Default:** `true`
+
+**Prompt (only if changelog is enabled):**
+> "Include links in changelog entries?
+> This adds GitHub compare links between versions and links to referenced PRs/issues.
+> Default: `true` (yes)"
+
+**Config key:** `changelog.includeLinks`
+
+---
+
 ## Writing the Config
 
 After all values are collected, write `.deploynope.json` to the project root:
@@ -248,6 +326,13 @@ After all values are collected, write `.deploynope.json` to the project root:
     "spaceId": "<value or null>",
     "cloudId": "<value or null>",
     "folderId": "<value or null>"
+  },
+  "changelog": {
+    "enabled": "<true or false>",
+    "format": "<keepachangelog, simple, or conventional>",
+    "filePath": "<value>",
+    "autoPopulate": "<true or false>",
+    "includeLinks": "<true or false>"
   },
   "frontend": {
     "npmInstallCommand": "<value>"
@@ -279,6 +364,11 @@ After writing, display:
 > | Confluence space | `<spaceKey>` (ID: `<spaceId>`) |
 > | Confluence cloud ID | `<cloudId>` |
 > | Confluence folder ID | `<folderId>` |
+> | Changelog enabled | `<value>` |
+> | Changelog format | `<value or N/A>` |
+> | Changelog file path | `<value or N/A>` |
+> | Changelog auto-populate | `<value or N/A>` |
+> | Changelog include links | `<value or N/A>` |
 > | Frontend npm install | `<value>` |
 > | Backend npm install | `<value>` |
 >
@@ -323,6 +413,11 @@ the values and substitute them for the placeholders:
 | `staging` (as staging branch) | `stagingBranch` |
 | `development` (as dev branch) | `developmentBranch` |
 | `2:00 PM` (cutoff time) | `deploymentCutoffTime` |
+| Changelog enabled | `changelog.enabled` |
+| Changelog format | `changelog.format` |
+| Changelog file path | `changelog.filePath` |
+| Changelog auto-populate | `changelog.autoPopulate` |
+| Changelog include links | `changelog.includeLinks` |
 
 If `.deploynope.json` is not found, the commands should still work but will use the
 placeholder names as-is (current behaviour) and suggest running `/deploynope-configure`.

@@ -4,7 +4,9 @@
 
 If the user asks to do any of the following — **even without explicitly invoking a
 `/deploynope-*` command** — you MUST load `/deploynope-deploy` first and tag all
-responses with **`Protected by DeployNOPE`** before proceeding:
+responses with **`🤓 DeployNOPE @ <Stage>`** before proceeding (where `<Stage>` reflects
+the current workflow step — see `/deploynope-deploy` § Framework Visibility for the full
+stage label table):
 
 - Deploy, release, or ship code
 - Push to `staging`, `master`, `main`, or production
@@ -24,23 +26,23 @@ deployment-related work begins.
 
 **How it works:**
 1. When you detect a deployment-related request, load `/deploynope-deploy` (if not already loaded).
-2. Tag your response with **`Protected by DeployNOPE`** to confirm the framework is active.
-3. Follow all DeployNOPE rules for the duration of the workflow.
+2. Tag your response with **`🤓 DeployNOPE @ <Stage>`** to confirm the framework is active and show which stage you are in.
+3. Follow all DeployNOPE rules for the duration of the workflow. Update the stage label as you move through steps.
 4. If the request does NOT match the triggers above, do not load DeployNOPE or tag responses.
 
 ## Confirmation Prompts Must Include the Tag
 
 When DeployNOPE is active and you ask the user to confirm an action (commit, push, merge,
 reset, release, etc.), the confirmation prompt **must** include a visible
-**`Protected by DeployNOPE`** tag. This serves as a built-in signal:
+**`🤓 DeployNOPE @ <Stage>`** tag. This serves as a built-in signal:
 
-- If the user sees the tag, they know DeployNOPE rules are governing the action.
+- If the user sees the tag, they know DeployNOPE rules are governing the action **and which stage they are in**.
 - If the tag is missing, the user knows DeployNOPE is NOT active — and can stop and ask why.
 
 Examples:
-> "Ready to commit all of this? **`Protected by DeployNOPE`**"
-> "Shall I push this to origin? **`Protected by DeployNOPE`**"
-> "Ready to reset `master` to match `staging`? **`Protected by DeployNOPE`**"
+> "Ready to commit all of this? **`🤓 DeployNOPE @ Feature`**"
+> "Shall I push this to origin? **`🤓 DeployNOPE @ Feature`**"
+> "Ready to reset `master` to match `staging`? **`🤓 DeployNOPE @ Production`**"
 
 The absence of the tag on a deployment-related confirmation is itself a red flag that
 the framework was not loaded.

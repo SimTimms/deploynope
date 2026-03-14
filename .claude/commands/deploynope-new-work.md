@@ -6,7 +6,7 @@
 > For the full deployment ruleset (deployment process, staging, master reset), run
 > `/deploynope-deploy` first.
 >
-> **Framework Visibility:** Tag every response with **`Protected by DeployNOPE`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 DeployNOPE @ New Work`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
@@ -62,15 +62,60 @@ Suggest the most appropriate base branch according to the deployment process, an
 | Ticket/feature branch | The current release branch (e.g. `6.51.0`) | Ticket branches feed into the release branch |
 | Chore / config | `master` | All work types follow the same staging → master process |
 
+**Before suggesting a release branch as a base**, fetch from the remote and verify it
+has not already been released:
+
+```shell
+git fetch origin
+git tag -l 'v*' --sort=-v:refname
+gh release list --limit 10
+```
+
+If a tag or GitHub Release exists matching the release branch version, that branch has
+already been deployed. **Do not suggest it as a base.** Instead, prompt the user to create
+a new release branch:
+
+> "The release branch `<version>` has already been deployed (tag `v<version>` exists).
+> Would you like to create a new release branch? The next available version is `<next-version>`."
+
 Present the recommendation with a short explanation, then offer alternatives:
 
 > "Based on the deployment process, I'd recommend branching from `master` because [reason].
 > Would you like to use that, or a different base?
 > 1. `master` ← recommended
-> 2. `development`
+> 2. An existing release branch (e.g. `release/1.2.0`) — for ticket/feature work feeding into a release
 > 3. Other — please specify"
 
-### 5. Run the branch drift check
+**Warning:** Do **not** offer `development` as a base branch. The `development` branch is
+only updated by merging the release branch into it **after** production deployment. Branching
+from `development` creates a mismatch: the PR hook will block PRs targeting `development`,
+and the work cannot follow the correct release flow (`feature → release → staging → master → development`).
+
+If the user's work is a feature or ticket and no release branch exists yet, prompt them to
+create one first:
+
+> "There's no active release branch. Would you like to create one (e.g. `release/X.Y.Z`)
+> from `master` first? Feature branches should target a release branch, not `development`."
+
+### 5. If creating a release branch, run the release version check
+
+If the branch name follows a version pattern (e.g. `X.Y.Z`), fetch from the remote and
+check all existing versions before proceeding:
+
+```shell
+git fetch origin
+git tag -l 'v*' --sort=-v:refname
+git branch -r | grep -E 'origin/[0-9]+\.[0-9]+\.[0-9]+'
+gh release list --limit 10
+```
+
+- The version **must be higher** than any existing tag, release, or version-patterned branch.
+- If the user's chosen version conflicts, warn them and suggest the next available version.
+- If the user provides only a major version (e.g. "1"), look up the latest `1.x.y` and
+  suggest the next minor bump.
+- See `/deploynope-deploy` § Release Version Check for full details.
+
+### 6. Run the branch drift check
 
 Before creating the branch, check:
 
