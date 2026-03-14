@@ -230,6 +230,49 @@ The command used to regenerate `package-lock.json` on the backend.
 
 ---
 
+### 14. Team Size
+
+The number of developers on the team. This is stored for future use (e.g. contention
+rules, review requirements).
+
+**Default:** `1`
+
+**Prompt:**
+> "How many developers are on the team?
+> Default: `1`"
+
+**Config key:** `teamSize`
+
+---
+
+### 15. Commit Message Prefixes
+
+Whether commit messages should include a conventional-commit-style prefix
+(e.g. `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`).
+
+When enabled, every commit proposed by DeployNOPE must include an appropriate prefix.
+The prefix is chosen based on the nature of the change:
+
+| Prefix | Use when |
+|--------|----------|
+| `feat` | Adding new functionality |
+| `fix` | Fixing a bug |
+| `chore` | Maintenance, dependency updates, config changes |
+| `refactor` | Code restructuring with no behaviour change |
+| `docs` | Documentation only |
+| `test` | Adding or updating tests |
+
+**Default:** `false`
+
+**Prompt:**
+> "Would you like to enforce commit message prefixes? (e.g. `feat: add login`,
+> `fix: resolve null pointer`)
+> Default: `false` (no prefixes)"
+
+**Config key:** `commitPrefixes`
+
+---
+
 ## Writing the Config
 
 After all values are collected, write `.deploynope.json` to the project root:
@@ -254,7 +297,9 @@ After all values are collected, write `.deploynope.json` to the project root:
   },
   "backend": {
     "npmInstallCommand": "<value>"
-  }
+  },
+  "teamSize": "<value>",
+  "commitPrefixes": "<true or false>"
 }
 ```
 
@@ -281,6 +326,8 @@ After writing, display:
 > | Confluence folder ID | `<folderId>` |
 > | Frontend npm install | `<value>` |
 > | Backend npm install | `<value>` |
+> | Team size | `<value>` |
+> | Commit prefixes | `<enabled or disabled>` |
 >
 > Other DeployNOPE commands will read from this file. Run `/deploynope-configure`
 > again at any time to update.
