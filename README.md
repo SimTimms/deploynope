@@ -91,11 +91,11 @@ cd ~/GitHub/deploynope
 This will:
 - Symlink all `/deploynope-*` commands to `~/.claude/commands/`
 - Symlink the hooks directory to `~/.claude/hooks/`
-- Merge hook configuration into `~/.claude/settings.json` (preserving existing settings like MCP servers)
+- Merge DeployNOPE hook entries into `~/.claude/settings.json` without replacing unrelated hook config or other settings keys
 
 The hooks are what make DeployNOPE say "nope" — they intercept `git push`, `git commit`, `gh pr create`, and other commands **before** they run, blocking unsafe operations and requiring confirmation for everything else. Without the hooks installed, DeployNOPE's slash commands still work but the safety net is missing.
 
-To uninstall: `./uninstall.sh`
+To uninstall: `./uninstall.sh` (removes only DeployNOPE-installed hook entries and symlinks)
 
 ### 3. Verify
 

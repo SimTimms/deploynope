@@ -66,64 +66,72 @@ fi
 
 # --- Step 5: Merge hook config into ~/.claude/settings.json ---
 
-# Build the hooks JSON with absolute paths
-HOOKS_JSON=$(cat <<ENDJSON
+# Build the DeployNOPE PreToolUse matcher with absolute paths
+DEPLOYNOPE_PRETOOL_MATCHER=$(cat <<ENDJSON
 {
-  "PreToolUse": [
-    {
-      "matcher": "Bash",
-      "hooks": [
-        {"type": "command", "command": "$HOME/.claude/hooks/check-git-commit.sh", "timeout": 10},
-        {"type": "command", "command": "$HOME/.claude/hooks/check-git-push.sh", "timeout": 15},
-        {"type": "command", "command": "$HOME/.claude/hooks/check-git-reset.sh", "timeout": 15},
-        {"type": "command", "command": "$HOME/.claude/hooks/check-gh-pr-create.sh", "timeout": 10},
-        {"type": "command", "command": "$HOME/.claude/hooks/check-gh-release.sh", "timeout": 10},
-        {"type": "command", "command": "$HOME/.claude/hooks/check-gh-api-protection.sh", "timeout": 10},
-        {"type": "command", "command": "$HOME/.claude/hooks/check-git-branch-delete.sh", "timeout": 10},
-        {"type": "command", "command": "$HOME/.claude/hooks/check-git-tag.sh", "timeout": 10},
-        {"type": "command", "command": "$HOME/.claude/hooks/check-git-merge.sh", "timeout": 10}
-      ]
-    }
+  "matcher": "Bash",
+  "hooks": [
+    {"type": "command", "command": "$HOME/.claude/hooks/check-git-commit.sh", "timeout": 10},
+    {"type": "command", "command": "$HOME/.claude/hooks/check-git-push.sh", "timeout": 15},
+    {"type": "command", "command": "$HOME/.claude/hooks/check-git-reset.sh", "timeout": 15},
+    {"type": "command", "command": "$HOME/.claude/hooks/check-gh-pr-create.sh", "timeout": 10},
+    {"type": "command", "command": "$HOME/.claude/hooks/check-gh-release.sh", "timeout": 10},
+    {"type": "command", "command": "$HOME/.claude/hooks/check-gh-api-protection.sh", "timeout": 10},
+    {"type": "command", "command": "$HOME/.claude/hooks/check-git-branch-delete.sh", "timeout": 10},
+    {"type": "command", "command": "$HOME/.claude/hooks/check-git-tag.sh", "timeout": 10},
+    {"type": "command", "command": "$HOME/.claude/hooks/check-git-merge.sh", "timeout": 10}
   ]
 }
 ENDJSON
 )
 
+# Marker strategy:
+# DeployNOPE-managed entries are identified by exact hook command basenames.
+DEPLOYNOPE_HOOK_REGEX='(^|/)\.claude/hooks/check-(git-commit|git-push|git-reset|gh-pr-create|gh-release|gh-api-protection|git-branch-delete|git-tag|git-merge)\.sh$'
+
 if [ ! -f "$CLAUDE_SETTINGS" ]; then
-  # No settings file — create one with just hooks
-  jq -n --argjson hooks "$HOOKS_JSON" '{hooks: $hooks}' > "$CLAUDE_SETTINGS"
+  # No settings file — create one with just DeployNOPE's matcher
+  jq -n --argjson matcher "$DEPLOYNOPE_PRETOOL_MATCHER" \
+    '{hooks: {PreToolUse: [$matcher]}}' > "$CLAUDE_SETTINGS"
   info "Created $CLAUDE_SETTINGS with hook configuration."
 else
   # Back up existing settings before modifying
   cp "$CLAUDE_SETTINGS" "$CLAUDE_SETTINGS.backup"
   info "Backed up existing settings to $CLAUDE_SETTINGS.backup"
 
-  # Settings file exists — merge hooks in
-  EXISTING=$(cat "$CLAUDE_SETTINGS")
+  # Settings file exists — surgically merge DeployNOPE hooks only.
+  # This preserves unrelated settings keys and non-DeployNOPE hooks.
+  jq \
+    --argjson deploynopeMatcher "$DEPLOYNOPE_PRETOOL_MATCHER" \
+    --arg deploynopeHookRegex "$DEPLOYNOPE_HOOK_REGEX" \
+    '
+    def isDeploynopeCommandHook:
+      (.type == "command")
+      and ((.command // "") | test($deploynopeHookRegex));
 
-  if echo "$EXISTING" | jq -e '.hooks' &>/dev/null; then
-    # Hooks key already exists — check if DeployNOPE hooks are present
-    if echo "$EXISTING" | grep -q 'check-git-commit.sh'; then
-      # DeployNOPE hooks already present — replace them (idempotent update)
-      echo "$EXISTING" | jq --argjson hooks "$HOOKS_JSON" '.hooks = $hooks' > "$CLAUDE_SETTINGS.tmp"
-      mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
-      info "Updated existing DeployNOPE hooks in $CLAUDE_SETTINGS."
-    else
-      # Other hooks exist — append DeployNOPE's PreToolUse matcher
-      warn "Existing hooks found in settings.json that are not from DeployNOPE."
-      echo "  Appending DeployNOPE hooks alongside existing hooks."
-      DEPLOYNOPE_MATCHER=$(echo "$HOOKS_JSON" | jq '.PreToolUse[0]')
-      echo "$EXISTING" | jq --argjson matcher "$DEPLOYNOPE_MATCHER" \
-        '.hooks.PreToolUse = (.hooks.PreToolUse // []) + [$matcher]' > "$CLAUDE_SETTINGS.tmp"
-      mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
-      info "Appended DeployNOPE hooks to $CLAUDE_SETTINGS."
-    fi
-  else
-    # No hooks key — add it
-    echo "$EXISTING" | jq --argjson hooks "$HOOKS_JSON" '. + {hooks: $hooks}' > "$CLAUDE_SETTINGS.tmp"
-    mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
-    info "Added hook configuration to $CLAUDE_SETTINGS."
-  fi
+    .hooks = (.hooks // {}) |
+    .hooks.PreToolUse = (
+      (.hooks.PreToolUse // [])
+      | map(
+          if ((.hooks // null) | type) == "array" then
+            .hooks |= map(select((isDeploynopeCommandHook) | not))
+          else
+            .
+          end
+        )
+      | map(
+          if ((.hooks // null) | type) == "array" then
+            select((.hooks | length) > 0)
+          else
+            .
+          end
+        )
+      | . + [$deploynopeMatcher]
+    )
+    ' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp"
+
+  mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
+  info "Merged DeployNOPE hooks into $CLAUDE_SETTINGS without removing unrelated hook settings."
 fi
 
 # --- Step 6: Verify ---
