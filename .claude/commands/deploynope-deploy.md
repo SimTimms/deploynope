@@ -92,17 +92,17 @@ Example:
 |------|--------|--------|
 | 1 | Feature branches merged into release branch | ✅ Done |
 | 2 | Sync release branch with `master` | ✅ Done |
-| 3 | Confirm release branch is ready | ✅ Done |
-| 4 | Staging contention check | ⬅️ Next |
-| 5 | Claim staging | — |
-| 6 | Reset `staging` to match release branch | — |
-| 7 | Validate on staging | — |
-| 8 | Cross-repo version parity check | — |
-| 9 | Reset `master` to match `staging` | — |
-| 10 | Confirm CodePipeline healthy | — |
-| 11 | Create GitHub Release (both repos) | — |
-| 12 | Write release manifest | — |
-| 13 | Update changelog (if enabled) | — |
+| 3 | Update changelog on release branch (if enabled) | ✅ Done |
+| 4 | Confirm release branch is ready | ⬅️ Next |
+| 5 | Staging contention check | — |
+| 6 | Claim staging | — |
+| 7 | Reset `staging` to match release branch | — |
+| 8 | Validate on staging | — |
+| 9 | Cross-repo version parity check | — |
+| 10 | Reset `master` to match `staging` | — |
+| 11 | Confirm CodePipeline healthy | — |
+| 12 | Create GitHub Release (both repos) | — |
+| 13 | Write release manifest | — |
 | 14 | Sync staging + development with master | — |
 | 15 | Clear staging | — |
 | 16 | Write Confluence release notes | — |
@@ -521,19 +521,19 @@ All work types follow the same staging → master reset process.
 
 1. Feature ticket branches → release branch (e.g. `6.51.0`) via PR
 2. Sync release branch with `master` (`git merge master`)
-3. **[HUMAN GATE]** Confirm release branch is ready
-4. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
-5. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
-6. Reset `staging` to match the release branch: `git reset --hard <release-branch>`
-7. **[HUMAN GATE]** Validate on staging — wait for explicit "it's validated" sign-off
-8. **[CROSS-REPO CHECK]** Confirm frontend/backend version parity (see Cross-Repo Rules)
-9. **[HUMAN GATE]** Confirm before resetting `master` — CodePipeline deploys automatically
-10. Reset `master` to match `staging`: `git reset --hard staging`
-11. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `master`
-12. Create GitHub Release on **both** repos
-13. **[RELEASE MANIFEST]** Write release manifest to `releases/<version>.json`, commit and push to `master`
-14. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below), commit and push to `master`
-15. **[BRANCH SYNC]** Sync `staging` and `development` with `master` (to pick up manifest + changelog commits) — fast-forward or merge `master` into both, then push
+3. **[CHANGELOG]** Update changelog on the release branch (if enabled in config — see Changelog section below)
+4. **[HUMAN GATE]** Confirm release branch is ready
+5. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
+6. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
+7. Reset `staging` to match the release branch: `git reset --hard <release-branch>`
+8. **[HUMAN GATE]** Validate on staging — wait for explicit "it's validated" sign-off
+9. **[CROSS-REPO CHECK]** Confirm frontend/backend version parity (see Cross-Repo Rules)
+10. **[HUMAN GATE]** Confirm before resetting `master` — CodePipeline deploys automatically
+11. Reset `master` to match `staging`: `git reset --hard staging`
+12. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `master`
+13. Create GitHub Release on **both** repos
+14. **[RELEASE MANIFEST]** Write release manifest to `releases/<version>.json`, commit and push to `master`
+15. **[BRANCH SYNC]** Sync `staging` and `development` with `master` (to pick up manifest commit) — fast-forward or merge `master` into both, then push
 16. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
 17. Write Confluence release notes
 18. **[POST-DEPLOY]** Automatically run `/deploynope-postdeploy` checks — do not wait for the user to invoke it
@@ -541,16 +541,16 @@ All work types follow the same staging → master reset process.
 ### Hotfix
 
 1. Branch `6.XX.Y` from `master`
-2. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
-3. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
-4. Reset `staging` to match hotfix branch
-5. **[HUMAN GATE]** Validate on staging
-6. **[CROSS-REPO CHECK]** Confirm frontend/backend version parity
-7. Reset `master` to match `staging`
-8. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `master`
-9. Create GitHub Release on both repos
-10. **[RELEASE MANIFEST]** Write release manifest, commit and push to `master`
-11. **[CHANGELOG]** Update changelog (if enabled in config), commit and push to `master`
+2. **[CHANGELOG]** Update changelog on the hotfix branch (if enabled in config)
+3. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
+4. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
+5. Reset `staging` to match hotfix branch
+6. **[HUMAN GATE]** Validate on staging
+7. **[CROSS-REPO CHECK]** Confirm frontend/backend version parity
+8. Reset `master` to match `staging`
+9. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `master`
+10. Create GitHub Release on both repos
+11. **[RELEASE MANIFEST]** Write release manifest, commit and push to `master`
 12. **[BRANCH SYNC]** Sync `staging` and `development` with `master`, then push
 13. Notify in-flight feature branches to pull from `development`
 14. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
@@ -561,14 +561,14 @@ All work types follow the same staging → master reset process.
 
 1. Branch from `master` (e.g. `chore/claude-config`)
 2. Do the work, commit, and push
-3. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
-4. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
-5. Reset `staging` to match chore branch
-6. **[HUMAN GATE]** Validate on staging
-7. Reset `master` to match `staging`
-8. Confirm deployment is healthy
-9. **[RELEASE MANIFEST]** Write release manifest (if version bump involved), commit and push to `master`
-10. **[CHANGELOG]** Update changelog (if enabled in config), commit and push to `master`
+3. **[CHANGELOG]** Update changelog on the chore branch (if enabled in config)
+4. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
+5. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
+6. Reset `staging` to match chore branch
+7. **[HUMAN GATE]** Validate on staging
+8. Reset `master` to match `staging`
+9. Confirm deployment is healthy
+10. **[RELEASE MANIFEST]** Write release manifest (if version bump involved), commit and push to `master`
 11. **[BRANCH SYNC]** Sync `staging` and `development` with `master`, then push
 12. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
 13. **[POST-DEPLOY]** Automatically run `/deploynope-postdeploy` checks
@@ -635,17 +635,17 @@ Write a release note page **after every production deployment**.
 
 ## Changelog
 
-If `changelog.enabled` is `true` in `.deploynope.json`, update the changelog file after
-each production deployment. If `changelog.enabled` is `false` or the `changelog` key is
+If `changelog.enabled` is `true` in `.deploynope.json`, update the changelog file
+for each release. If `changelog.enabled` is `false` or the `changelog` key is
 missing from the config, skip this step entirely.
 
-**This step is mandatory when enabled** — do not skip it or defer it. It runs
-automatically as part of the deployment flow, immediately after the release manifest
-is written and before the branch sync step.
+**This step is mandatory when enabled** — do not skip it or defer it.
 
-The changelog is updated **after creating the GitHub Release and writing the manifest**
-and **before syncing branches**. This ensures the changelog commit is included in the
-branch sync and all three branches end up aligned.
+The changelog is written **on the release/hotfix/chore branch, before the staging
+reset**. This means the changelog entry goes through staging like any other code
+change, and there is no need for a separate post-deploy commit to `master` for
+the changelog. The only post-deploy commit to `master` should be the release manifest
+(which requires the final deployment SHA).
 
 ### Procedure
 
@@ -764,20 +764,20 @@ Prepend the new entry to the changelog file at the configured `changelog.filePat
 - If the file exists, insert the new entry after the header and before the previous
   version's entry.
 
-#### Step 7: Commit
+#### Step 7: Commit to the release branch
 
 ```shell
 git add <changelog.filePath>
 git commit -m "docs: update changelog for <version>"
 ```
 
-This commit goes directly to `master` alongside the release manifest — it is a
-post-deployment record, not a code change.
+This commit is made **on the release/hotfix/chore branch** before the staging reset.
+The changelog goes through staging like any other change.
 
-**[HUMAN GATE]** — Ask before pushing: "Shall I push the changelog update to `master`?"
+**[HUMAN GATE]** — Ask before pushing: "Shall I push the changelog update to the release branch?"
 
 ```shell
-git push origin master
+git push origin <release-branch>
 ```
 
 ---
@@ -869,14 +869,16 @@ If issues are found, list them in priority order with recommended actions.
 
 ## Post-Manifest Branch Sync
 
-After the release manifest (and changelog, if enabled) are committed and pushed to
-`master`, **`staging` and `development` must be synced with `master`** before clearing
-the staging claim. This ensures all three branches include the manifest and changelog
-commits.
+After the release manifest is committed and pushed to `master`, **`staging` and
+`development` must be synced with `master`** before clearing the staging claim.
+This ensures all three branches include the manifest commit.
 
 **Why this exists:** Without this step, `master` ends up ahead of `staging` and
-`development` by the manifest/changelog commits. This causes branch drift that
-accumulates across releases and was the root cause of repeated post-deploy failures.
+`development` by the manifest commit. This causes branch drift that accumulates
+across releases and was the root cause of repeated post-deploy failures.
+
+The changelog no longer causes drift because it is written on the release branch
+before the staging reset — it goes through staging like any other code change.
 
 ### Procedure
 
