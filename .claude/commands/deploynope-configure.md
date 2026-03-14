@@ -308,6 +308,40 @@ Whether to include GitHub compare links between versions and links to PRs/issues
 
 ---
 
+### 19. Team Size
+
+The number of developers working in the repo. Used to determine whether staging
+contention checks and Slack notifications are relevant.
+
+**Default:** `1`
+
+**Prompt:**
+> "How many developers work in this repo?
+> If you're a solo developer, staging contention checks are less critical but still
+> run as a safety net.
+> Default: `1`"
+
+**Config key:** `teamSize`
+
+---
+
+### 20. Commit Message Prefixes
+
+Whether to enforce conventional commit prefixes (`feat:`, `fix:`, `chore:`, etc.)
+on all commit messages.
+
+**Default:** `true`
+
+**Prompt:**
+> "Enforce commit message prefixes (e.g. `feat:`, `fix:`, `chore:`)?
+> When enabled, DeployNOPE will prepend the appropriate prefix if missing.
+> Prefixes used: `feat`, `fix`, `chore`, `refactor`, `docs`, `test`
+> Default: `true` (yes)"
+
+**Config key:** `commitPrefixes`
+
+---
+
 ## Writing the Config
 
 After all values are collected, write `.deploynope.json` to the project root:
@@ -339,7 +373,9 @@ After all values are collected, write `.deploynope.json` to the project root:
   },
   "backend": {
     "npmInstallCommand": "<value>"
-  }
+  },
+  "teamSize": "<number>",
+  "commitPrefixes": "<true or false>"
 }
 ```
 
@@ -421,6 +457,8 @@ After writing, display:
 > | Changelog include links | `<value or N/A>` |
 > | Frontend npm install | `<value>` |
 > | Backend npm install | `<value>` |
+> | Team size | `<value>` |
+> | Commit prefixes | `<value>` |
 >
 > Other DeployNOPE commands will read from this file. Run `/deploynope-configure`
 > again at any time to update.
@@ -468,6 +506,8 @@ the values and substitute them for the placeholders:
 | Changelog file path | `changelog.filePath` |
 | Changelog auto-populate | `changelog.autoPopulate` |
 | Changelog include links | `changelog.includeLinks` |
+| Team size | `teamSize` |
+| Commit prefixes enabled | `commitPrefixes` |
 
 If `.deploynope.json` is not found, the commands should still work but will use the
 placeholder names as-is (current behaviour) and suggest running `/deploynope-configure`.
