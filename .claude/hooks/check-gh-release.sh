@@ -1,0 +1,36 @@
+#!/bin/bash
+# DeployNOPE hook: intercept GitHub Release creation for user approval
+# Shows version, tag, and repo details before allowing.
+
+INPUT=$(cat)
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+
+# Only intercept gh release create commands
+if ! echo "$COMMAND" | grep -qE '^\s*gh\s+release\s+create'; then
+  exit 0
+fi
+
+CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
+VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
+
+# Extract the tag from the command
+TAG=$(echo "$COMMAND" | grep -oP '(?<=create\s)\S+' || echo "unknown")
+
+# Extract repo if --repo flag is present
+REPO=$(echo "$COMMAND" | grep -oP '(?<=--repo\s)\S+' || echo "(current repo)")
+
+# Get the remote URL for context
+REMOTE=$(cd "$CWD" 2>/dev/null && git remote get-url origin 2>/dev/null || echo "unknown")
+
+cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "ask",
+    "permissionDecisionReason": "[DeployNOPE] GitHub Release creation intercepted.\n\nTag: ${TAG}\nRepo: ${REPO}\nBranch: ${BRANCH}\nVersion (package.json): ${VERSION}\nRemote: ${REMOTE}\nCommand: ${COMMAND}\n\nRemember: releases must be created on BOTH repos with matching versions.\n\nApprove this release?"
+  }
+}
+EOF
+
+exit 0

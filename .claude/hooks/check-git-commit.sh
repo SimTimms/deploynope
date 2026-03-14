@@ -1,0 +1,31 @@
+#!/bin/bash
+# DeployNOPE hook: intercept every git commit for user approval
+# Fires on PreToolUse for Bash commands containing "git commit"
+
+INPUT=$(cat)
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+
+# Only intercept git commit commands
+if ! echo "$COMMAND" | grep -qE '^\s*git\s+commit'; then
+  exit 0
+fi
+
+# Extract useful context
+CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
+VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
+
+# Extract commit message if present
+MESSAGE=$(echo "$COMMAND" | grep -oP '(?<=-m\s")[^"]*' || echo "$COMMAND" | grep -oP "(?<=-m\s')[^']*" || echo "(see command)")
+
+cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "ask",
+    "permissionDecisionReason": "[DeployNOPE] Git commit intercepted.\n\nBranch: ${BRANCH}\nVersion: ${VERSION}\nCommand: ${COMMAND}\n\nReview and approve this commit."
+  }
+}
+EOF
+
+exit 0
