@@ -158,47 +158,9 @@ If you previously had these commands inside a project's `.claude/commands/`, you
 
 ---
 
-## Version History
+## Releases
 
-### v1.5.0
-
-- Replaced the static "Protected by DeployNOPE" tag with contextual stage labels (`🤓 DeployNOPE @ <Stage>`) so you always know where you are in the workflow
-- Added release branch validation before suggesting a base branch or PR target
-- Added merge guard to block non-production merges into `development`, preventing branch drift
-
-### v1.4.0
-
-- Added `🤓` emoji tagging and release version check rule
-- Improved production push hook to catch more bypass patterns
-- Added `/deploynope-stale-check` command to identify stale branches, aging PRs, and pipeline bottlenecks
-- Added changelog configuration and deployment integration
-- Fixed hook bypass vulnerability where commands with `cd`/`&&` prefixes were not intercepted
-
-### v1.3.0
-
-- Added changelog configuration and deployment integration
-- Added emoji to "Protected by DeployNOPE" tags for visibility
-
-### v1.2.0
-
-- Added team size and commit message prefix configuration options
-- Fixed `development` being offered as a base branch option, preventing PR target mismatch
-
-### v1.1.0
-
-- Added PreToolUse hooks for all DeployNOPE-governed git and GitHub operations
-- Added production branch guard to block direct pushes and detect missing staging infrastructure
-- Added push confirmation format with commit table
-- Added framework visibility tagging and auto-activation
-- Enforced correct PR targets: block PRs to production, staging, and development
-- Fixed hooks to use macOS-compatible `grep`/`sed`/`awk` instead of GNU `grep -oP`
-
-### v1.0.0
-
-- Initial release — deployment safety commands for Claude Code
-- Added `/deploynope-configure`, `/deploynope-deploy`, `/deploynope-preflight`, `/deploynope-postdeploy`
-- Added `/deploynope-deploy-status`, `/deploynope-release-manifest`, `/deploynope-rollback`
-- Added `/deploynope-new-work` and `/deploynope-verify-rules`
+See [GitHub Releases](https://github.com/SimTimms/deploynope/releases) for the full version history and changelog.
 
 ---
 

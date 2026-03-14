@@ -101,10 +101,12 @@ Example:
 | 9 | Reset `master` to match `staging` | — |
 | 10 | Confirm CodePipeline healthy | — |
 | 11 | Create GitHub Release (both repos) | — |
-| 12 | Merge release branch into `development` | — |
-| 13 | Clear staging | — |
-| 14 | Update changelog | — |
-| 15 | Write Confluence release notes | — |
+| 12 | Write release manifest | — |
+| 13 | Update changelog (if enabled) | — |
+| 14 | Sync staging + development with master | — |
+| 15 | Clear staging | — |
+| 16 | Write Confluence release notes | — |
+| 17 | Post-deploy checks (automatic) | — |
 
 Always mark where we currently are (⬅️ Next) and what's already done (✅ Done).
 Update the table as steps are completed throughout the conversation.
@@ -529,11 +531,12 @@ All work types follow the same staging → master reset process.
 10. Reset `master` to match `staging`: `git reset --hard staging`
 11. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `master`
 12. Create GitHub Release on **both** repos
-13. Merge release branch into `development`
-14. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
-15. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below)
-16. Write Confluence release notes
-17. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
+13. **[RELEASE MANIFEST]** Write release manifest to `releases/<version>.json`, commit and push to `master`
+14. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below), commit and push to `master`
+15. **[BRANCH SYNC]** Sync `staging` and `development` with `master` (to pick up manifest + changelog commits) — fast-forward or merge `master` into both, then push
+16. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
+17. Write Confluence release notes
+18. **[POST-DEPLOY]** Automatically run `/deploynope-postdeploy` checks — do not wait for the user to invoke it
 
 ### Hotfix
 
@@ -546,12 +549,13 @@ All work types follow the same staging → master reset process.
 7. Reset `master` to match `staging`
 8. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `master`
 9. Create GitHub Release on both repos
-10. Merge hotfix branch into `development`
-11. Notify in-flight feature branches to pull from `development`
-12. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
-13. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below)
-14. Write Confluence release notes
-15. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
+10. **[RELEASE MANIFEST]** Write release manifest, commit and push to `master`
+11. **[CHANGELOG]** Update changelog (if enabled in config), commit and push to `master`
+12. **[BRANCH SYNC]** Sync `staging` and `development` with `master`, then push
+13. Notify in-flight feature branches to pull from `development`
+14. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
+15. Write Confluence release notes
+16. **[POST-DEPLOY]** Automatically run `/deploynope-postdeploy` checks
 
 ### Chore / Config
 
@@ -563,10 +567,11 @@ All work types follow the same staging → master reset process.
 6. **[HUMAN GATE]** Validate on staging
 7. Reset `master` to match `staging`
 8. Confirm deployment is healthy
-9. Merge `master` into `development`
-10. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
-11. **[CHANGELOG]** Update changelog (if enabled in config — see Changelog section below)
-12. **[BRANCH ANALYSIS]** Run post-deployment branch alignment check (see below)
+9. **[RELEASE MANIFEST]** Write release manifest (if version bump involved), commit and push to `master`
+10. **[CHANGELOG]** Update changelog (if enabled in config), commit and push to `master`
+11. **[BRANCH SYNC]** Sync `staging` and `development` with `master`, then push
+12. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
+13. **[POST-DEPLOY]** Automatically run `/deploynope-postdeploy` checks
 
 ---
 
@@ -634,8 +639,13 @@ If `changelog.enabled` is `true` in `.deploynope.json`, update the changelog fil
 each production deployment. If `changelog.enabled` is `false` or the `changelog` key is
 missing from the config, skip this step entirely.
 
-The changelog is updated **after clearing staging** and **before writing Confluence release
-notes**. This positions it alongside other post-deployment documentation steps.
+**This step is mandatory when enabled** — do not skip it or defer it. It runs
+automatically as part of the deployment flow, immediately after the release manifest
+is written and before the branch sync step.
+
+The changelog is updated **after creating the GitHub Release and writing the manifest**
+and **before syncing branches**. This ensures the changelog commit is included in the
+branch sync and all three branches end up aligned.
 
 ### Procedure
 
@@ -854,6 +864,53 @@ If everything is aligned:
 > are all on version `<version>`. Ready for new work."
 
 If issues are found, list them in priority order with recommended actions.
+
+---
+
+## Post-Manifest Branch Sync
+
+After the release manifest (and changelog, if enabled) are committed and pushed to
+`master`, **`staging` and `development` must be synced with `master`** before clearing
+the staging claim. This ensures all three branches include the manifest and changelog
+commits.
+
+**Why this exists:** Without this step, `master` ends up ahead of `staging` and
+`development` by the manifest/changelog commits. This causes branch drift that
+accumulates across releases and was the root cause of repeated post-deploy failures.
+
+### Procedure
+
+```shell
+# Sync staging
+git checkout staging
+git merge origin/master --no-edit
+git push origin staging
+
+# Sync development
+git checkout development
+git merge origin/master --no-edit
+git push origin development
+```
+
+If either merge is a fast-forward, no merge commit is created — this is ideal.
+
+**This step is mandatory.** Do not clear the staging claim until both branches are
+synced. Do not skip this step even if the manifest is the only new commit.
+
+---
+
+## Automatic Post-Deploy
+
+At the end of every deployment — after clearing staging — **automatically run the
+post-deploy checks** (the same checks from `/deploynope-postdeploy`). Do not wait
+for the user to invoke `/deploynope-postdeploy` manually.
+
+Display the full post-deploy results table and verdict. If any items are flagged,
+present them immediately so they can be addressed before the user moves on.
+
+**Why this exists:** When post-deploy is a separate manual step, it gets forgotten
+or deferred, and issues (missing manifests, staging still claimed, branch drift)
+accumulate silently.
 
 ---
 
