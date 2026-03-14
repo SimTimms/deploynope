@@ -21,7 +21,11 @@ if ! echo "$COMMAND" | grep -qE '\-X\s+PUT'; then
   exit 0
 fi
 
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+# Source shared helpers
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$HOOK_DIR/hook-helpers.sh"
+
+CWD=$(resolve_effective_cwd "$INPUT" "$COMMAND")
 
 # Detect if this is enabling or disabling force-push
 FORCE_PUSH_STATE="unknown"

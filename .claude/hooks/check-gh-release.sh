@@ -10,9 +10,13 @@ if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*gh\s+release\s+create'; then
   exit 0
 fi
 
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+# Source shared helpers
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$HOOK_DIR/hook-helpers.sh"
+
+CWD=$(resolve_effective_cwd "$INPUT" "$COMMAND")
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
-VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
+VERSION=$(resolve_version "$CWD")
 
 # Extract the tag from the command (word after "create")
 TAG=$(echo "$COMMAND" | sed -n 's/.*create[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p')
