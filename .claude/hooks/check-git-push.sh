@@ -48,8 +48,28 @@ if [ -z "$COMMITS" ]; then
   COMMIT_COUNT="0"
 fi
 
-# HARD BLOCK: pushing to production when staging exists
+# Production push with staging exists
 if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "true" ]; then
+
+  # ALLOW with confirmation: --force-with-lease is the controlled staging → production reset
+  if echo "$COMMAND" | grep -q '\-\-force-with-lease'; then
+    # Verify staging and local production are aligned (this IS the reset step)
+    STAGING_SHA=$(cd "$CWD" 2>/dev/null && git rev-parse origin/staging 2>/dev/null || echo "unknown")
+    LOCAL_SHA=$(cd "$CWD" 2>/dev/null && git rev-parse HEAD 2>/dev/null || echo "unknown")
+
+    cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "ask",
+    "permissionDecisionReason": "[DeployNOPE] PRODUCTION RESET — force-with-lease push to '${PROD_BRANCH}' detected.\n\nThis appears to be the staging → production reset step.\n\nLocal HEAD: ${LOCAL_SHA}\norigin/staging: ${STAGING_SHA}\nVersion: ${VERSION}\n\nThis will update production to match staging. Approve this production reset?"
+  }
+}
+EOF
+    exit 0
+  fi
+
+  # HARD BLOCK: regular push to production when staging exists
   cat <<EOF
 {
   "hookSpecificOutput": {

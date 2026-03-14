@@ -6,7 +6,7 @@
 > For the full deployment ruleset (deployment process, staging, master reset), run
 > `/deploynope-deploy` first.
 >
-> **Framework Visibility:** Tag every response with **`Protected by DeployNOPE`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 Protected by DeployNOPE`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
@@ -81,7 +81,25 @@ create one first:
 > "There's no active release branch. Would you like to create one (e.g. `release/X.Y.Z`)
 > from `master` first? Feature branches should target a release branch, not `development`."
 
-### 5. Run the branch drift check
+### 5. If creating a release branch, run the release version check
+
+If the branch name follows a version pattern (e.g. `X.Y.Z`), fetch from the remote and
+check all existing versions before proceeding:
+
+```shell
+git fetch origin
+git tag -l 'v*' --sort=-v:refname
+git branch -r | grep -E 'origin/[0-9]+\.[0-9]+\.[0-9]+'
+gh release list --limit 10
+```
+
+- The version **must be higher** than any existing tag, release, or version-patterned branch.
+- If the user's chosen version conflicts, warn them and suggest the next available version.
+- If the user provides only a major version (e.g. "1"), look up the latest `1.x.y` and
+  suggest the next minor bump.
+- See `/deploynope-deploy` § Release Version Check for full details.
+
+### 6. Run the branch drift check
 
 Before creating the branch, check:
 

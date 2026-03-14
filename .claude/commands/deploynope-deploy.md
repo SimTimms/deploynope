@@ -22,11 +22,11 @@ for the full mapping). If it does not exist, use the placeholder names as-is and
 ## Framework Visibility
 
 **Every response** produced while DeployNOPE rules are active must begin with the tag
-**`Protected by DeployNOPE`** so the user can immediately see which framework is driving decisions.
+**`🤓 Protected by DeployNOPE`** so the user can immediately see which framework is driving decisions.
 
 - Tag every message — not just the first one — for the duration of the workflow.
 - If a DeployNOPE command is invoked alongside another framework (e.g. Agile V), tag
-  both: **`Protected by DeployNOPE`** **`[Agile V]`**.
+  both: **`🤓 Protected by DeployNOPE`** **`[Agile V]`**.
 - If an action *should* be governed by DeployNOPE but you are about to skip it, state
   that explicitly rather than proceeding silently.
 
@@ -158,7 +158,39 @@ Whenever a new task, feature, fix, or piece of work begins — before doing anyt
    > "There's no active release branch. Would you like to create one (e.g. `release/X.Y.Z`)
    > from `master` first? Feature branches should target a release branch, not `development`."
 
-4. **Run the branch drift check** before creating the branch (see below).
+4. **If creating a release branch, run the release version check** (see below).
+
+5. **Run the branch drift check** before creating the branch (see below).
+
+---
+
+## Release Version Check
+
+**Before creating any release branch** (a branch named with a version pattern like `X.Y.Z`),
+fetch from the remote and check all existing versions to determine the next available version.
+
+```shell
+git fetch origin
+# Check existing version tags
+git tag -l 'v*' --sort=-v:refname
+# Check existing version-patterned branches
+git branch -r | grep -E 'origin/[0-9]+\.[0-9]+\.[0-9]+'
+# Check existing GitHub releases
+gh release list --limit 10
+```
+
+**Rules:**
+- The new release branch version **must be higher** than any existing tag, release, or
+  version-patterned branch.
+- If the user provides a version number, validate it against the remote before using it.
+  If it conflicts with an existing version, warn the user and suggest the next available version.
+- If the user provides only a major version (e.g. "1"), look up the latest `1.x.y` release
+  and suggest the next minor bump (e.g. if `1.3.0` exists, suggest `1.4.0`).
+- **Never create a release branch without running this check first.** This prevents
+  version collisions with already-released or in-progress versions.
+
+> "I've checked the remote — the latest version is `<version>`. The next available
+> release branch would be `<next-version>`. Shall I use that?"
 
 ---
 
@@ -588,7 +620,7 @@ is the last step before `git commit` runs.
 
 **Confirmation block format:**
 
-> **`Protected by DeployNOPE`**
+> **`🤓 Protected by DeployNOPE`**
 >
 > | | |
 > |---|---|
@@ -636,7 +668,7 @@ before `git push` runs.
 
 **Confirmation block format:**
 
-> **`Protected by DeployNOPE`**
+> **`🤓 Protected by DeployNOPE`**
 >
 > | | |
 > |---|---|
