@@ -288,6 +288,37 @@ git tag -n1 "staging/active"
 If either check fails, **stop and warn the user**. Do not proceed until the team
 confirms it is safe.
 
+#### Staging contention polling (optional wait)
+
+If Check 1 or Check 2 fails because another release has claimed staging, offer the user
+the option to poll until staging is released rather than abandoning the workflow:
+
+> "Staging is currently claimed by `<name>` for `<branch>`.
+> Would you like me to poll every minute until staging is released and then automatically
+> continue with the deployment?"
+
+If the user accepts:
+
+1. **Set up a recurring poll** using `CronCreate` with a `*/1 * * * *` schedule that runs:
+
+   ```shell
+   git fetch origin && git tag -l "staging/active"
+   ```
+
+   - If `staging/active` still exists → report "Still waiting — staging claimed by `<name>`."
+   - If `staging/active` is gone **and** `git log origin/master..origin/staging --oneline`
+     shows no unreleased commits → report **"Staging is now clear!"** and proceed.
+
+2. **Clean up immediately** — as soon as staging is detected as clear (or the user cancels
+   the wait), delete the cron job using `CronDelete` with the job ID returned by `CronCreate`.
+   Never leave a polling job running after it has served its purpose.
+
+3. **Resume the deployment flow** — once staging is clear and the cron job is cleaned up,
+   continue from the "Claiming staging" step below without requiring the user to re-invoke
+   the deployment command.
+
+If the user declines, stop the workflow as normal and wait for manual confirmation.
+
 **Check 3: Stale release branch**
 
 Before resetting staging to a release branch, verify the release branch contains
