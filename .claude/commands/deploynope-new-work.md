@@ -3,7 +3,7 @@
 > Run this when starting a new task, feature, fix, or piece of work. It runs the
 > worktree check, branching policy, and branch drift check before you create a branch.
 >
-> For the full deployment ruleset (deployment process, staging, master reset), run
+> For the full deployment ruleset (deployment process, staging, <production-branch> reset), run
 > `/deploynope-deploy` first.
 >
 > **Framework Visibility:** Tag every response with **`🤓 DeployNOPE @ New Work`** while this command
@@ -57,10 +57,10 @@ Suggest the most appropriate base branch according to the deployment process, an
 
 | Work type | Recommended base | Reason |
 |---|---|---|
-| Feature release | `master` | Release branches are cut from master |
-| Hotfix | `master` | Hotfixes branch directly from production |
+| Feature release | `<production-branch>` | Release branches are cut from <production-branch> |
+| Hotfix | `<production-branch>` | Hotfixes branch directly from production |
 | Ticket/feature branch | The current release branch (e.g. `6.51.0`) | Ticket branches feed into the release branch |
-| Chore / config | `master` | All work types follow the same staging → master process |
+| Chore / config | `<production-branch>` | All work types follow the same <staging-branch> → <production-branch> process |
 
 **Before suggesting a release branch as a base**, fetch from the remote and verify it
 has not already been released:
@@ -80,22 +80,22 @@ a new release branch:
 
 Present the recommendation with a short explanation, then offer alternatives:
 
-> "Based on the deployment process, I'd recommend branching from `master` because [reason].
+> "Based on the deployment process, I'd recommend branching from `<production-branch>` because [reason].
 > Would you like to use that, or a different base?
-> 1. `master` ← recommended
+> 1. `<production-branch>` ← recommended
 > 2. An existing release branch (e.g. `release/1.2.0`) — for ticket/feature work feeding into a release
 > 3. Other — please specify"
 
-**Warning:** Do **not** offer `development` as a base branch. The `development` branch is
+**Warning:** Do **not** offer `<development-branch>` as a base branch. The `<development-branch>` branch is
 only updated by merging the release branch into it **after** production deployment. Branching
-from `development` creates a mismatch: the PR hook will block PRs targeting `development`,
-and the work cannot follow the correct release flow (`feature → release → staging → master → development`).
+from `<development-branch>` creates a mismatch: the PR hook will block PRs targeting `<development-branch>`,
+and the work cannot follow the correct release flow (`feature → release → <staging-branch> → <production-branch> → development`).
 
 If the user's work is a feature or ticket and no release branch exists yet, prompt them to
 create one first:
 
 > "There's no active release branch. Would you like to create one (e.g. `release/X.Y.Z`)
-> from `master` first? Feature branches should target a release branch, not `development`."
+> from `<production-branch>` first? Feature branches should target a release branch, not `<development-branch>`."
 
 ### 5. If creating a release branch, run the release version check
 
@@ -119,18 +119,18 @@ gh release list --limit 10
 
 Before creating the branch, check:
 
-1. **`master` vs `staging`** — commits on `master` not in `staging`?
-2. **`master` vs `development`** — commits on `master` not in `development`?
+1. **`<production-branch>` vs `<staging-branch>`** — commits on `<production-branch>` not in `<staging-branch>`?
+2. **`<production-branch>` vs `<development-branch>`** — commits on `<production-branch>` not in `<development-branch>`?
 
 ```shell
 git fetch origin
-git log origin/staging..origin/master --oneline
-git log origin/development..origin/master --oneline
+git log origin/<staging-branch>..origin/<production-branch> --oneline
+git log origin/<development-branch>..origin/<production-branch> --oneline
 ```
 
 If either shows commits, warn the user:
 
-> "Warning: `master` has commits not in `development` (or `staging`). A previous release
+> "Warning: `<production-branch>` has commits not in `<development-branch>` (or `<staging-branch>`). A previous release
 > may not have completed the full deployment process. Please resolve this before starting
 > a new feature branch."
 
@@ -153,4 +153,4 @@ Never branch off or merge from a stale local branch.
 
 Once worktree, branch name, base branch, and drift check are confirmed, you may create the branch. **Creating a branch** remains a human gate — confirm the branch name and base branch before running `git checkout -b <name> <base>`.
 
-For the full deployment ruleset (staging contention, master reset, cross-repo checks, etc.), ensure `/deploynope-deploy` has been run in this session.
+For the full deployment ruleset (staging contention, <production-branch> reset, cross-repo checks, etc.), ensure `/deploynope-deploy` has been run in this session.

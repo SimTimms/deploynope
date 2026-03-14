@@ -39,7 +39,7 @@ List all remote branches and their last commit date. Flag branches by staleness 
 ```shell
 # List all remote branches with last commit date, sorted oldest first
 git fetch origin --quiet
-git for-each-ref --sort=committerdate refs/remotes/origin --format='%(committerdate:short) %(committerdate:relative) %(refname:short)' | grep -v -E 'origin/(HEAD|main|master|staging|development)$'
+git for-each-ref --sort=committerdate refs/remotes/origin --format='%(committerdate:short) %(committerdate:relative) %(refname:short)' | grep -v -E 'origin/(HEAD|<production-branch>|<staging-branch>|<development-branch>)$'
 ```
 
 **Staleness tiers:**
@@ -59,40 +59,40 @@ gh pr list --state open --json number,title,createdAt,headRefName,baseRefName,au
 
 Flag PRs by age using the same staleness tiers as branches. Also flag:
 - PRs with no activity (no updates) in the last 7 days
-- PRs targeting `staging` or `master`/`main` (these should not exist under normal workflow)
+- PRs targeting `<staging-branch>` or `<production-branch>` (these should not exist under normal workflow)
 
 ### 3. Staging Idle Time
 
-Check whether staging is clear and whether there is work ready to deploy:
+Check whether <staging-branch> is clear and whether there is work ready to deploy:
 
 ```shell
-# Is staging claimed?
+# Is <staging-branch> claimed?
 git tag -l "staging/active"
 git tag -n1 "staging/active"
 
 # Are there branches that look ready to deploy? (merged PRs, release branches, etc.)
-gh pr list --state open --json headRefName,baseRefName --jq '.[] | select(.baseRefName == "development" or .baseRefName == "main" or .baseRefName == "master") | .headRefName'
+gh pr list --state open --json headRefName,baseRefName --jq '.[] | select(.baseRefName == "<development-branch>" or .baseRefName == "<staging-branch>" or .baseRefName == "<production-branch>") | .headRefName'
 
-# How long has staging been clear? (last activity on staging branch)
-git log origin/staging -1 --format='%ci %cr'
+# How long has <staging-branch> been clear? (last activity on <staging-branch> branch)
+git log origin/<staging-branch> -1 --format='%ci %cr'
 ```
 
-If staging is clear **and** there are branches or PRs that appear ready to ship,
+If <staging-branch> is clear **and** there are branches or PRs that appear ready to ship,
 flag that deployment capacity is being wasted:
 
-> "Staging is clear and available, but there are X branches/PRs that may be ready
+> "`<staging-branch>` is clear and available, but there are X branches/PRs that may be ready
 > to deploy. Consider starting the deployment process to keep the pipeline moving."
 
 ### 4. Branch Drift from Production
 
-For every non-protected remote branch, check how far behind `main`/`master` it is:
+For every non-protected remote branch, check how far behind `<production-branch>` it is:
 
 ```shell
-# For each active branch, count commits it's behind main
-for branch in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -v -E '(HEAD|main|master|staging|development)$'); do
-  behind=$(git rev-list --count "$branch..origin/main" 2>/dev/null || echo "0")
+# For each active branch, count commits it's behind `<production-branch>`
+for branch in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin | grep -v -E '(HEAD|<production-branch>|<staging-branch>|<development-branch>)$'); do
+  behind=$(git rev-list --count "$branch..origin/<production-branch>" 2>/dev/null || echo "0")
   if [ "$behind" -gt 0 ]; then
-    echo "$branch is $behind commits behind main"
+    echo "$branch is $behind commits behind `<production-branch>`"
   fi
 done
 ```
@@ -112,7 +112,7 @@ Summarise what's in the pipeline and in what order it should ship:
 
 - Branches that look like release branches (version patterns like `X.Y.Z`)
 - Branches that look like hotfixes (patch version patterns like `X.Y.Z` where Z > 0)
-- Feature branches with open PRs targeting the release branch or `development`
+- Feature branches with open PRs targeting the release branch or `<development-branch>`
 - Any work that appears blocked or waiting
 
 ### 6. Time Since Last Production Release
@@ -159,7 +159,7 @@ _Repo: `<owner>/<repo>` | Date: `<today>` | Branch: `<current-branch>`_
 
 ### Stale Branches
 
-| Branch | Last Commit | Age | Behind `main` | Status |
+| Branch | Last Commit | Age | Behind `<production-branch>` | Status |
 |--------|-------------|-----|---------------|--------|
 | `origin/<branch>` | `<date>` | `<relative>` | X commits | <emoji> <tier> |
 
@@ -193,7 +193,7 @@ If nothing is queued: "No work queued for deployment."
 
 Based on the findings, provide actionable recommendations. Examples:
 
-- "Branch `feature/old-thing` is 3 weeks old and 22 commits behind main. Consider merging main into it or closing it if the work is abandoned."
+- "Branch `feature/old-thing` is 3 weeks old and 22 commits behind `<production-branch>`. Consider merging `<production-branch>` into it or closing it if the work is abandoned."
 - "PR #42 has had no activity for 12 days. Follow up with the author or close it."
 - "Staging has been idle for 5 days with 2 branches ready to ship. Consider starting a deployment."
 - "No releases in 18 days. Check if there are blockers preventing the next release."
@@ -224,5 +224,5 @@ Flag any version mismatch between repos.
 Suggest running this check:
 - Before starting new work (`/deploynope-new-work`)
 - At the start of each week
-- When staging has been idle for more than a few days
+- When <staging-branch> has been idle for more than a few days
 - When planning which work to ship next

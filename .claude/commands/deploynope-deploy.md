@@ -41,9 +41,9 @@ Each command and deployment step has its own stage label:
 | `/deploynope-postdeploy` | `🤓 DeployNOPE @ Post-Deploy` |
 | `/deploynope-rollback` | `🤓 DeployNOPE @ Rollback` |
 | Feature/ticket work (coding, committing) | `🤓 DeployNOPE @ Feature` |
-| Staging contention check or claiming staging | `🤓 DeployNOPE @ Staging` |
-| Validating on staging | `🤓 DeployNOPE @ Staging Validation` |
-| Resetting master / production deployment | `🤓 DeployNOPE @ Production` |
+| Staging contention check or claiming <staging-branch> | `🤓 DeployNOPE @ Staging` |
+| Validating on <staging-branch> | `🤓 DeployNOPE @ Staging Validation` |
+| Resetting <production-branch> / production deployment | `🤓 DeployNOPE @ Production` |
 | Creating a GitHub Release | `🤓 DeployNOPE @ Release` |
 | Post-deployment alignment check | `🤓 DeployNOPE @ Post-Deploy` |
 | General deployment work (no specific step) | `🤓 DeployNOPE @ Deploy` |
@@ -77,8 +77,8 @@ State clearly what is missing and what impact it may have before proceeding.
 
 ## Suggesting Next Steps
 
-**Never suggest pushing directly to `master`.** All changes must go through
-the full deployment process (staging reset → validate → master reset) unless
+**Never suggest pushing directly to `<production-branch>`.** All changes must go through
+the full deployment process (<staging-branch> reset → validate → <production-branch> reset) unless
 the user explicitly states exceptional circumstances.
 
 When a branch is ready to move forward, always present the deployment process table
@@ -91,20 +91,20 @@ Example:
 | Step | Action | Status |
 |------|--------|--------|
 | 1 | Feature branches merged into release branch | ✅ Done |
-| 2 | Sync release branch with `master` | ✅ Done |
+| 2 | Sync release branch with `<production-branch>` | ✅ Done |
 | 3 | Update changelog on release branch (if enabled) | ✅ Done |
 | 4 | Confirm release branch is ready | ⬅️ Next |
 | 5 | Staging contention check | — |
-| 6 | Claim staging | — |
-| 7 | Reset `staging` to match release branch | — |
-| 8 | Validate on staging | — |
+| 6 | Claim <staging-branch> | — |
+| 7 | Reset `<staging-branch>` to match release branch | — |
+| 8 | Validate on <staging-branch> | — |
 | 9 | Cross-repo version parity check | — |
-| 10 | Reset `master` to match `staging` | — |
+| 10 | Reset `<production-branch>` to match `<staging-branch>` | — |
 | 11 | Confirm CodePipeline healthy | — |
 | 12 | Create GitHub Release (both repos) | — |
 | 13 | Write release manifest | — |
-| 14 | Sync staging + development with master | — |
-| 15 | Clear staging | — |
+| 14 | Sync <staging-branch> + <development-branch> with <production-branch> | — |
+| 15 | Clear <staging-branch> | — |
 | 16 | Write Confluence release notes | — |
 | 17 | Post-deploy checks (automatic) | — |
 
@@ -164,10 +164,10 @@ Whenever a new task, feature, fix, or piece of work begins — before doing anyt
 
    | Work type | Recommended base | Reason |
    |---|---|---|
-   | Feature release | `master` | Release branches are cut from master |
-   | Hotfix | `master` | Hotfixes branch directly from production |
+   | Feature release | `<production-branch>` | Release branches are cut from <production-branch> |
+   | Hotfix | `<production-branch>` | Hotfixes branch directly from production |
    | Ticket/feature branch | The current release branch (e.g. `6.51.0`) | Ticket branches feed into the release branch |
-   | Chore / config | `master` | All work types follow the same staging → master process |
+   | Chore / config | `<production-branch>` | All work types follow the same <staging-branch> → <production-branch> process |
 
    **Before suggesting a release branch as a base**, fetch from the remote and verify it
    has not already been released:
@@ -186,22 +186,22 @@ Whenever a new task, feature, fix, or piece of work begins — before doing anyt
    > Would you like to create a new release branch? The next available version is `<next-version>`."
 
    Present the recommendation with a short explanation, then offer alternatives:
-   > "Based on the deployment process, I'd recommend branching from `master` because [reason].
+   > "Based on the deployment process, I'd recommend branching from `<production-branch>` because [reason].
    > Would you like to use that, or a different base?
-   > 1. `master` ← recommended
+   > 1. `<production-branch>` ← recommended
    > 2. An existing release branch (e.g. `release/1.2.0`) — for ticket/feature work feeding into a release
    > 3. Other — please specify"
 
-   **Warning:** Do **not** offer `development` as a base branch. The `development` branch is
+   **Warning:** Do **not** offer `<development-branch>` as a base branch. The `<development-branch>` branch is
    only updated by merging the release branch into it **after** production deployment. Branching
-   from `development` creates a mismatch: the PR hook will block PRs targeting `development`,
-   and the work cannot follow the correct release flow (`feature → release → staging → master → development`).
+   from `<development-branch>` creates a mismatch: the PR hook will block PRs targeting `<development-branch>`,
+   and the work cannot follow the correct release flow (`feature → release → <staging-branch> → <production-branch> → <development-branch>`).
 
    If the user's work is a feature or ticket and no release branch exists yet, prompt them to
    create one first:
 
    > "There's no active release branch. Would you like to create one (e.g. `release/X.Y.Z`)
-   > from `master` first? Feature branches should target a release branch, not `development`."
+   > from `<production-branch>` first? Feature branches should target a release branch, not `<development-branch>`."
 
 4. **If creating a release branch, run the release version check** (see below).
 
@@ -246,10 +246,10 @@ Stop and wait for explicit written confirmation before:
 1. **Creating a branch** — confirm the branch name and base branch.
 2. **Any `git push`** — always ask "Shall I push this?"
 3. **Any force-push or reset** — state exactly what will be overwritten and confirm.
-4. **Resetting `staging`** — must pass the staging contention check first (see below), then confirm.
-5. **Resetting `master`** — confirm: "Just to confirm — you want me to reset `master` to match `staging`?"
+4. **Resetting `<staging-branch>`** — must pass the <staging-branch> contention check first (see below), then confirm.
+5. **Resetting `<production-branch>`** — confirm: "Just to confirm — you want me to reset `<production-branch>` to match `<staging-branch>`?"
 6. **Removing worktrees** — list what will be removed and confirm.
-7. **After staging validation** — wait for explicit "it's validated" sign-off before resetting `master`.
+7. **After <staging-branch> validation** — wait for explicit "it's validated" sign-off before resetting `<production-branch>`.
 8. **Creating a GitHub Release** — confirm the tag and which repos to release.
 9. **Any deployment step after 2:00 PM** — warn and ask for confirmation (see Deployment Timing).
 10. **Starting a new feature branch** — run branch drift check first (see below).
@@ -266,10 +266,10 @@ Staging is a shared resource. Before resetting it, two checks must pass:
 
 ```shell
 git fetch origin
-git log origin/master..origin/staging --oneline
+git log origin/<production-branch>..origin/<staging-branch> --oneline
 ```
 
-If this shows commits, staging has work that hasn't reached production yet.
+If this shows commits, <staging-branch> has work that hasn't reached production yet.
 **Do not reset staging** — someone else's validated work would be lost.
 
 **Check 2: Active claim tag**
@@ -321,10 +321,10 @@ If the user declines, stop the workflow as normal and wait for manual confirmati
 
 **Check 3: Stale release branch**
 
-Before resetting staging to a release branch, verify the release branch contains
+Before resetting <staging-branch> to a release branch, verify the release branch contains
 **all commits currently on the production branch**. If the production branch has moved
 forward since the release branch was created (e.g. another release landed while this
-one was in progress), resetting staging to the stale branch and then resetting production
+one was in progress), resetting <staging-branch> to the stale branch and then resetting production
 to match would **rewind production**, erasing the newer work.
 
 ```shell
@@ -342,7 +342,7 @@ If this shows any commits, the release branch is stale. **Do not reset staging.*
 > <commit list>
 > ```
 >
-> These commits would be lost if this release branch goes through staging to production.
+> These commits would be lost if this release branch goes through <staging-branch> to production.
 > You must merge `<production-branch>` into `<release-branch>` first:
 >
 > ```shell
@@ -350,7 +350,7 @@ If this shows any commits, the release branch is stale. **Do not reset staging.*
 > git merge origin/<production-branch>
 > ```
 >
-> Resolve any conflicts, then re-run the staging reset.
+> Resolve any conflicts, then re-run the <staging-branch> reset.
 
 **[HUMAN GATE]** — Do not proceed until the merge is complete and the user has confirmed.
 
@@ -361,37 +361,37 @@ All three checks must pass before claiming staging.
 When both checks pass and the user has confirmed:
 
 ```shell
-git tag -a staging/active -m "Claimed by <name> for <branch> on <date>" origin/staging
-git push origin staging/active
+git tag -a staging/active -m "Claimed by <name> for <branch> on <date>" origin/<staging-branch>
+git push origin <staging-branch>/active
 ```
 
-Prompt the user to notify the team in Slack that staging has been claimed and for which branch.
+Prompt the user to notify the team in Slack that <staging-branch> has been claimed and for which branch.
 
 ### Clearing staging
 
-After master has been reset and the deployment is confirmed healthy:
+After <production-branch> has been reset and the deployment is confirmed healthy:
 
 ```shell
 git tag -d staging/active
 git push origin :staging/active
 ```
 
-Prompt the user to notify the team in Slack that staging is now clear and available.
+Prompt the user to notify the team in Slack that <staging-branch> is now clear and available.
 
-> **Do not clear staging until master has been reset and deployment is confirmed.**
-> The claim persists from the moment staging is taken until the work is live in production.
+> **Do not clear <staging-branch> until <production-branch> has been reset and deployment is confirmed.**
+> The claim persists from the moment <staging-branch> is taken until the work is live in production.
 
 ---
 
-## Resetting `master` — Branch Protection Toggle
+## Resetting `<production-branch>` — Branch Protection Toggle
 
-`master` has GitHub branch protection enabled with force-pushes **disabled by default**.
-When the deployment process reaches the master reset step, Claude must temporarily
+`<production-branch>` has GitHub branch protection enabled with force-pushes **disabled by default**.
+When the deployment process reaches the <production-branch> reset step, Claude must temporarily
 enable force-pushes, perform the reset, and immediately re-disable them.
 
 ### ⚠️ Worktree Safety Check
 
-**Before resetting `master`, verify you are in the main repository clone — not a worktree.**
+**Before resetting `<production-branch>`, verify you are in the main repository clone — not a worktree.**
 
 ```shell
 git rev-parse --git-dir
@@ -400,14 +400,14 @@ git rev-parse --git-dir
 - If the output is `.git` — you are in the main clone. Safe to proceed.
 - If the output contains `/worktrees/` — you are in a worktree. **STOP.**
 
-**Do not run the master reset from a worktree.** Running `git checkout master` inside
-a worktree will fail if `master` is already checked out in the main clone (`fatal:
-'master' is already checked out at ...`). Even if it didn't fail, resetting master
+**Do not run the <production-branch> reset from a worktree.** Running `git checkout <production-branch>` inside
+a worktree will fail if `<production-branch>` is already checked out in the main clone (`fatal:
+'<production-branch>' is already checked out at ...`). Even if it didn't fail, resetting `<production-branch>`
 from a worktree risks operating on the wrong working directory.
 
 If you are in a worktree, switch to the main repository clone first:
 
-> "I'm currently in a worktree. The master reset must be run from the main repository
+> "I'm currently in a worktree. The <production-branch> reset must be run from the main repository
 > clone at `<path>`. Please switch to that directory, or confirm I should proceed
 > from there."
 
@@ -415,14 +415,14 @@ If you are in a worktree, switch to the main repository clone first:
 
 ### Procedure
 
-**[HUMAN GATE]** — Confirm with the user before starting: "Ready to reset `master` to
-match `staging`. This will temporarily enable force-push on `master`, perform the reset,
+**[HUMAN GATE]** — Confirm with the user before starting: "Ready to reset `<production-branch>` to
+match `<staging-branch>`. This will temporarily enable force-push on `<production-branch>`, perform the reset,
 and immediately re-lock it. Proceed?"
 
 **Step 1: Enable force-push**
 
 ```shell
-gh api repos/{owner}/{repo}/branches/master/protection -X PUT --input - <<'EOF'
+gh api repos/{owner}/{repo}/branches/<production-branch>/protection -X PUT --input - <<'EOF'
 {
   "required_status_checks": null,
   "enforce_admins": false,
@@ -436,18 +436,18 @@ EOF
 
 Confirm the response shows `"allow_force_pushes": { "enabled": true }`.
 
-**Step 2: Reset master**
+**Step 2: Reset `<production-branch>`**
 
 ```shell
-git checkout master
-git reset --hard staging
-git push --force-with-lease origin master
+git checkout <production-branch>
+git reset --hard <staging-branch>
+git push --force-with-lease origin <production-branch>
 ```
 
-**Step 3: Re-lock master (immediately)**
+**Step 3: Re-lock <production-branch> (immediately)**
 
 ```shell
-gh api repos/{owner}/{repo}/branches/master/protection -X PUT --input - <<'EOF'
+gh api repos/{owner}/{repo}/branches/<production-branch>/protection -X PUT --input - <<'EOF'
 {
   "required_status_checks": null,
   "enforce_admins": false,
@@ -461,8 +461,8 @@ EOF
 
 Confirm the response shows `"allow_force_pushes": { "enabled": false }`.
 
-> **⚠️ If the reset fails (Step 2), still run Step 3 immediately** to re-lock master.
-> Never leave master unprotected. If Step 3 also fails, warn the user immediately
+> **⚠️ If the reset fails (Step 2), still run Step 3 immediately** to re-lock `<production-branch>`.
+> Never leave <production-branch> unprotected. If Step 3 also fails, warn the user immediately
 > so they can manually re-enable protection in GitHub settings.
 
 The `{owner}/{repo}` placeholders should be replaced with your actual repository names
@@ -473,15 +473,15 @@ The `{owner}/{repo}` placeholders should be replaced with your actual repository
 ## Git & Branching Rules
 
 - **Never push without permission.**
-- **Never reset `master` without completing the staging process first.**
-- **All changes reach `master` via a controlled reset from `staging`.** No direct pushes, no PRs to master.
-- **`master` is protected.** Force-pushes are disabled by default and only temporarily enabled during the controlled reset (see above).
+- **Never reset `<production-branch>` without completing the <staging-branch> process first.**
+- **All changes reach `<production-branch>` via a controlled reset from `<staging-branch>`.** No direct pushes, no PRs to `<production-branch>`.
+- **`<production-branch>` is protected.** Force-pushes are disabled by default and only temporarily enabled during the controlled reset (see above).
 - **Always ask what branch to branch off of** before creating a new branch.
 - **Always ask for the branch name** — never invent one.
 - **Always use `--force-with-lease`** instead of `--force`.
-- **Always run the staging contention check** before resetting staging.
-- **All work types follow the same process** — feature releases, hotfixes, and chore/config changes all go through staging → master reset. No shortcuts.
-- Branches are created off `master` unless explicitly told otherwise.
+- **Always run the <staging-branch> contention check** before resetting `<staging-branch>`.
+- **All work types follow the same process** — feature releases, hotfixes, and chore/config changes all go through <staging-branch> → <production-branch> reset. No shortcuts.
+- Branches are created off `<production-branch>` unless explicitly told otherwise.
 
 ---
 
@@ -515,12 +515,12 @@ Never assume the current release branch is still active — always verify agains
 
 Before creating any new release or feature branch, check:
 
-1. **`master` vs `staging`** — commits on `master` not in `staging`?
-2. **`master` vs `development`** — commits on `master` not in `development`?
+1. **`<production-branch>` vs `<staging-branch>`** — commits on `<production-branch>` not in `<staging-branch>`?
+2. **`<production-branch>` vs `<development-branch>`** — commits on `<production-branch>` not in `<development-branch>`?
 
 If discrepancies are found, warn the user:
 
-> "Warning: `master` has commits not in `development` (or `staging`). A previous release
+> "Warning: `<production-branch>` has commits not in `<development-branch>` (or `<staging-branch>`). A previous release
 > may not have completed the full deployment process. Please resolve this before starting
 > a new feature branch."
 
@@ -531,8 +531,8 @@ Do not proceed until the user has acknowledged the warning.
 ## Deployment Timing
 
 **Do not initiate any deployment step after 2:00 PM.** This includes:
-- Resetting `staging`
-- Resetting `master`
+- Resetting `<staging-branch>`
+- Resetting `<production-branch>`
 - Creating a GitHub Release
 
 If attempted after 2:00 PM, warn the user:
@@ -546,61 +546,61 @@ Wait for explicit written confirmation before continuing.
 
 ## Deployment Process
 
-All work types follow the same staging → master reset process.
+All work types follow the same <staging-branch> → <production-branch> reset process.
 
 ### Feature Release
 
 1. Feature ticket branches → release branch (e.g. `6.51.0`) via PR
-2. Sync release branch with `master` (`git merge master`)
+2. Sync release branch with `<production-branch>` (`git merge <production-branch>`)
 3. **[CHANGELOG]** Update changelog on the release branch (if enabled in config — see Changelog section below)
 4. **[HUMAN GATE]** Confirm release branch is ready
-5. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
+5. **[STAGING CHECK]** Run <staging-branch> contention check (unreleased commits + active claim + stale branch)
 6. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
-7. Reset `staging` to match the release branch: `git reset --hard <release-branch>`
-8. **[HUMAN GATE]** Validate on staging — wait for explicit "it's validated" sign-off
+7. Reset `<staging-branch>` to match the release branch: `git reset --hard <release-branch>`
+8. **[HUMAN GATE]** Validate on <staging-branch> — wait for explicit "it's validated" sign-off
 9. **[CROSS-REPO CHECK]** Confirm frontend/backend version parity (see Cross-Repo Rules)
-10. **[HUMAN GATE]** Confirm before resetting `master` — CodePipeline deploys automatically
-11. Reset `master` to match `staging`: `git reset --hard staging`
-12. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `master`
+10. **[HUMAN GATE]** Confirm before resetting `<production-branch>` — CodePipeline deploys automatically
+11. Reset `<production-branch>` to match `<staging-branch>`: `git reset --hard <staging-branch>`
+12. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `<production-branch>`
 13. Create GitHub Release on **both** repos
-14. **[RELEASE MANIFEST]** Write release manifest to `releases/<version>.json`, commit and push to `master`
-15. **[BRANCH SYNC]** Sync `staging` and `development` with `master` (to pick up manifest commit) — fast-forward or merge `master` into both, then push
+14. **[RELEASE MANIFEST]** Write release manifest to `releases/<version>.json`, commit and push to `<production-branch>`
+15. **[BRANCH SYNC]** Sync `<staging-branch>` and `<development-branch>` with `<production-branch>` (to pick up manifest commit) — fast-forward or merge `<production-branch>` into both, then push
 16. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
 17. Write Confluence release notes
 18. **[POST-DEPLOY]** Automatically run `/deploynope-postdeploy` checks — do not wait for the user to invoke it
 
 ### Hotfix
 
-1. Branch `6.XX.Y` from `master`
+1. Branch `6.XX.Y` from `<production-branch>`
 2. **[CHANGELOG]** Update changelog on the hotfix branch (if enabled in config)
-3. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
+3. **[STAGING CHECK]** Run <staging-branch> contention check (unreleased commits + active claim + stale branch)
 4. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
-5. Reset `staging` to match hotfix branch
+5. Reset `<staging-branch>` to match hotfix branch
 6. **[HUMAN GATE]** Validate on staging
 7. **[CROSS-REPO CHECK]** Confirm frontend/backend version parity
-8. Reset `master` to match `staging`
-9. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `master`
+8. Reset `<production-branch>` to match `<staging-branch>`
+9. **Deploy backend first** — confirm CodePipeline healthy before resetting frontend `<production-branch>`
 10. Create GitHub Release on both repos
-11. **[RELEASE MANIFEST]** Write release manifest, commit and push to `master`
-12. **[BRANCH SYNC]** Sync `staging` and `development` with `master`, then push
-13. Notify in-flight feature branches to pull from `development`
+11. **[RELEASE MANIFEST]** Write release manifest, commit and push to `<production-branch>`
+12. **[BRANCH SYNC]** Sync `<staging-branch>` and `<development-branch>` with `<production-branch>`, then push
+13. Notify in-flight feature branches to pull from `<development-branch>`
 14. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
 15. Write Confluence release notes
 16. **[POST-DEPLOY]** Automatically run `/deploynope-postdeploy` checks
 
 ### Chore / Config
 
-1. Branch from `master` (e.g. `chore/claude-config`)
+1. Branch from `<production-branch>` (e.g. `chore/claude-config`)
 2. Do the work, commit, and push
 3. **[CHANGELOG]** Update changelog on the chore branch (if enabled in config)
-4. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
+4. **[STAGING CHECK]** Run <staging-branch> contention check (unreleased commits + active claim + stale branch)
 5. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
-6. Reset `staging` to match chore branch
+6. Reset `<staging-branch>` to match chore branch
 7. **[HUMAN GATE]** Validate on staging
-8. Reset `master` to match `staging`
+8. Reset `<production-branch>` to match `<staging-branch>`
 9. Confirm deployment is healthy
-10. **[RELEASE MANIFEST]** Write release manifest (if version bump involved), commit and push to `master`
-11. **[BRANCH SYNC]** Sync `staging` and `development` with `master`, then push
+10. **[RELEASE MANIFEST]** Write release manifest (if version bump involved), commit and push to `<production-branch>`
+11. **[BRANCH SYNC]** Sync `<staging-branch>` and `<development-branch>` with `<production-branch>`, then push
 12. **[STAGING CLEAR]** Remove `staging/active` tag; notify team in Slack
 13. **[POST-DEPLOY]** Automatically run `/deploynope-postdeploy` checks
 
@@ -616,7 +616,7 @@ Never review or deploy either repo in isolation.
 Frontend and backend must **always be on the same version number** in production,
 even if one has no code changes.
 
-Before any `master` reset:
+Before any `<production-branch>` reset:
 1. Check `package.json` version on both repos.
 2. If they do not match, **stop and warn the user**.
 3. If one repo has no code changes, it still needs a version bump and GitHub Release.
@@ -673,9 +673,9 @@ missing from the config, skip this step entirely.
 **This step is mandatory when enabled** — do not skip it or defer it.
 
 The changelog is written **on the release/hotfix/chore branch, before the staging
-reset**. This means the changelog entry goes through staging like any other code
-change, and there is no need for a separate post-deploy commit to `master` for
-the changelog. The only post-deploy commit to `master` should be the release manifest
+reset**. This means the changelog entry goes through <staging-branch> like any other code
+change, and there is no need for a separate post-deploy commit to `<production-branch>` for
+the changelog. The only post-deploy commit to `<production-branch>` should be the release manifest
 (which requires the final deployment SHA).
 
 ### Procedure
@@ -697,7 +697,7 @@ git log v<previous-version>..v<current-version> --oneline --no-merges
 If no tags exist yet, fall back to:
 
 ```shell
-git log origin/master --oneline -20
+git log origin/<production-branch> --oneline -20
 ```
 
 Group the commits according to the configured format (see Step 3).
@@ -802,8 +802,8 @@ git add <changelog.filePath>
 git commit -m "docs: update changelog for <version>"
 ```
 
-This commit is made **on the release/hotfix/chore branch** before the staging reset.
-The changelog goes through staging like any other change.
+This commit is made **on the release/hotfix/chore branch** before the <staging-branch> reset.
+The changelog goes through <staging-branch> like any other change.
 
 **[HUMAN GATE]** — Ask before pushing: "Shall I push the changelog update to the release branch?"
 
@@ -816,7 +816,7 @@ git push origin <release-branch>
 ## Merge Conflict Resolution
 
 - **Always ask which side to prefer** before resolving — never assume.
-- When a release branch conflicts with `staging` or `master`, prefer the release branch
+- When a release branch conflicts with `<staging-branch>` or `<production-branch>`, prefer the release branch
   unless there is a clear reason not to.
 - State what you are resolving and why before committing.
 
@@ -833,13 +833,13 @@ everything is in sync. Do not skip this step.
 git fetch origin --quiet
 
 # 1. Branch alignment — all three should be identical
-git log origin/master..origin/staging --oneline
-git log origin/staging..origin/master --oneline
-git log origin/master..origin/development --oneline
-git log origin/development..origin/master --oneline
+git log origin/<production-branch>..origin/<staging-branch> --oneline
+git log origin/<staging-branch>..origin/<production-branch> --oneline
+git log origin/<production-branch>..origin/<development-branch> --oneline
+git log origin/<development-branch>..origin/<production-branch> --oneline
 
 # 2. Version on each branch
-for branch in origin/master origin/staging origin/development; do
+for branch in origin/<production-branch> origin/<staging-branch> origin/<development-branch>; do
   echo "$branch: $(git show $branch:package.json | python3 -c "import json,sys; print(json.load(sys.stdin)['version'])" 2>/dev/null || echo 'N/A')"
 done
 
@@ -864,9 +864,9 @@ _Date: `<today>` | Production version: `<version>`_
 
 | Check | Status | Detail |
 |-------|--------|--------|
-| `master` = `staging` | ✅ / ❌ | Identical / X commits apart |
-| `master` = `development` | ✅ / ❌ | Identical / X commits apart |
-| Version: `master` / `staging` / `development` | ✅ / ❌ | All `<version>` / Mismatch |
+| `<production-branch>` = `<staging-branch>` | ✅ / ❌ | Identical / X commits apart |
+| `<production-branch>` = `<development-branch>` | ✅ / ❌ | Identical / X commits apart |
+| Version: `<production-branch>` / `<staging-branch>` / `<development-branch>` | ✅ / ❌ | All `<version>` / Mismatch |
 | Staging claim | ✅ Clear / ⚠️ Active | Tag details if active |
 | Latest GitHub Release | ✅ / ❌ | `<tag>` matches / Behind |
 | Open PRs | ℹ️ | X open — flag any targeting key branches |
@@ -875,9 +875,9 @@ _Date: `<today>` | Production version: `<version>`_
 
 | Check | Status | Detail |
 |-------|--------|--------|
-| `master` = `staging` | ✅ / ❌ | Identical / X commits apart |
-| `master` = `development` | ✅ / ❌ | Identical / X commits apart |
-| Version: `master` / `staging` / `development` | ✅ / ❌ | All `<version>` / Mismatch |
+| `<production-branch>` = `<staging-branch>` | ✅ / ❌ | Identical / X commits apart |
+| `<production-branch>` = `<development-branch>` | ✅ / ❌ | Identical / X commits apart |
+| Version: `<production-branch>` / `<staging-branch>` / `<development-branch>` | ✅ / ❌ | All `<version>` / Mismatch |
 | Staging claim | ✅ Clear / ⚠️ Active | Tag details if active |
 | Latest GitHub Release | ✅ / ❌ | `<tag>` matches / Behind |
 | Open PRs | ℹ️ | X open — flag any targeting key branches |
@@ -900,41 +900,41 @@ If issues are found, list them in priority order with recommended actions.
 
 ## Post-Manifest Branch Sync
 
-After the release manifest is committed and pushed to `master`, **`staging` and
-`development` must be synced with `master`** before clearing the staging claim.
+After the release manifest is committed and pushed to `<production-branch>`, **`<staging-branch>` and
+`<development-branch>` must be synced with `<production-branch>`** before clearing the <staging-branch> claim.
 This ensures all three branches include the manifest commit.
 
-**Why this exists:** Without this step, `master` ends up ahead of `staging` and
-`development` by the manifest commit. This causes branch drift that accumulates
+**Why this exists:** Without this step, `<production-branch>` ends up ahead of `<staging-branch>` and
+`<development-branch>` by the manifest commit. This causes branch drift that accumulates
 across releases and was the root cause of repeated post-deploy failures.
 
 The changelog no longer causes drift because it is written on the release branch
-before the staging reset — it goes through staging like any other code change.
+before the <staging-branch> reset — it goes through <staging-branch> like any other code change.
 
 ### Procedure
 
 ```shell
 # Sync staging
-git checkout staging
-git merge origin/master --no-edit
-git push origin staging
+git checkout <staging-branch>
+git merge origin/<production-branch> --no-edit
+git push origin <staging-branch>
 
 # Sync development
-git checkout development
-git merge origin/master --no-edit
-git push origin development
+git checkout <development-branch>
+git merge origin/<production-branch> --no-edit
+git push origin <development-branch>
 ```
 
 If either merge is a fast-forward, no merge commit is created — this is ideal.
 
-**This step is mandatory.** Do not clear the staging claim until both branches are
+**This step is mandatory.** Do not clear the <staging-branch> claim until both branches are
 synced. Do not skip this step even if the manifest is the only new commit.
 
 ---
 
 ## Automatic Post-Deploy
 
-At the end of every deployment — after clearing staging — **automatically run the
+At the end of every deployment — after clearing <staging-branch> — **automatically run the
 post-deploy checks** (the same checks from `/deploynope-postdeploy`). Do not wait
 for the user to invoke `/deploynope-postdeploy` manually.
 
@@ -942,7 +942,7 @@ Display the full post-deploy results table and verdict. If any items are flagged
 present them immediately so they can be addressed before the user moves on.
 
 **Why this exists:** When post-deploy is a separate manual step, it gets forgotten
-or deferred, and issues (missing manifests, staging still claimed, branch drift)
+or deferred, and issues (missing manifests, <staging-branch> still claimed, branch drift)
 accumulate silently.
 
 ---
@@ -1044,8 +1044,7 @@ Use the stage label that matches the current workflow context (e.g. `Feature`, `
 
 ## Production Branch Guard
 
-**Before any push to the production branch** (`master`, `main`, or whatever is configured
-in `.deploynope.json` as `productionBranch`), run this check:
+**Before any push to the production branch** (`<production-branch>` from `.deploynope.json`), run this check:
 
 ### Step 1: Detect if this is a push to production
 
@@ -1055,40 +1054,40 @@ other branch (feature, release, hotfix, chore), skip this guard.
 ### Step 2: Check for deployment infrastructure
 
 ```shell
-git branch -r | grep -E 'origin/(staging|develop|development)' || echo "NONE FOUND"
+git branch -r | grep -E "origin/(<staging-branch>|<development-branch>)$" || echo "NONE FOUND"
 ```
 
-### Step 3a: If staging branch exists
+### Step 3a: If <staging-branch> branch exists
 
-**STOP.** Direct pushes to the production branch are not allowed when a staging branch
-exists. All changes must go through the staging → production reset process.
+**STOP.** Direct pushes to the production branch are not allowed when a <staging-branch> branch
+exists. All changes must go through the <staging-branch> → production reset process.
 
 > **❌ BLOCKED — Direct push to production**
 >
-> This repository has a staging branch. All changes must go through the full deployment
-> process (staging reset → validate → production reset). Direct pushes to `<production-branch>`
+> This repository has a <staging-branch> branch. All changes must go through the full deployment
+> process (<staging-branch> reset → validate → production reset). Direct pushes to `<production-branch>`
 > are not permitted.
 >
-> To proceed, use `/deploynope-deploy` and follow the staging → production process.
+> To proceed, use `/deploynope-deploy` and follow the <staging-branch> → production process.
 
-Do not proceed. Do not offer to override. The staging process exists for a reason.
+Do not proceed. Do not offer to override. The <staging-branch> process exists for a reason.
 
-### Step 3b: If NO staging branch exists
+### Step 3b: If NO <staging-branch> branch exists
 
 The repository does not have the branch infrastructure for the full deployment process.
 **Warn the user and offer to set it up** before allowing the push:
 
-> **⚠️ WARNING — No staging branch detected**
+> **⚠️ WARNING — No <staging-branch> branch detected**
 >
-> This repository does not have a `staging` branch. Without staging, there is no
+> This repository does not have a `<staging-branch>` branch. Without `<staging-branch>`, there is no
 > validation step between your code and production. DeployNOPE's full deployment
-> process (staging → validate → production reset) cannot be followed.
+> process (`<staging-branch>` → validate → production reset) cannot be followed.
 >
 > Would you like to:
-> 1. **Set up deployment infrastructure now** — I'll create `staging` and `development`
+> 1. **Set up deployment infrastructure now** — I'll create `<staging-branch>` and `<development-branch>`
 >    branches from the current production branch, so future deployments can follow the
 >    full process.
-> 2. **Push directly this time** — proceed with the push, understanding that no staging
+> 2. **Push directly this time** — proceed with the push, understanding that no `<staging-branch>`
 >    validation is happening. _(Not recommended for production applications.)_
 > 3. **Cancel** — do not push.
 
@@ -1097,15 +1096,15 @@ The repository does not have the branch infrastructure for the full deployment p
 If the user chooses option 1, create the branches:
 
 ```shell
-git branch staging origin/<production-branch>
-git push origin staging
-git branch development origin/<production-branch>
-git push origin development
+git branch <staging-branch> origin/<production-branch>
+git push origin <staging-branch>
+git branch <development-branch> origin/<production-branch>
+git push origin <development-branch>
 ```
 
 Then advise:
-> "Staging and development branches created. From now on, all deployments should go
-> through the full staging → production process. Run `/deploynope-configure` to confirm
+> "`<staging-branch>` and `<development-branch>` branches created. From now on, all deployments should go
+> through the full <staging-branch> → production process. Run `/deploynope-configure` to confirm
 > your branch names are set correctly."
 
 If the user chooses option 2, allow the push but add a **`⚠️ NO STAGING`** warning row

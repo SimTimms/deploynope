@@ -64,9 +64,9 @@ When DeployNOPE is active, every response is tagged with `🤓 DeployNOPE @ <Sta
 | `/deploynope-release-manifest` | `🤓 DeployNOPE @ Release Manifest` |
 | `/deploynope-postdeploy` | `🤓 DeployNOPE @ Post-Deploy` |
 | `/deploynope-rollback` | `🤓 DeployNOPE @ Rollback` |
-| Staging contention check or claiming staging | `🤓 DeployNOPE @ Staging` |
-| Validating on staging | `🤓 DeployNOPE @ Staging Validation` |
-| Resetting master / production deployment | `🤓 DeployNOPE @ Production` |
+| Staging contention check or claiming `<staging-branch>` | `🤓 DeployNOPE @ Staging` |
+| Validating on `<staging-branch>` | `🤓 DeployNOPE @ Staging Validation` |
+| Resetting `<production-branch>` / production deployment | `🤓 DeployNOPE @ Production` |
 | Creating a GitHub Release | `🤓 DeployNOPE @ Release` |
 | Post-deployment alignment check | `🤓 DeployNOPE @ Post-Deploy` |
 | General deployment work (no specific step) | `🤓 DeployNOPE @ Deploy` |
@@ -99,7 +99,7 @@ To uninstall: `./uninstall.sh` (removes only DeployNOPE-installed hook entries a
 
 ### 3. Verify
 
-Open a terminal in your project repo, start Claude Code, and type `/deploynope-deploy`. If it loads the deployment ruleset, you're good to go. The hooks fire automatically — try asking Claude to push to `master` and the hook will block it.
+Open a terminal in your project repo, start Claude Code, and type `/deploynope-deploy`. If it loads the deployment ruleset, you're good to go. The hooks fire automatically — try asking Claude to push to your configured `<production-branch>` and the hook will block it.
 
 <details>
 <summary>Manual installation (without the script)</summary>
@@ -195,8 +195,8 @@ If you previously had these commands inside a project's `.claude/commands/`, you
 
 ## What DeployNOPE says NOPE to
 
-- Pushing to `master` without going through staging
-- Resetting `staging` when someone else's work is there
+- Pushing to `<production-branch>` without going through `<staging-branch>`
+- Resetting `<staging-branch>` when someone else's work is there
 - Deploying after 2:00 PM without explicit confirmation
 - Skipping staging validation
 - Deploying frontend before backend is confirmed healthy
@@ -209,7 +209,7 @@ If you previously had these commands inside a project's `.claude/commands/`, you
 - Forgetting to merge back into `development`
 - Forgetting GitHub Releases or Confluence notes
 - Version mismatches between frontend and backend in production
-- Leaving `master` unprotected after a force-push
+- Leaving `<production-branch>` unprotected after a force-push
 - Basically anything that could ruin someone's afternoon
 
 
