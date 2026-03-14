@@ -606,10 +606,11 @@ before `git push` runs.
 
 **Flow:**
 1. User approves or requests a push (or you propose one).
-2. Gather the current branch, remote, version, and list of commits to be pushed.
-3. Display the confirmation block below.
-4. Wait for the user to approve or request changes.
-5. Only after explicit approval, run `git push`.
+2. **Run the Production Branch Guard** (see below) before anything else.
+3. Gather the current branch, remote, version, and list of commits to be pushed.
+4. Display the confirmation block below.
+5. Wait for the user to approve or request changes.
+6. Only after explicit approval, run `git push`.
 
 **Confirmation block format:**
 
@@ -637,6 +638,77 @@ before `git push` runs.
 - If the push is a force-push (`--force-with-lease`), add a **`⚠️ FORCE PUSH`** warning
   row to the table.
 - If the user wants to change anything, update and re-present the block before pushing.
+
+---
+
+## Production Branch Guard
+
+**Before any push to the production branch** (`master`, `main`, or whatever is configured
+in `.deploynope.json` as `productionBranch`), run this check:
+
+### Step 1: Detect if this is a push to production
+
+If the current branch IS the production branch, this guard applies. If pushing to any
+other branch (feature, release, hotfix, chore), skip this guard.
+
+### Step 2: Check for deployment infrastructure
+
+```shell
+git branch -r | grep -E 'origin/(staging|develop|development)' || echo "NONE FOUND"
+```
+
+### Step 3a: If staging branch exists
+
+**STOP.** Direct pushes to the production branch are not allowed when a staging branch
+exists. All changes must go through the staging → production reset process.
+
+> **❌ BLOCKED — Direct push to production**
+>
+> This repository has a staging branch. All changes must go through the full deployment
+> process (staging reset → validate → production reset). Direct pushes to `<production-branch>`
+> are not permitted.
+>
+> To proceed, use `/deploynope-deploy` and follow the staging → production process.
+
+Do not proceed. Do not offer to override. The staging process exists for a reason.
+
+### Step 3b: If NO staging branch exists
+
+The repository does not have the branch infrastructure for the full deployment process.
+**Warn the user and offer to set it up** before allowing the push:
+
+> **⚠️ WARNING — No staging branch detected**
+>
+> This repository does not have a `staging` branch. Without staging, there is no
+> validation step between your code and production. DeployNOPE's full deployment
+> process (staging → validate → production reset) cannot be followed.
+>
+> Would you like to:
+> 1. **Set up deployment infrastructure now** — I'll create `staging` and `development`
+>    branches from the current production branch, so future deployments can follow the
+>    full process.
+> 2. **Push directly this time** — proceed with the push, understanding that no staging
+>    validation is happening. _(Not recommended for production applications.)_
+> 3. **Cancel** — do not push.
+
+**[HUMAN GATE]** — wait for the user to choose before proceeding.
+
+If the user chooses option 1, create the branches:
+
+```shell
+git branch staging origin/<production-branch>
+git push origin staging
+git branch development origin/<production-branch>
+git push origin development
+```
+
+Then advise:
+> "Staging and development branches created. From now on, all deployments should go
+> through the full staging → production process. Run `/deploynope-configure` to confirm
+> your branch names are set correctly."
+
+If the user chooses option 2, allow the push but add a **`⚠️ NO STAGING`** warning row
+to the push confirmation block.
 
 ---
 
