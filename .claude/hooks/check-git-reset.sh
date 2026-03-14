@@ -5,8 +5,8 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Only intercept git reset --hard commands
-if ! echo "$COMMAND" | grep -qE '^\s*git\s+reset\s+--hard'; then
+# Only intercept git reset --hard commands (match anywhere in command to handle cd/&& prefixes)
+if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+reset\s+--hard'; then
   exit 0
 fi
 

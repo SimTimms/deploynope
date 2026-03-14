@@ -5,8 +5,8 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Only intercept gh api calls that touch branch protection
-if ! echo "$COMMAND" | grep -qE '^\s*gh\s+api'; then
+# Only intercept gh api calls that touch branch protection (match anywhere in command to handle cd/&& prefixes)
+if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*gh\s+api'; then
   exit 0
 fi
 

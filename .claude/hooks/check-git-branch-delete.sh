@@ -5,8 +5,8 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Catch git branch -d/-D
-if echo "$COMMAND" | grep -qE '^\s*git\s+branch\s+-[dD]'; then
+# Catch git branch -d/-D (match anywhere in command to handle cd/&& prefixes)
+if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+branch\s+-[dD]'; then
   BRANCH_TO_DELETE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i~/-[dD]/) {print $(i+1); exit}}')
   if [ -z "$BRANCH_TO_DELETE" ]; then
     BRANCH_TO_DELETE="unknown"
@@ -24,8 +24,8 @@ EOF
   exit 0
 fi
 
-# Catch git push origin --delete
-if echo "$COMMAND" | grep -qE '^\s*git\s+push\s+\S+\s+--delete'; then
+# Catch git push origin --delete (match anywhere in command to handle cd/&& prefixes)
+if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+push\s+\S+\s+--delete'; then
   BRANCH_TO_DELETE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i=="--delete") {print $(i+1); exit}}')
   if [ -z "$BRANCH_TO_DELETE" ]; then
     BRANCH_TO_DELETE="unknown"
@@ -43,8 +43,8 @@ EOF
   exit 0
 fi
 
-# Catch git push origin :branch (colon syntax for remote delete)
-if echo "$COMMAND" | grep -qE '^\s*git\s+push\s+\S+\s+:'; then
+# Catch git push origin :branch (colon syntax for remote delete) (match anywhere in command to handle cd/&& prefixes)
+if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+push\s+\S+\s+:'; then
   BRANCH_TO_DELETE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if(substr($i,1,1)==":") {print substr($i,2); exit}}')
   if [ -z "$BRANCH_TO_DELETE" ]; then
     BRANCH_TO_DELETE="unknown"

@@ -5,16 +5,16 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Only intercept git tag commands (create/delete)
-if ! echo "$COMMAND" | grep -qE '^\s*git\s+tag'; then
+# Only intercept git tag commands (create/delete) (match anywhere in command to handle cd/&& prefixes)
+if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+tag'; then
   exit 0
 fi
 
 # Skip read-only tag operations (list, show)
-if echo "$COMMAND" | grep -qE '^\s*git\s+tag\s+-[ln]'; then
+if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+tag\s+-[ln]'; then
   exit 0
 fi
-if echo "$COMMAND" | grep -qE '^\s*git\s+tag\s*$'; then
+if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+tag\s*$'; then
   exit 0
 fi
 
