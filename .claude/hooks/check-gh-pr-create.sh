@@ -36,18 +36,21 @@ if [ -z "$DEV_BRANCH" ]; then
   DEV_BRANCH="development"
 fi
 
-# Extract target branch from --base flag if present
-TARGET_BRANCH=$(echo "$COMMAND" | grep -oP '(?<=--base\s)\S+' || echo "")
+# Extract target branch from --base flag if present (macOS compatible)
+TARGET_BRANCH=$(echo "$COMMAND" | sed -n 's/.*--base[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p')
 if [ -z "$TARGET_BRANCH" ]; then
   # gh pr create defaults to the repo's default branch (usually production)
-  TARGET_BRANCH="$PROD_BRANCH (default — no --base specified)"
+  TARGET_BRANCH="$PROD_BRANCH"
 fi
 
-# Extract title if present
-PR_TITLE=$(echo "$COMMAND" | grep -oP '(?<=--title\s")[^"]*' || echo "$COMMAND" | grep -oP "(?<=--title\s')[^']*" || echo "(not specified)")
+# Extract title if present (macOS compatible)
+PR_TITLE=$(echo "$COMMAND" | sed -n 's/.*--title[[:space:]]*"\([^"]*\)".*/\1/p')
+if [ -z "$PR_TITLE" ]; then
+  PR_TITLE="(not specified)"
+fi
 
 # BLOCK: PRs targeting production
-if echo "$TARGET_BRANCH" | grep -qE "^(${PROD_BRANCH}|master|main)"; then
+if [ "$TARGET_BRANCH" = "$PROD_BRANCH" ] || [ "$TARGET_BRANCH" = "master" ] || [ "$TARGET_BRANCH" = "main" ]; then
   cat <<EOF
 {
   "hookSpecificOutput": {
@@ -61,7 +64,7 @@ EOF
 fi
 
 # BLOCK: PRs targeting staging
-if echo "$TARGET_BRANCH" | grep -qE "^${STAGING_BRANCH}$"; then
+if [ "$TARGET_BRANCH" = "$STAGING_BRANCH" ]; then
   cat <<EOF
 {
   "hookSpecificOutput": {
@@ -74,8 +77,8 @@ EOF
   exit 0
 fi
 
-# WARN: PRs targeting development
-if echo "$TARGET_BRANCH" | grep -qE "^(${DEV_BRANCH}|develop|dev)$"; then
+# BLOCK: PRs targeting development
+if [ "$TARGET_BRANCH" = "$DEV_BRANCH" ] || [ "$TARGET_BRANCH" = "develop" ] || [ "$TARGET_BRANCH" = "dev" ]; then
   cat <<EOF
 {
   "hookSpecificOutput": {

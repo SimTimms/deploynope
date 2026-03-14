@@ -1,6 +1,5 @@
 #!/bin/bash
 # DeployNOPE hook: intercept every git push for user approval
-# Fires on PreToolUse for Bash commands containing "git push"
 # Hard-blocks pushes to production when staging exists; asks for all others.
 
 INPUT=$(cat)
@@ -19,7 +18,6 @@ VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev
 # Determine production branch from .deploynope.json or default to main/master
 PROD_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.productionBranch // empty' .deploynope.json 2>/dev/null)
 if [ -z "$PROD_BRANCH" ]; then
-  # Auto-detect: check if main or master exists
   if cd "$CWD" 2>/dev/null && git rev-parse --verify origin/main &>/dev/null; then
     PROD_BRANCH="main"
   else
@@ -71,7 +69,7 @@ if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "false" ]; then
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] ⚠️ Push to production branch '${PROD_BRANCH}' — NO STAGING BRANCH detected.\n\nBranch: ${BRANCH} → origin/${BRANCH}\nVersion: ${VERSION}\nCommits: ${COMMIT_COUNT}\n${COMMITS}\n\nNo staging validation is possible. Consider running /deploynope-configure to set up staging infrastructure.\n\nApprove this direct push to production?"
+    "permissionDecisionReason": "[DeployNOPE] Push to production branch '${PROD_BRANCH}' — NO STAGING BRANCH detected.\n\nBranch: ${BRANCH} → origin/${BRANCH}\nVersion: ${VERSION}\nCommits: ${COMMIT_COUNT}\n${COMMITS}\n\nNo staging validation is possible. Consider running /deploynope-configure to set up staging infrastructure.\n\nApprove this direct push to production?"
   }
 }
 EOF
