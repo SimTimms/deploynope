@@ -15,7 +15,10 @@ BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo 
 VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
 
 # Extract the reset target
-RESET_TARGET=$(echo "$COMMAND" | grep -oP '(?<=--hard\s)\S+' || echo "unknown")
+RESET_TARGET=$(echo "$COMMAND" | sed -n 's/.*--hard[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p')
+if [ -z "$RESET_TARGET" ]; then
+  RESET_TARGET="unknown"
+fi
 
 # Get current HEAD for context
 CURRENT_HEAD=$(cd "$CWD" 2>/dev/null && git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -31,13 +34,13 @@ if [ -z "$PROD_BRANCH" ]; then
 fi
 
 # Flag if resetting a critical branch
-SEVERITY="⚠️"
+SEVERITY="WARNING"
 EXTRA=""
 if [ "$BRANCH" = "$PROD_BRANCH" ]; then
-  SEVERITY="🚨 PRODUCTION BRANCH"
+  SEVERITY="PRODUCTION BRANCH"
   EXTRA="\n\nThis resets the PRODUCTION branch. Ensure branch protection toggle procedure is being followed."
 elif [ "$BRANCH" = "staging" ]; then
-  SEVERITY="🚨 STAGING BRANCH"
+  SEVERITY="STAGING BRANCH"
   EXTRA="\n\nThis resets STAGING. Ensure staging contention check has passed and staging/active tag is claimed."
 fi
 

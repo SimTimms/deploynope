@@ -14,36 +14,29 @@ if ! echo "$COMMAND" | grep -q 'protection'; then
   exit 0
 fi
 
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
-
-# Detect if this is enabling or disabling force-push
-FORCE_PUSH_STATE="unknown"
-if echo "$COMMAND" | grep -q '"allow_force_pushes":\s*true'; then
-  FORCE_PUSH_STATE="ENABLING force-push"
-elif echo "$COMMAND" | grep -q '"allow_force_pushes":\s*false'; then
-  FORCE_PUSH_STATE="DISABLING force-push (re-locking)"
-fi
-
-# Extract the repo/branch from the URL
-API_PATH=$(echo "$COMMAND" | grep -oP '(?<=gh api\s)\S+' || echo "unknown")
-
 # Detect if this is a PUT (modification) vs GET (read-only)
-IS_WRITE="false"
-if echo "$COMMAND" | grep -qE '\-X\s+PUT'; then
-  IS_WRITE="true"
-fi
-
-if [ "$IS_WRITE" = "false" ]; then
+if ! echo "$COMMAND" | grep -qE '\-X\s+PUT'; then
   # Read-only API calls to check protection status are fine
   exit 0
 fi
+
+# Detect if this is enabling or disabling force-push
+FORCE_PUSH_STATE="unknown"
+if echo "$COMMAND" | grep -q '"allow_force_pushes".*true'; then
+  FORCE_PUSH_STATE="ENABLING force-push"
+elif echo "$COMMAND" | grep -q '"allow_force_pushes".*false'; then
+  FORCE_PUSH_STATE="DISABLING force-push (re-locking)"
+fi
+
+# Extract the API path
+API_PATH=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i=="api") {print $(i+1); exit}}')
 
 cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] 🔐 BRANCH PROTECTION MODIFICATION intercepted.\n\nAPI path: ${API_PATH}\nAction: ${FORCE_PUSH_STATE}\nCommand: ${COMMAND}\n\n⚠️ Branch protection changes are security-critical. If enabling force-push, it MUST be re-disabled immediately after the reset — even if the reset fails.\n\nApprove this branch protection change?"
+    "permissionDecisionReason": "[DeployNOPE] BRANCH PROTECTION MODIFICATION intercepted.\n\nAPI path: ${API_PATH}\nAction: ${FORCE_PUSH_STATE}\nCommand: ${COMMAND}\n\nBranch protection changes are security-critical. If enabling force-push, it MUST be re-disabled immediately after the reset — even if the reset fails.\n\nApprove this branch protection change?"
   }
 }
 EOF

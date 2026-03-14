@@ -14,11 +14,17 @@ CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
 VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
 
-# Extract the tag from the command
-TAG=$(echo "$COMMAND" | grep -oP '(?<=create\s)\S+' || echo "unknown")
+# Extract the tag from the command (word after "create")
+TAG=$(echo "$COMMAND" | sed -n 's/.*create[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p')
+if [ -z "$TAG" ]; then
+  TAG="unknown"
+fi
 
 # Extract repo if --repo flag is present
-REPO=$(echo "$COMMAND" | grep -oP '(?<=--repo\s)\S+' || echo "(current repo)")
+REPO=$(echo "$COMMAND" | sed -n 's/.*--repo[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p')
+if [ -z "$REPO" ]; then
+  REPO="(current repo)"
+fi
 
 # Get the remote URL for context
 REMOTE=$(cd "$CWD" 2>/dev/null && git remote get-url origin 2>/dev/null || echo "unknown")

@@ -7,7 +7,10 @@ COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
 # Catch git branch -d/-D
 if echo "$COMMAND" | grep -qE '^\s*git\s+branch\s+-[dD]'; then
-  BRANCH_TO_DELETE=$(echo "$COMMAND" | grep -oP '(?<=-[dD]\s)\S+' || echo "unknown")
+  BRANCH_TO_DELETE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i~/-[dD]/) {print $(i+1); exit}}')
+  if [ -z "$BRANCH_TO_DELETE" ]; then
+    BRANCH_TO_DELETE="unknown"
+  fi
 
   cat <<EOF
 {
@@ -23,14 +26,17 @@ fi
 
 # Catch git push origin --delete
 if echo "$COMMAND" | grep -qE '^\s*git\s+push\s+\S+\s+--delete'; then
-  BRANCH_TO_DELETE=$(echo "$COMMAND" | grep -oP '(?<=--delete\s)\S+' || echo "unknown")
+  BRANCH_TO_DELETE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i=="--delete") {print $(i+1); exit}}')
+  if [ -z "$BRANCH_TO_DELETE" ]; then
+    BRANCH_TO_DELETE="unknown"
+  fi
 
   cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Remote branch deletion intercepted.\n\nBranch to delete (remote): ${BRANCH_TO_DELETE}\nCommand: ${COMMAND}\n\n⚠️ This deletes the branch on the remote. This affects the whole team.\n\nApprove this remote branch deletion?"
+    "permissionDecisionReason": "[DeployNOPE] Remote branch deletion intercepted.\n\nBranch to delete (remote): ${BRANCH_TO_DELETE}\nCommand: ${COMMAND}\n\nThis deletes the branch on the remote. This affects the whole team.\n\nApprove this remote branch deletion?"
   }
 }
 EOF
@@ -39,14 +45,17 @@ fi
 
 # Catch git push origin :branch (colon syntax for remote delete)
 if echo "$COMMAND" | grep -qE '^\s*git\s+push\s+\S+\s+:'; then
-  BRANCH_TO_DELETE=$(echo "$COMMAND" | grep -oP '(?<=\s):\S+' | sed 's/^://' || echo "unknown")
+  BRANCH_TO_DELETE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if(substr($i,1,1)==":") {print substr($i,2); exit}}')
+  if [ -z "$BRANCH_TO_DELETE" ]; then
+    BRANCH_TO_DELETE="unknown"
+  fi
 
   cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Remote branch/tag deletion intercepted (colon syntax).\n\nRef to delete: ${BRANCH_TO_DELETE}\nCommand: ${COMMAND}\n\n⚠️ This deletes a ref on the remote. This affects the whole team.\n\nApprove this remote deletion?"
+    "permissionDecisionReason": "[DeployNOPE] Remote branch/tag deletion intercepted (colon syntax).\n\nRef to delete: ${BRANCH_TO_DELETE}\nCommand: ${COMMAND}\n\nThis deletes a ref on the remote. This affects the whole team.\n\nApprove this remote deletion?"
   }
 }
 EOF

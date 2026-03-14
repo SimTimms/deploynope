@@ -15,9 +15,6 @@ CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
 VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
 
-# Extract commit message if present
-MESSAGE=$(echo "$COMMAND" | grep -oP '(?<=-m\s")[^"]*' || echo "$COMMAND" | grep -oP "(?<=-m\s')[^']*" || echo "(see command)")
-
 cat <<EOF
 {
   "hookSpecificOutput": {

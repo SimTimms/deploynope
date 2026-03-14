@@ -19,7 +19,7 @@ CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
 VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
 
-# Extract source branch being merged
+# Extract source branch being merged (first non-flag argument after "merge")
 MERGE_SOURCE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i!="git" && $i!="merge" && substr($i,1,1)!="-") {print $i; exit}}')
 
 # Determine production branch
@@ -34,9 +34,9 @@ fi
 
 EXTRA=""
 if [ "$BRANCH" = "$PROD_BRANCH" ]; then
-  EXTRA="\n\n🚨 You are merging INTO the production branch. DeployNOPE requires all changes reach production via staging reset, not direct merge."
+  EXTRA="\n\nYou are merging INTO the production branch. DeployNOPE requires all changes reach production via staging reset, not direct merge."
 elif [ "$BRANCH" = "staging" ]; then
-  EXTRA="\n\n⚠️ You are merging into staging. Ensure staging contention check has passed and staging/active tag is claimed."
+  EXTRA="\n\nYou are merging into staging. Ensure staging contention check has passed and staging/active tag is claimed."
 fi
 
 cat <<EOF
