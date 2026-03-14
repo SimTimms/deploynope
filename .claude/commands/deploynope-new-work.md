@@ -6,7 +6,7 @@
 > For the full deployment ruleset (deployment process, staging, master reset), run
 > `/deploynope-deploy` first.
 >
-> **Framework Visibility:** Tag every response with **`Protected by DeployNOPE`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 Protected by DeployNOPE`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---

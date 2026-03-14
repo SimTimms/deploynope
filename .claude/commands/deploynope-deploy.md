@@ -22,11 +22,11 @@ for the full mapping). If it does not exist, use the placeholder names as-is and
 ## Framework Visibility
 
 **Every response** produced while DeployNOPE rules are active must begin with the tag
-**`Protected by DeployNOPE`** so the user can immediately see which framework is driving decisions.
+**`🤓 Protected by DeployNOPE`** so the user can immediately see which framework is driving decisions.
 
 - Tag every message — not just the first one — for the duration of the workflow.
 - If a DeployNOPE command is invoked alongside another framework (e.g. Agile V), tag
-  both: **`Protected by DeployNOPE`** **`[Agile V]`**.
+  both: **`🤓 Protected by DeployNOPE`** **`[Agile V]`**.
 - If an action *should* be governed by DeployNOPE but you are about to skip it, state
   that explicitly rather than proceeding silently.
 
@@ -725,7 +725,7 @@ is the last step before `git commit` runs.
 
 **Confirmation block format:**
 
-> **`Protected by DeployNOPE`**
+> **`🤓 Protected by DeployNOPE`**
 >
 > | | |
 > |---|---|
@@ -762,7 +762,7 @@ before `git push` runs.
 
 **Confirmation block format:**
 
-> **`Protected by DeployNOPE`**
+> **`🤓 Protected by DeployNOPE`**
 >
 > | | |
 > |---|---|
