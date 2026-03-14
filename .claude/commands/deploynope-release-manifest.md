@@ -135,7 +135,10 @@ process. Collect:
 - **branch** — the release/hotfix branch name
 - **githubReleaseUrl** — from the GitHub Releases just created in the previous step
 - **jiraTickets** — from PR descriptions, commit messages, or ask the user
-- **previousVersion** — check the most recent existing manifest in `releases/`, or ask the user
+- **previousVersion** — auto-detect by reading the most recent existing manifest in
+  `releases/` (sort by filename to find the latest), or by checking the latest GitHub
+  Release tag. Present the detected value for confirmation rather than asking the user
+  to supply it. Fall back to asking the user only if no manifests or releases exist.
 - **confluencePageUrl** — set to `null`; will be updated after Confluence notes are written
 - **status** — `"deployed"`
 - **rollback** — `null`
