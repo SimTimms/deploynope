@@ -18,24 +18,28 @@ if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+tag\s*$'; then
   exit 0
 fi
 
+# Determine production branch name for messages
+CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+PROD_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.productionBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$PROD_BRANCH" ]; then
+  if cd "$CWD" 2>/dev/null && git rev-parse --verify origin/main &>/dev/null; then
+    PROD_BRANCH="main"
+  else
+    PROD_BRANCH="master"
+  fi
+fi
+
 # Detect staging/active operations
 EXTRA=""
 if echo "$COMMAND" | grep -q 'staging/active'; then
   if echo "$COMMAND" | grep -q '\-d'; then
-    EXTRA="\n\nThis CLEARS the staging claim. Only do this after master has been reset and deployment is confirmed healthy."
+    EXTRA=$(printf '\n\nThis CLEARS the staging claim. Only do this after %s has been reset and deployment is confirmed healthy.' "$PROD_BRANCH")
   else
-    EXTRA="\n\nThis CLAIMS staging. Ensure staging contention checks have passed. Notify the team in Slack after this."
+    EXTRA=$(printf '\n\nThis CLAIMS staging. Ensure staging contention checks have passed. Notify the team in Slack after this.')
   fi
 fi
 
-cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Git tag operation intercepted.\n\nCommand: ${COMMAND}${EXTRA}\n\nApprove this tag operation?"
-  }
-}
-EOF
+REASON=$(printf '[DeployNOPE] Git tag operation intercepted.\n\nCommand: %s%s\n\nApprove this tag operation?' "$COMMAND" "$EXTRA")
+jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
 exit 0

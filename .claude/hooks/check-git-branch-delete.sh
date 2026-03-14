@@ -12,15 +12,8 @@ if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+branch\s+-[dD]'; then
     BRANCH_TO_DELETE="unknown"
   fi
 
-  cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Branch deletion intercepted.\n\nBranch to delete: ${BRANCH_TO_DELETE}\nCommand: ${COMMAND}\n\nApprove this branch deletion?"
-  }
-}
-EOF
+  REASON=$(printf '[DeployNOPE] Branch deletion intercepted.\n\nBranch to delete: %s\n\nApprove this branch deletion?' "$BRANCH_TO_DELETE")
+  jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
   exit 0
 fi
 
@@ -31,15 +24,8 @@ if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+push\s+\S+\s+--delete'; 
     BRANCH_TO_DELETE="unknown"
   fi
 
-  cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Remote branch deletion intercepted.\n\nBranch to delete (remote): ${BRANCH_TO_DELETE}\nCommand: ${COMMAND}\n\nThis deletes the branch on the remote. This affects the whole team.\n\nApprove this remote branch deletion?"
-  }
-}
-EOF
+  REASON=$(printf '[DeployNOPE] Remote branch deletion intercepted.\n\nBranch to delete (remote): %s\n\nThis deletes the branch on the remote. This affects the whole team.\n\nApprove this remote branch deletion?' "$BRANCH_TO_DELETE")
+  jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
   exit 0
 fi
 
@@ -50,15 +36,8 @@ if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+push\s+\S+\s+:'; then
     BRANCH_TO_DELETE="unknown"
   fi
 
-  cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Remote branch/tag deletion intercepted (colon syntax).\n\nRef to delete: ${BRANCH_TO_DELETE}\nCommand: ${COMMAND}\n\nThis deletes a ref on the remote. This affects the whole team.\n\nApprove this remote deletion?"
-  }
-}
-EOF
+  REASON=$(printf '[DeployNOPE] Remote branch/tag deletion intercepted (colon syntax).\n\nRef to delete: %s\n\nThis deletes a ref on the remote. This affects the whole team.\n\nApprove this remote deletion?' "$BRANCH_TO_DELETE")
+  jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
   exit 0
 fi
 
