@@ -286,6 +286,43 @@ git tag -n1 "staging/active"
 If either check fails, **stop and warn the user**. Do not proceed until the team
 confirms it is safe.
 
+**Check 3: Stale release branch**
+
+Before resetting staging to a release branch, verify the release branch contains
+**all commits currently on the production branch**. If the production branch has moved
+forward since the release branch was created (e.g. another release landed while this
+one was in progress), resetting staging to the stale branch and then resetting production
+to match would **rewind production**, erasing the newer work.
+
+```shell
+git fetch origin
+git log <release-branch>..origin/<production-branch> --oneline
+```
+
+If this shows any commits, the release branch is stale. **Do not reset staging.**
+
+> **❌ BLOCKED — Stale release branch**
+>
+> `<production-branch>` has commits not in `<release-branch>`:
+>
+> ```
+> <commit list>
+> ```
+>
+> These commits would be lost if this release branch goes through staging to production.
+> You must merge `<production-branch>` into `<release-branch>` first:
+>
+> ```shell
+> git checkout <release-branch>
+> git merge origin/<production-branch>
+> ```
+>
+> Resolve any conflicts, then re-run the staging reset.
+
+**[HUMAN GATE]** — Do not proceed until the merge is complete and the user has confirmed.
+
+All three checks must pass before claiming staging.
+
 ### Claiming staging
 
 When both checks pass and the user has confirmed:
@@ -483,7 +520,7 @@ All work types follow the same staging → master reset process.
 1. Feature ticket branches → release branch (e.g. `6.51.0`) via PR
 2. Sync release branch with `master` (`git merge master`)
 3. **[HUMAN GATE]** Confirm release branch is ready
-4. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim)
+4. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
 5. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
 6. Reset `staging` to match the release branch: `git reset --hard <release-branch>`
 7. **[HUMAN GATE]** Validate on staging — wait for explicit "it's validated" sign-off
@@ -501,7 +538,7 @@ All work types follow the same staging → master reset process.
 ### Hotfix
 
 1. Branch `6.XX.Y` from `master`
-2. **[STAGING CHECK]** Run staging contention check
+2. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
 3. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
 4. Reset `staging` to match hotfix branch
 5. **[HUMAN GATE]** Validate on staging
@@ -520,7 +557,7 @@ All work types follow the same staging → master reset process.
 
 1. Branch from `master` (e.g. `chore/claude-config`)
 2. Do the work, commit, and push
-3. **[STAGING CHECK]** Run staging contention check
+3. **[STAGING CHECK]** Run staging contention check (unreleased commits + active claim + stale branch)
 4. **[STAGING CLAIM]** Create `staging/active` tag; notify team in Slack
 5. Reset `staging` to match chore branch
 6. **[HUMAN GATE]** Validate on staging
