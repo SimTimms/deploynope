@@ -5,8 +5,8 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Only intercept git merge commands
-if ! echo "$COMMAND" | grep -qE '^\s*git\s+merge'; then
+# Only intercept git merge commands (match anywhere in command to handle cd/&& prefixes)
+if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+merge'; then
   exit 0
 fi
 

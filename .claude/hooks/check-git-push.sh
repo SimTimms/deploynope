@@ -5,8 +5,8 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Only intercept git push commands
-if ! echo "$COMMAND" | grep -qE '^\s*git\s+push'; then
+# Only intercept git push commands (match anywhere in command to handle cd/&& prefixes)
+if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+push'; then
   exit 0
 fi
 

@@ -5,8 +5,8 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Only intercept git commit commands
-if ! echo "$COMMAND" | grep -qE '^\s*git\s+commit'; then
+# Only intercept git commit commands (match anywhere in command to handle cd/&& prefixes)
+if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+commit'; then
   exit 0
 fi
 

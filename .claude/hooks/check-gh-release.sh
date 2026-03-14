@@ -5,8 +5,8 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Only intercept gh release create commands
-if ! echo "$COMMAND" | grep -qE '^\s*gh\s+release\s+create'; then
+# Only intercept gh release create commands (match anywhere in command to handle cd/&& prefixes)
+if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*gh\s+release\s+create'; then
   exit 0
 fi
 
