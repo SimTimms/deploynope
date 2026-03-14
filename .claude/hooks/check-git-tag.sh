@@ -18,16 +18,13 @@ if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+tag\s*$'; then
   exit 0
 fi
 
+# Source shared helpers
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$HOOK_DIR/hook-helpers.sh"
+
 # Determine production branch name for messages
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
-PROD_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.productionBranch // empty' .deploynope.json 2>/dev/null)
-if [ -z "$PROD_BRANCH" ]; then
-  if cd "$CWD" 2>/dev/null && git rev-parse --verify origin/main &>/dev/null; then
-    PROD_BRANCH="main"
-  else
-    PROD_BRANCH="master"
-  fi
-fi
+CWD=$(resolve_effective_cwd "$INPUT" "$COMMAND")
+PROD_BRANCH=$(resolve_prod_branch "$CWD")
 
 # Detect staging/active operations
 EXTRA=""

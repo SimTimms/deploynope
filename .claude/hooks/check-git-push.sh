@@ -11,26 +11,20 @@ if ! echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+push'; then
   exit 0
 fi
 
+# Source shared helpers
+HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$HOOK_DIR/hook-helpers.sh"
+
 # Extract useful context
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+CWD=$(resolve_effective_cwd "$INPUT" "$COMMAND")
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
-VERSION=$(cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A")
+VERSION=$(resolve_version "$CWD")
 
 # Determine production branch from .deploynope.json or default to main/master
-PROD_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.productionBranch // empty' .deploynope.json 2>/dev/null)
-if [ -z "$PROD_BRANCH" ]; then
-  if cd "$CWD" 2>/dev/null && git rev-parse --verify origin/main &>/dev/null; then
-    PROD_BRANCH="main"
-  else
-    PROD_BRANCH="master"
-  fi
-fi
+PROD_BRANCH=$(resolve_prod_branch "$CWD")
 
 # Determine staging branch
-STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
-if [ -z "$STAGING_BRANCH" ]; then
-  STAGING_BRANCH="staging"
-fi
+STAGING_BRANCH=$(resolve_staging_branch "$CWD")
 
 # Check if staging branch exists
 HAS_STAGING="false"
@@ -38,18 +32,33 @@ if cd "$CWD" 2>/dev/null && git rev-parse --verify "origin/${STAGING_BRANCH}" &>
   HAS_STAGING="true"
 fi
 
+# Extract explicit push target from command: git push [flags...] <remote> [<branch>]
+# Skip flags (words starting with -) to find the remote (1st non-flag) and branch (2nd non-flag)
+# This takes priority over the current branch for determining what's being pushed
+EXPLICIT_PUSH_TARGET=""
+_PUSH_ARGS=$(echo "$COMMAND" | sed -n 's/.*git[[:space:]]\{1,\}push[[:space:]]\{1,\}//p')
+if [ -n "$_PUSH_ARGS" ]; then
+  # Extract non-flag arguments (skip words starting with -)
+  _NON_FLAG_ARGS=$(echo "$_PUSH_ARGS" | tr ' ' '\n' | grep -v '^-' | head -2)
+  # Second non-flag argument is the branch (first is the remote)
+  EXPLICIT_PUSH_TARGET=$(echo "$_NON_FLAG_ARGS" | sed -n '2p')
+fi
+
+# Use explicit target if available, otherwise fall back to current branch
+PUSH_BRANCH="${EXPLICIT_PUSH_TARGET:-$BRANCH}"
+
 # Detect if pushing to production branch
 PUSHING_TO_PROD="false"
-if [ "$BRANCH" = "$PROD_BRANCH" ]; then
+if [ "$PUSH_BRANCH" = "$PROD_BRANCH" ]; then
   PUSHING_TO_PROD="true"
 fi
-# Also catch explicit "git push origin main" style commands
+# Also catch explicit "git push origin main" style commands (safety net)
 if echo "$COMMAND" | grep -qE "git\s+push\s+\S+\s+${PROD_BRANCH}"; then
   PUSHING_TO_PROD="true"
 fi
 
 # Count commits to push
-COMMITS=$(cd "$CWD" 2>/dev/null && git log "origin/${BRANCH}..HEAD" --oneline 2>/dev/null || echo "")
+COMMITS=$(cd "$CWD" 2>/dev/null && git log "origin/${PUSH_BRANCH}..HEAD" --oneline 2>/dev/null || echo "")
 COMMIT_COUNT=$(echo "$COMMITS" | grep -c '.' 2>/dev/null || echo "0")
 if [ -z "$COMMITS" ]; then
   COMMIT_COUNT="0"
@@ -85,18 +94,14 @@ fi
 
 # WARNING: pushing to production without staging
 if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "false" ]; then
-  REASON=$(printf '[DeployNOPE] Push to production branch '\''%s'\'' — NO STAGING BRANCH detected.\n\nBranch: %s → origin/%s\nVersion: %s\nCommits: %s\n%s\n\nNo staging validation is possible. Consider running /deploynope-configure to set up staging infrastructure.\n\nApprove this direct push to production?' "$PROD_BRANCH" "$BRANCH" "$BRANCH" "$VERSION" "$COMMIT_COUNT" "$COMMITS")
+  REASON=$(printf '[DeployNOPE] Push to production branch '\''%s'\'' — NO STAGING BRANCH detected.\n\nBranch: %s → origin/%s\nVersion: %s\nCommits: %s\n%s\n\nNo staging validation is possible. Consider running /deploynope-configure to set up staging infrastructure.\n\nApprove this direct push to production?' "$PROD_BRANCH" "$PUSH_BRANCH" "$PUSH_BRANCH" "$VERSION" "$COMMIT_COUNT" "$COMMITS")
   jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
   exit 0
 fi
 
 # Escalated warning for force-pushes to staging or other branches
 if [ "$IS_FORCE_PUSH" = "true" ]; then
-  FORCE_TARGET="$BRANCH"
-  EXPLICIT_TARGET=$(echo "$COMMAND" | sed -n 's/.*push[[:space:]]\{1,\}[^[:space:]]\{1,\}[[:space:]]\{1,\}\([^[:space:]-][^[:space:]]*\).*/\1/p')
-  if [ -n "$EXPLICIT_TARGET" ]; then
-    FORCE_TARGET="$EXPLICIT_TARGET"
-  fi
+  FORCE_TARGET="$PUSH_BRANCH"
 
   if [ "$FORCE_TARGET" = "$STAGING_BRANCH" ]; then
     REASON=$(printf '[DeployNOPE] FORCE-PUSH TO STAGING — This could overwrite another deployment in progress.\n\nBranch: %s\nVersion: %s\n\nForce-pushing to staging can destroy work from a concurrent deployment. Verify that no one else is using staging right now.\n\nApprove this force-push to staging?' "$FORCE_TARGET" "$VERSION")
@@ -111,7 +116,7 @@ if [ "$IS_FORCE_PUSH" = "true" ]; then
 fi
 
 # All other pushes: ask for approval with details
-REASON=$(printf '[DeployNOPE] Git push intercepted.\n\nBranch: %s → origin/%s\nVersion: %s\nCommits: %s\n%s\n\nReview and approve this push.' "$BRANCH" "$BRANCH" "$VERSION" "$COMMIT_COUNT" "$COMMITS")
+REASON=$(printf '[DeployNOPE] Git push intercepted.\n\nBranch: %s → origin/%s\nVersion: %s\nCommits: %s\n%s\n\nReview and approve this push.' "$PUSH_BRANCH" "$PUSH_BRANCH" "$VERSION" "$COMMIT_COUNT" "$COMMITS")
 jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
 exit 0
