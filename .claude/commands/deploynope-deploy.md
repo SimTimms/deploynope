@@ -597,6 +597,49 @@ is the last step before `git commit` runs.
 
 ---
 
+## Push Confirmation Format
+
+**No push may be executed without showing this confirmation block first** — regardless
+of whether you or the user initiates the push. This includes when the user says "yes",
+"push it", "go ahead", or any other approval. The confirmation block is the last step
+before `git push` runs.
+
+**Flow:**
+1. User approves or requests a push (or you propose one).
+2. Gather the current branch, remote, version, and list of commits to be pushed.
+3. Display the confirmation block below.
+4. Wait for the user to approve or request changes.
+5. Only after explicit approval, run `git push`.
+
+**Confirmation block format:**
+
+> **`Protected by DeployNOPE`**
+>
+> | | |
+> |---|---|
+> | **Branch** | `<current-branch>` → `origin/<branch>` |
+> | **Version** | `<version from package.json, or N/A if no package.json>` |
+> | **Commits** | `<count>` commit(s) to push |
+>
+> | SHA | Message |
+> |-----|---------|
+> | `<short-sha>` | `<commit message first line>` |
+> | `<short-sha>` | `<commit message first line>` |
+>
+> Confirm push?
+
+**Rules:**
+- Always run `git log origin/<branch>..HEAD --oneline` to get the exact commits that
+  will be pushed.
+- Always check `git branch --show-current` and `package.json` version (if present).
+- Never skip this block — even if the user has already said "push it". The block IS
+  the final gate.
+- If the push is a force-push (`--force-with-lease`), add a **`⚠️ FORCE PUSH`** warning
+  row to the table.
+- If the user wants to change anything, update and re-present the block before pushing.
+
+---
+
 ## General Safety
 
 - Before any destructive operation, state exactly what will happen and confirm.
