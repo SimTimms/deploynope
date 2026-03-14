@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeployNOPE — Pipeline Health & Configuration</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+    position: relative;
+  }
+
+  header h1 {
+    font-size: 2.4rem;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+  }
+
+  header h1 span.nerd { font-size: 2rem; }
+  header h1 span.nope { color: #f85149; }
+
+  header p {
+    font-size: 1.1rem;
+    color: #8b949e;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #1f2937;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    color: #58a6ff;
+    margin-top: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* --- Sections --- */
+  .section {
+    max-width: 1000px;
+    margin: 0 auto 4rem;
+    padding: 0 1.5rem;
+  }
+
+  .section h2 {
+    text-align: center;
+    font-size: 1.5rem;
+    color: #f0f6fc;
+    margin-bottom: 1.5rem;
+  }
+
+  .section h2 .icon { margin-right: 0.5rem; }
+
+  .panel {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* --- Staleness Tiers --- */
+  .tiers-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .tier-card {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+    transition: transform 0.3s, border-color 0.3s;
+  }
+
+  .tier-card:hover { transform: translateY(-3px); }
+  .tier-card.fresh { border-color: #3fb950; }
+  .tier-card.aging { border-color: #d29922; }
+  .tier-card.stale { border-color: #f0883e; }
+  .tier-card.critical { border-color: #f85149; }
+
+  .tier-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+  .tier-card h4 { color: #f0f6fc; margin-bottom: 0.25rem; font-size: 1rem; }
+  .tier-card .tier-range { font-size: 0.8rem; color: #8b949e; }
+
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+  }
+
+  .badge-fresh { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.3); }
+  .badge-aging { background: rgba(210, 153, 34, 0.15); color: #d29922; border: 1px solid rgba(210, 153, 34, 0.3); }
+  .badge-stale { background: rgba(240, 136, 62, 0.15); color: #f0883e; border: 1px solid rgba(240, 136, 62, 0.3); }
+  .badge-critical { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.3); }
+
+  /* --- Branch Health Table --- */
+  .table-wrap {
+    overflow-x: auto;
+    margin-top: 1rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  table th {
+    background: #0d1117;
+    color: #8b949e;
+    font-weight: 600;
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid #30363d;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+
+  table th:hover { color: #58a6ff; }
+  table th .sort-arrow { margin-left: 0.3rem; font-size: 0.7rem; color: #484f58; }
+  table th.sorted .sort-arrow { color: #58a6ff; }
+
+  table td {
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid #21262d;
+    color: #c9d1d9;
+  }
+
+  table tr:hover td { background: rgba(88, 166, 255, 0.04); }
+
+  .branch-name {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #58a6ff;
+    font-size: 0.8rem;
+  }
+
+  .rec-keep { color: #3fb950; }
+  .rec-merge { color: #d29922; }
+  .rec-delete { color: #f85149; }
+
+  /* --- Pipeline Queue --- */
+  .queue-container { display: flex; flex-direction: column; gap: 1rem; }
+
+  .queue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .queue-stat {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 0.75rem 1.25rem;
+    text-align: center;
+    flex: 1;
+    min-width: 150px;
+  }
+
+  .queue-stat .stat-value { font-size: 1.4rem; font-weight: 700; color: #f0f6fc; }
+  .queue-stat .stat-label { font-size: 0.75rem; color: #8b949e; margin-top: 0.2rem; }
+
+  .pipeline-visual {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-top: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  .pipe-item {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    min-width: 130px;
+    text-align: center;
+    flex-shrink: 0;
+    transition: border-color 0.3s;
+  }
+
+  .pipe-item.active { border-color: #58a6ff; box-shadow: 0 0 12px rgba(88, 166, 255, 0.15); }
+  .pipe-item.waiting { border-color: #d29922; }
+  .pipe-item.queued { border-color: #30363d; }
+
+  .pipe-item .pipe-label { font-size: 0.8rem; font-weight: 600; color: #f0f6fc; }
+  .pipe-item .pipe-sub { font-size: 0.7rem; color: #8b949e; margin-top: 0.2rem; }
+
+  .pipe-arrow {
+    font-size: 1.2rem;
+    color: #30363d;
+    padding: 0 0.4rem;
+    flex-shrink: 0;
+  }
+
+  .bottleneck {
+    background: linear-gradient(135deg, #1a0a0a, #161b22);
+    border: 2px solid #f85149;
+    box-shadow: 0 0 20px rgba(248, 81, 73, 0.15);
+  }
+
+  .bottleneck .pipe-label { color: #f85149; }
+
+  /* --- PR Age Tracker --- */
+  .pr-list { display: flex; flex-direction: column; gap: 1rem; }
+
+  .pr-item {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .pr-number {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-weight: 700;
+    font-size: 0.9rem;
+    min-width: 50px;
+  }
+
+  .pr-title { flex: 1; min-width: 150px; color: #f0f6fc; font-size: 0.9rem; }
+
+  .pr-age {
+    font-size: 0.8rem;
+    min-width: 80px;
+    text-align: right;
+  }
+
+  .pr-bar-wrap {
+    width: 100%;
+    height: 6px;
+    background: #21262d;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+
+  .pr-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1.5s ease;
+  }
+
+  .pr-bar.fresh { background: #3fb950; }
+  .pr-bar.aging { background: #d29922; }
+  .pr-bar.stale { background: #f0883e; }
+  .pr-bar.critical { background: #f85149; }
+
+  /* --- Config Panel --- */
+  .config-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  @media (max-width: 768px) {
+    .config-layout { grid-template-columns: 1fr; }
+    .tiers-row { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .config-form { display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .config-group h4 {
+    color: #58a6ff;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #21262d;
+  }
+
+  .config-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.4rem 0;
+    gap: 1rem;
+  }
+
+  .config-key {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    color: #79c0ff;
+    white-space: nowrap;
+  }
+
+  .config-val {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    color: #ffa657;
+    text-align: right;
+  }
+
+  .config-desc {
+    font-size: 0.72rem;
+    color: #484f58;
+    margin-top: 0.1rem;
+  }
+
+  .config-json-wrap {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+
+  .config-json-wrap pre {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: #c9d1d9;
+  }
+
+  .json-key { color: #79c0ff; }
+  .json-str { color: #a5d6ff; }
+  .json-val { color: #ffa657; }
+  .json-bool { color: #ff7b72; }
+  .json-null { color: #484f58; }
+
+  /* --- Trigger List --- */
+  .triggers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .trigger-item {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: default;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .trigger-item:hover {
+    border-color: #58a6ff;
+  }
+
+  .trigger-item.activated {
+    border-color: #58a6ff;
+    box-shadow: 0 0 16px rgba(88, 166, 255, 0.2);
+  }
+
+  .trigger-item.activated .trigger-tag {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .trigger-phrase {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    color: #c9d1d9;
+    flex: 1;
+  }
+
+  .trigger-tag {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.7rem;
+    color: #58a6ff;
+    opacity: 0;
+    transform: translateX(10px);
+    transition: opacity 0.4s, transform 0.4s;
+    white-space: nowrap;
+  }
+
+  /* --- Framework Visibility --- */
+  .stage-table-wrap { margin-bottom: 2rem; }
+
+  .conversation-demo {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1.25rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+    line-height: 2;
+    max-height: 350px;
+    overflow-y: auto;
+  }
+
+  .conv-line {
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.4s, transform 0.4s;
+    padding: 0.2rem 0;
+  }
+
+  .conv-line.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .conv-user { color: #8b949e; }
+  .conv-agent { color: #c9d1d9; }
+  .conv-tag { color: #58a6ff; font-weight: 600; }
+  .conv-arrow { color: #3fb950; margin: 0 0.4rem; }
+
+  /* --- Controls --- */
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .btn {
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: #c9d1d9;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .btn:hover {
+    background: #30363d;
+    border-color: #8b949e;
+    color: #f0f6fc;
+  }
+
+  .btn.primary {
+    background: #238636;
+    border-color: #2ea043;
+    color: #fff;
+  }
+
+  .btn.primary:hover { background: #2ea043; }
+
+  /* --- Animations --- */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeSlideIn 0.6s ease forwards;
+  }
+
+  @keyframes fadeSlideIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .fade-in:nth-child(1) { animation-delay: 0.1s; }
+  .fade-in:nth-child(2) { animation-delay: 0.3s; }
+  .fade-in:nth-child(3) { animation-delay: 0.5s; }
+  .fade-in:nth-child(4) { animation-delay: 0.7s; }
+  .fade-in:nth-child(5) { animation-delay: 0.9s; }
+  .fade-in:nth-child(6) { animation-delay: 1.1s; }
+  .fade-in:nth-child(7) { animation-delay: 1.3s; }
+
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 8px rgba(248, 81, 73, 0.2); }
+    50% { box-shadow: 0 0 20px rgba(248, 81, 73, 0.5); }
+  }
+
+  .bottleneck { animation: pulseGlow 2s ease-in-out infinite; }
+
+  /* --- Footer --- */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    color: #484f58;
+    font-size: 0.8rem;
+    border-top: 1px solid #21262d;
+  }
+
+  footer a {
+    color: #58a6ff;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="nerd">&#129299;</span> Deploy<span class="nope">NOPE</span></h1>
+  <p>Pipeline Health & Configuration — stale work detection, queue visibility, and the full config system</p>
+  <div class="tag">v2.3.0 &mdash; Pipeline Health Checks</div>
+</header>
+
+<!-- ===== 1. Staleness Tiers ===== -->
+<div class="section fade-in">
+  <h2><span class="icon">&#128200;</span> Stale Work Dashboard</h2>
+  <div class="panel">
+
+    <div class="tiers-row">
+      <div class="tier-card fresh">
+        <div class="tier-icon">&#9989;</div>
+        <h4>Fresh</h4>
+        <div class="tier-range">&lt; 7 days</div>
+        <span class="badge badge-fresh">Healthy</span>
+      </div>
+      <div class="tier-card aging">
+        <div class="tier-icon">&#9203;</div>
+        <h4>Aging</h4>
+        <div class="tier-range">7 &ndash; 14 days</div>
+        <span class="badge badge-aging">Monitor</span>
+      </div>
+      <div class="tier-card stale">
+        <div class="tier-icon">&#9888;&#65039;</div>
+        <h4>Stale</h4>
+        <div class="tier-range">14 &ndash; 21 days</div>
+        <span class="badge badge-stale">Warning</span>
+      </div>
+      <div class="tier-card critical">
+        <div class="tier-icon">&#128293;</div>
+        <h4>Critical</h4>
+        <div class="tier-range">&gt; 21 days</div>
+        <span class="badge badge-critical">Action Required</span>
+      </div>
+    </div>
+
+    <!-- Branch Health Table -->
+    <div class="table-wrap">
+      <table id="branch-table">
+        <thead>
+          <tr>
+            <th data-col="branch" data-type="string">Branch <span class="sort-arrow">&#9650;</span></th>
+            <th data-col="date" data-type="date">Last Commit <span class="sort-arrow">&#9650;</span></th>
+            <th data-col="days" data-type="number">Days Inactive <span class="sort-arrow">&#9650;</span></th>
+            <th data-col="tier" data-type="tier">Staleness <span class="sort-arrow">&#9650;</span></th>
+            <th data-col="behind" data-type="number">Behind Main <span class="sort-arrow">&#9650;</span></th>
+            <th data-col="rec" data-type="string">Recommendation <span class="sort-arrow">&#9650;</span></th>
+          </tr>
+        </thead>
+        <tbody id="branch-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 2. Pipeline Queue ===== -->
+<div class="section fade-in">
+  <h2><span class="icon">&#128679;</span> Pipeline Queue Visualization</h2>
+  <div class="panel">
+    <div class="queue-container">
+
+      <div class="queue-header">
+        <div class="queue-stat">
+          <div class="stat-value">3</div>
+          <div class="stat-label">Releases Queued</div>
+        </div>
+        <div class="queue-stat">
+          <div class="stat-value" style="color: #f85149;">1</div>
+          <div class="stat-label">Staging Bottleneck</div>
+        </div>
+        <div class="queue-stat">
+          <div class="stat-value">4d 6h</div>
+          <div class="stat-label">Since Last Prod Release</div>
+        </div>
+        <div class="queue-stat">
+          <div class="stat-value" style="color: #d29922;">~2h 30m</div>
+          <div class="stat-label">Est. Wait (Queue)</div>
+        </div>
+      </div>
+
+      <div class="pipeline-visual">
+        <div class="pipe-item queued">
+          <div class="pipe-label">release/2.5.0</div>
+          <div class="pipe-sub">Queued &mdash; 3rd in line</div>
+        </div>
+        <div class="pipe-arrow">&#8594;</div>
+        <div class="pipe-item waiting">
+          <div class="pipe-label">release/2.4.1</div>
+          <div class="pipe-sub">Waiting &mdash; 2nd in line</div>
+        </div>
+        <div class="pipe-arrow">&#8594;</div>
+        <div class="pipe-item active">
+          <div class="pipe-label">release/2.4.0</div>
+          <div class="pipe-sub">Validating on staging</div>
+        </div>
+        <div class="pipe-arrow">&#8594;</div>
+        <div class="pipe-item bottleneck">
+          <div class="pipe-label">&#128274; Staging</div>
+          <div class="pipe-sub">Claimed for 2.4.0</div>
+        </div>
+        <div class="pipe-arrow">&#8594;</div>
+        <div class="pipe-item" style="border-color: #3fb950;">
+          <div class="pipe-label" style="color: #3fb950;">Production</div>
+          <div class="pipe-sub">v2.3.0 &mdash; Healthy</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===== 3. Open PR Age Tracker ===== -->
+<div class="section fade-in">
+  <h2><span class="icon">&#128203;</span> Open PR Age Tracker</h2>
+  <div class="panel">
+    <div class="pr-list" id="pr-list">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- ===== 4. Configuration Panel ===== -->
+<div class="section fade-in">
+  <h2><span class="icon">&#9881;&#65039;</span> Configuration Panel</h2>
+  <div class="panel">
+    <div class="config-layout">
+
+      <div class="config-form">
+        <div class="config-group">
+          <h4>Repository</h4>
+          <div class="config-item">
+            <div><div class="config-key">owner</div><div class="config-desc">GitHub username / org</div></div>
+            <div class="config-val">"SimTimms"</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">frontendRepo</div><div class="config-desc">Frontend repository name</div></div>
+            <div class="config-val">"deploynope"</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">backendRepo</div><div class="config-desc">Backend repository name</div></div>
+            <div class="config-val json-null">null</div>
+          </div>
+        </div>
+
+        <div class="config-group">
+          <h4>Branches</h4>
+          <div class="config-item">
+            <div><div class="config-key">productionBranch</div><div class="config-desc">Branch that triggers production deploy</div></div>
+            <div class="config-val">"main"</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">stagingBranch</div><div class="config-desc">Validation environment branch</div></div>
+            <div class="config-val">"staging"</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">developmentBranch</div><div class="config-desc">Development integration branch</div></div>
+            <div class="config-val">"development"</div>
+          </div>
+        </div>
+
+        <div class="config-group">
+          <h4>Deployment</h4>
+          <div class="config-item">
+            <div><div class="config-key">deploymentCutoffTime</div><div class="config-desc">No deploys after this time</div></div>
+            <div class="config-val">"14:00"</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">commitPrefixes</div><div class="config-desc">Require conventional commit prefixes</div></div>
+            <div class="config-val json-bool">true</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">teamSize</div><div class="config-desc">Number of team members</div></div>
+            <div class="config-val json-val">1</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">frontend.npmInstallCommand</div><div class="config-desc">Install command for frontend</div></div>
+            <div class="config-val">"npm install"</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">backend.npmInstallCommand</div><div class="config-desc">Install command for backend</div></div>
+            <div class="config-val json-null">null</div>
+          </div>
+        </div>
+
+        <div class="config-group">
+          <h4>Confluence</h4>
+          <div class="config-item">
+            <div><div class="config-key">confluence.spaceKey</div><div class="config-desc">Confluence space key</div></div>
+            <div class="config-val json-null">null</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">confluence.spaceId</div><div class="config-desc">Confluence space ID</div></div>
+            <div class="config-val json-null">null</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">confluence.cloudId</div><div class="config-desc">Atlassian cloud instance ID</div></div>
+            <div class="config-val json-null">null</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">confluence.folderId</div><div class="config-desc">Release notes folder ID</div></div>
+            <div class="config-val json-null">null</div>
+          </div>
+        </div>
+
+        <div class="config-group">
+          <h4>Changelog</h4>
+          <div class="config-item">
+            <div><div class="config-key">changelog.enabled</div><div class="config-desc">Generate changelog entries</div></div>
+            <div class="config-val json-bool">true</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">changelog.format</div><div class="config-desc">Changelog format style</div></div>
+            <div class="config-val">"keepachangelog"</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">changelog.filePath</div><div class="config-desc">Path to changelog file</div></div>
+            <div class="config-val">"CHANGELOG.md"</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">changelog.autoPopulate</div><div class="config-desc">Auto-fill from commit history</div></div>
+            <div class="config-val json-bool">true</div>
+          </div>
+          <div class="config-item">
+            <div><div class="config-key">changelog.includeLinks</div><div class="config-desc">Add compare links to entries</div></div>
+            <div class="config-val json-bool">true</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-json-wrap">
+<pre><span class="json-key">{</span>
+  <span class="json-key">"owner"</span>: <span class="json-str">"SimTimms"</span>,
+  <span class="json-key">"backendRepo"</span>: <span class="json-null">null</span>,
+  <span class="json-key">"frontendRepo"</span>: <span class="json-str">"deploynope"</span>,
+  <span class="json-key">"productionBranch"</span>: <span class="json-str">"main"</span>,
+  <span class="json-key">"stagingBranch"</span>: <span class="json-str">"staging"</span>,
+  <span class="json-key">"developmentBranch"</span>: <span class="json-str">"development"</span>,
+  <span class="json-key">"deploymentCutoffTime"</span>: <span class="json-str">"14:00"</span>,
+  <span class="json-key">"confluence"</span>: {
+    <span class="json-key">"spaceKey"</span>: <span class="json-null">null</span>,
+    <span class="json-key">"spaceId"</span>: <span class="json-null">null</span>,
+    <span class="json-key">"cloudId"</span>: <span class="json-null">null</span>,
+    <span class="json-key">"folderId"</span>: <span class="json-null">null</span>
+  },
+  <span class="json-key">"frontend"</span>: {
+    <span class="json-key">"npmInstallCommand"</span>: <span class="json-str">"npm install"</span>
+  },
+  <span class="json-key">"backend"</span>: {
+    <span class="json-key">"npmInstallCommand"</span>: <span class="json-null">null</span>
+  },
+  <span class="json-key">"teamSize"</span>: <span class="json-val">1</span>,
+  <span class="json-key">"commitPrefixes"</span>: <span class="json-bool">true</span>,
+  <span class="json-key">"changelog"</span>: {
+    <span class="json-key">"enabled"</span>: <span class="json-bool">true</span>,
+    <span class="json-key">"format"</span>: <span class="json-str">"keepachangelog"</span>,
+    <span class="json-key">"filePath"</span>: <span class="json-str">"CHANGELOG.md"</span>,
+    <span class="json-key">"autoPopulate"</span>: <span class="json-bool">true</span>,
+    <span class="json-key">"includeLinks"</span>: <span class="json-bool">true</span>
+  }
+<span class="json-key">}</span></pre>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===== 5. Auto-Activation Triggers ===== -->
+<div class="section fade-in">
+  <h2><span class="icon">&#9889;</span> Auto-Activation Triggers</h2>
+  <div class="panel">
+    <p style="color: #8b949e; font-size: 0.85rem; margin-bottom: 1rem;">DeployNOPE activates automatically when any of these phrases are detected. Hover or click to see the activation.</p>
+    <div class="triggers-grid" id="triggers-grid">
+      <!-- Populated by JS -->
+    </div>
+    <div class="controls">
+      <button class="btn primary" onclick="activateAllTriggers()">Activate All</button>
+      <button class="btn" onclick="resetTriggers()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 6. Framework Visibility ===== -->
+<div class="section fade-in">
+  <h2><span class="icon">&#127991;&#65039;</span> Framework Visibility &mdash; Stage Tags</h2>
+  <div class="panel">
+
+    <div class="stage-table-wrap">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="cursor: default;">Context</th>
+              <th style="cursor: default;">Tag</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Starting new work</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ New Work</span></td></tr>
+            <tr><td>Pre-flight checks</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Preflight</span></td></tr>
+            <tr><td>Configuration</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Configure</span></td></tr>
+            <tr><td>Deploy status</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Deploy Status</span></td></tr>
+            <tr><td>Verify rules</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Verify Rules</span></td></tr>
+            <tr><td>Stale check</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Stale Check</span></td></tr>
+            <tr><td>Release manifest</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Release Manifest</span></td></tr>
+            <tr><td>Post-deployment</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Post-Deploy</span></td></tr>
+            <tr><td>Rollback</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Rollback</span></td></tr>
+            <tr><td>Feature / ticket work</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Feature</span></td></tr>
+            <tr><td>Staging contention</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Staging</span></td></tr>
+            <tr><td>Staging validation</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Staging Validation</span></td></tr>
+            <tr><td>Production reset</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Production</span></td></tr>
+            <tr><td>GitHub Release</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Release</span></td></tr>
+            <tr><td>General deployment</td><td><span style="color: #58a6ff; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem;">&#129299; DeployNOPE @ Deploy</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3 style="color: #f0f6fc; font-size: 1.1rem; margin-bottom: 1rem; text-align: center;">Animated Workflow Progression</h3>
+    <div class="conversation-demo" id="conv-demo">
+      <!-- Populated by JS -->
+    </div>
+    <div class="controls">
+      <button class="btn primary" onclick="replayConversation()">Replay</button>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <p>&#129299; DeployNOPE v2.3.0 &mdash; <a href="https://github.com/SimTimms/deploynope">GitHub</a></p>
+</footer>
+
+<script>
+  // ===== Branch Health Table Data =====
+  const branches = [
+    { branch: 'feature/auth-refactor', date: '2026-03-12', days: 2, tier: 'fresh', behind: 0, rec: 'keep' },
+    { branch: 'release/2.4.0', date: '2026-03-10', days: 4, tier: 'fresh', behind: 1, rec: 'merge' },
+    { branch: 'feature/dashboard-v2', date: '2026-03-04', days: 10, tier: 'aging', behind: 3, rec: 'merge' },
+    { branch: 'hotfix/login-fix', date: '2026-02-26', days: 16, tier: 'stale', behind: 8, rec: 'merge' },
+    { branch: 'feature/old-api-cleanup', date: '2026-02-19', days: 23, tier: 'critical', behind: 14, rec: 'delete' },
+    { branch: 'chore/deps-update', date: '2026-02-22', days: 20, tier: 'stale', behind: 11, rec: 'delete' }
+  ];
+
+  const tierOrder = { fresh: 0, aging: 1, stale: 2, critical: 3 };
+
+  function renderBranchTable(data) {
+    const tbody = document.getElementById('branch-tbody');
+    tbody.innerHTML = data.map(b => {
+      const badgeClass = 'badge-' + b.tier;
+      const tierLabel = b.tier.charAt(0).toUpperCase() + b.tier.slice(1);
+      const recClass = b.rec === 'keep' ? 'rec-keep' : b.rec === 'merge' ? 'rec-merge' : 'rec-delete';
+      const recIcon = b.rec === 'keep' ? '&#9989;' : b.rec === 'merge' ? '&#128256;' : '&#128465;';
+      return `<tr>
+        <td><span class="branch-name">${b.branch}</span></td>
+        <td>${b.date}</td>
+        <td>${b.days}</td>
+        <td><span class="badge ${badgeClass}">${tierLabel}</span></td>
+        <td>${b.behind}</td>
+        <td class="${recClass}">${recIcon} ${b.rec.charAt(0).toUpperCase() + b.rec.slice(1)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Sortable columns
+  let sortCol = null;
+  let sortAsc = true;
+
+  document.querySelectorAll('#branch-table th').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      const type = th.dataset.type;
+      if (!col) return;
+
+      if (sortCol === col) { sortAsc = !sortAsc; }
+      else { sortCol = col; sortAsc = true; }
+
+      document.querySelectorAll('#branch-table th').forEach(h => h.classList.remove('sorted'));
+      th.classList.add('sorted');
+      th.querySelector('.sort-arrow').innerHTML = sortAsc ? '&#9650;' : '&#9660;';
+
+      const sorted = [...branches].sort((a, b) => {
+        let av = a[col], bv = b[col];
+        if (type === 'tier') { av = tierOrder[av]; bv = tierOrder[bv]; }
+        if (type === 'number' || type === 'tier') return sortAsc ? av - bv : bv - av;
+        if (type === 'date') return sortAsc ? new Date(av) - new Date(bv) : new Date(bv) - new Date(av);
+        return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+      renderBranchTable(sorted);
+    });
+  });
+
+  renderBranchTable(branches);
+
+  // ===== PR Age Tracker =====
+  const prs = [
+    { num: '#15', title: 'feat: add webhook retry logic', days: 2, tier: 'fresh', pct: 7 },
+    { num: '#12', title: 'fix: resolve session timeout on mobile', days: 10, tier: 'aging', pct: 40 },
+    { num: '#8', title: 'refactor: extract auth middleware', days: 18, tier: 'stale', pct: 72 },
+    { num: '#3', title: 'feat: legacy API migration layer', days: 25, tier: 'critical', pct: 100 }
+  ];
+
+  const prList = document.getElementById('pr-list');
+  prList.innerHTML = prs.map(pr => {
+    const badgeClass = 'badge-' + pr.tier;
+    const tierLabel = pr.tier.charAt(0).toUpperCase() + pr.tier.slice(1);
+    const colors = { fresh: '#3fb950', aging: '#d29922', stale: '#f0883e', critical: '#f85149' };
+    return `<div class="pr-item">
+      <div class="pr-number" style="color: ${colors[pr.tier]}">${pr.num}</div>
+      <div class="pr-title">${pr.title}</div>
+      <div class="pr-age">${pr.days}d old <span class="badge ${badgeClass}">${tierLabel}</span></div>
+      <div class="pr-bar-wrap">
+        <div class="pr-bar ${pr.tier}" style="width: 0%" data-target="${pr.pct}"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Animate PR bars
+  setTimeout(() => {
+    document.querySelectorAll('.pr-bar').forEach(bar => {
+      bar.style.width = bar.dataset.target + '%';
+    });
+  }, 500);
+
+  // ===== Auto-Activation Triggers =====
+  const triggers = [
+    'deploy', 'release', 'ship code',
+    'push to staging / master / main',
+    'reset staging', 'reset master',
+    'create a PR',
+    'merge into staging / master / development',
+    'create GitHub Release', 'tag a version',
+    'bump version',
+    'roll back a deployment',
+    'start new work', 'create feature branch',
+    'create hotfix branch', 'commit code'
+  ];
+
+  const triggersGrid = document.getElementById('triggers-grid');
+  triggersGrid.innerHTML = triggers.map((t, i) => `
+    <div class="trigger-item" data-idx="${i}" onclick="toggleTrigger(this)">
+      <span class="trigger-phrase">"${t}"</span>
+      <span class="trigger-tag">&#129299; DeployNOPE</span>
+    </div>
+  `).join('');
+
+  function toggleTrigger(el) {
+    el.classList.toggle('activated');
+  }
+
+  function activateAllTriggers() {
+    let delay = 0;
+    document.querySelectorAll('.trigger-item').forEach(el => {
+      setTimeout(() => el.classList.add('activated'), delay);
+      delay += 100;
+    });
+  }
+
+  function resetTriggers() {
+    document.querySelectorAll('.trigger-item').forEach(el => el.classList.remove('activated'));
+  }
+
+  // ===== Conversation Demo =====
+  const convLines = [
+    { who: 'user', text: '"I want to start new work on a webhook feature."' },
+    { who: 'agent', tag: 'New Work', text: 'Running new-work checklist... branch name? base branch?' },
+    { who: 'user', text: '"feature/webhook-retry based on release/2.4.0"' },
+    { who: 'agent', tag: 'Feature', text: 'Branch created. Writing code, committing changes.' },
+    { who: 'user', text: '"Let\'s deploy this."' },
+    { who: 'agent', tag: 'Staging', text: 'Running staging contention check... staging/active not found. Claiming staging.' },
+    { who: 'agent', tag: 'Staging Validation', text: 'Staging reset complete. Please validate and confirm.' },
+    { who: 'user', text: '"It\'s validated."' },
+    { who: 'agent', tag: 'Production', text: 'Resetting master to match staging... force-push enabled, reset, re-locked.' },
+    { who: 'agent', tag: 'Release', text: 'Creating GitHub Release v2.4.0 on both repos.' },
+    { who: 'agent', tag: 'Post-Deploy', text: 'Branch alignment: all green. Staging cleared. Ready for new work.' }
+  ];
+
+  function renderConversation() {
+    const demo = document.getElementById('conv-demo');
+    demo.innerHTML = '';
+    convLines.forEach((line, i) => {
+      const div = document.createElement('div');
+      div.className = 'conv-line';
+      if (line.who === 'user') {
+        div.innerHTML = `<span class="conv-user">You:</span> ${line.text}`;
+      } else {
+        div.innerHTML = `<span class="conv-tag">&#129299; DeployNOPE @ ${line.tag}</span> <span class="conv-arrow">&#8594;</span> <span class="conv-agent">${line.text}</span>`;
+      }
+      demo.appendChild(div);
+
+      setTimeout(() => {
+        div.classList.add('visible');
+        demo.scrollTop = demo.scrollHeight;
+      }, 600 + i * 800);
+    });
+  }
+
+  function replayConversation() {
+    renderConversation();
+  }
+
+  renderConversation();
+</script>
+
+</body>
+</html>

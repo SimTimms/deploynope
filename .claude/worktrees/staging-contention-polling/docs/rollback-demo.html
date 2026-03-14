@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeployNOPE — Rollback System</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    text-align: center;
+    padding: 3rem 1rem 2rem;
+    position: relative;
+  }
+
+  header h1 {
+    font-size: 2.4rem;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+  }
+
+  header h1 span.nerd { font-size: 2rem; }
+  header h1 span.nope { color: #f85149; }
+
+  header p {
+    font-size: 1.1rem;
+    color: #8b949e;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #1f2937;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    color: #58a6ff;
+    margin-top: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* --- Section headings --- */
+  .section {
+    max-width: 900px;
+    margin: 0 auto 3rem;
+    padding: 0 1.5rem;
+  }
+
+  .section h2 {
+    text-align: center;
+    font-size: 1.5rem;
+    color: #f0f6fc;
+    margin-bottom: 1.5rem;
+  }
+
+  .section h2 .sub {
+    display: block;
+    font-size: 0.85rem;
+    color: #8b949e;
+    font-weight: 400;
+    margin-top: 0.3rem;
+  }
+
+  /* --- Mode selector --- */
+  .mode-row {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .mode-card {
+    flex: 1;
+    max-width: 380px;
+    min-width: 260px;
+    background: #161b22;
+    border: 2px solid #30363d;
+    border-radius: 12px;
+    padding: 1.75rem 1.5rem;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
+    position: relative;
+  }
+
+  .mode-card:hover { transform: translateY(-2px); }
+
+  .mode-card.standard { border-color: #30363d; }
+  .mode-card.standard.selected {
+    border-color: #58a6ff;
+    box-shadow: 0 0 24px rgba(88, 166, 255, 0.2);
+  }
+
+  .mode-card.emergency { border-color: #30363d; }
+  .mode-card.emergency.selected {
+    border-color: #f85149;
+    box-shadow: 0 0 24px rgba(248, 81, 73, 0.25);
+  }
+  .mode-card.emergency.selected .mode-icon {
+    animation: emergencyPulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes emergencyPulse {
+    0%, 100% { text-shadow: 0 0 8px rgba(248, 81, 73, 0.3); }
+    50% { text-shadow: 0 0 24px rgba(248, 81, 73, 0.7); }
+  }
+
+  .mode-icon { font-size: 2.4rem; margin-bottom: 0.75rem; }
+  .mode-card h3 { color: #f0f6fc; font-size: 1.15rem; margin-bottom: 0.4rem; }
+  .mode-card p { font-size: 0.85rem; color: #8b949e; line-height: 1.5; }
+
+  .mode-badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.75rem;
+  }
+  .mode-card.standard .mode-badge { background: #0c2d6b; color: #58a6ff; }
+  .mode-card.emergency .mode-badge { background: #4a1215; color: #f85149; }
+
+  /* --- Workflow steps --- */
+  .workflow-container {
+    max-width: 700px;
+    margin: 0 auto;
+    position: relative;
+    padding-left: 3rem;
+  }
+
+  .workflow-container::before {
+    content: '';
+    position: absolute;
+    left: 1.1rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #30363d 0%, #30363d 90%, transparent 100%);
+  }
+
+  .step {
+    position: relative;
+    margin-bottom: 1.25rem;
+    opacity: 0;
+    transform: translateY(16px);
+    animation: fadeSlideIn 0.4s ease forwards;
+  }
+
+  .step:nth-child(1)  { animation-delay: 0.1s; }
+  .step:nth-child(2)  { animation-delay: 0.2s; }
+  .step:nth-child(3)  { animation-delay: 0.3s; }
+  .step:nth-child(4)  { animation-delay: 0.4s; }
+  .step:nth-child(5)  { animation-delay: 0.5s; }
+  .step:nth-child(6)  { animation-delay: 0.6s; }
+  .step:nth-child(7)  { animation-delay: 0.7s; }
+  .step:nth-child(8)  { animation-delay: 0.8s; }
+  .step:nth-child(9)  { animation-delay: 0.9s; }
+  .step:nth-child(10) { animation-delay: 1.0s; }
+  .step:nth-child(11) { animation-delay: 1.1s; }
+  .step:nth-child(12) { animation-delay: 1.2s; }
+
+  @keyframes fadeSlideIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .step .step-dot {
+    position: absolute;
+    left: -1.9rem;
+    top: 0.85rem;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #30363d;
+    border: 2px solid #0d1117;
+    z-index: 2;
+  }
+
+  .step .step-dot.blue  { background: #58a6ff; box-shadow: 0 0 8px rgba(88, 166, 255, 0.4); }
+  .step .step-dot.green { background: #3fb950; box-shadow: 0 0 8px rgba(63, 185, 80, 0.4); }
+  .step .step-dot.red   { background: #f85149; box-shadow: 0 0 8px rgba(248, 81, 73, 0.4); }
+  .step .step-dot.yellow { background: #d29922; box-shadow: 0 0 8px rgba(210, 153, 34, 0.4); }
+
+  .step-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    transition: border-color 0.3s;
+  }
+
+  .step-card.human-gate {
+    border-color: #d29922;
+    border-left: 3px solid #d29922;
+  }
+
+  .step-card.danger {
+    border-color: #f85149;
+    border-left: 3px solid #f85149;
+    background: #1a1215;
+  }
+
+  .step-card h4 {
+    font-size: 0.95rem;
+    color: #f0f6fc;
+    margin-bottom: 0.3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .step-card p {
+    font-size: 0.82rem;
+    color: #8b949e;
+    line-height: 1.5;
+  }
+
+  .gate-badge {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .gate-badge.human { background: #2d2200; color: #d29922; }
+  .gate-badge.danger-badge { background: #4a1215; color: #f85149; }
+
+  .step-card .code-block {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    margin-top: 0.5rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    color: #c9d1d9;
+    overflow-x: auto;
+  }
+
+  .code-block .cmd { color: #79c0ff; }
+  .code-block .tag-name { color: #ffa657; }
+  .code-block .comment { color: #8b949e; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .danger-text { color: #f85149; }
+
+  .hidden { display: none; }
+
+  /* --- Cache-bust explainer --- */
+  .explainer-panel {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .explainer-panel h3 {
+    color: #f0f6fc;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  .cache-row {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+  }
+
+  .cache-box {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 0.8rem 1.2rem;
+    text-align: center;
+    min-width: 180px;
+  }
+
+  .cache-box.stale { border-color: #f85149; }
+  .cache-box.fresh { border-color: #3fb950; }
+
+  .cache-box .file {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.82rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .cache-box.stale .file { color: #f85149; }
+  .cache-box.fresh .file { color: #3fb950; }
+
+  .cache-box .label {
+    font-size: 0.72rem;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .cache-arrow {
+    font-size: 1.6rem;
+    color: #58a6ff;
+  }
+
+  .why-how {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .why-how-card {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .why-how-card h4 {
+    color: #58a6ff;
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .why-how-card p {
+    font-size: 0.8rem;
+    color: #8b949e;
+    line-height: 1.5;
+  }
+
+  /* --- Manifest lookup --- */
+  .manifest-visual {
+    max-width: 700px;
+    margin: 0 auto;
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .manifest-file {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1.25rem;
+    flex: 1;
+    min-width: 260px;
+    max-width: 340px;
+  }
+
+  .manifest-file h4 {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    color: #ffa657;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .manifest-json {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.75rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    line-height: 1.7;
+  }
+
+  .manifest-json .key { color: #79c0ff; }
+  .manifest-json .val { color: #a5d6ff; }
+  .manifest-json .val.highlight {
+    color: #3fb950;
+    background: rgba(63, 185, 80, 0.1);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+  }
+  .manifest-json .val.rolled-back {
+    color: #f85149;
+    background: rgba(248, 81, 73, 0.1);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+  }
+
+  .manifest-arrow {
+    font-size: 2rem;
+    color: #3fb950;
+    align-self: center;
+    flex-shrink: 0;
+  }
+
+  /* --- Interactive simulation --- */
+  .sim-panel {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .sim-controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: #c9d1d9;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+
+  .btn:hover {
+    background: #30363d;
+    border-color: #8b949e;
+    color: #f0f6fc;
+  }
+
+  .btn.primary {
+    background: #238636;
+    border-color: #2ea043;
+    color: #fff;
+  }
+  .btn.primary:hover { background: #2ea043; }
+
+  .btn.danger {
+    background: #6e1b1b;
+    border-color: #f85149;
+    color: #ffa198;
+  }
+  .btn.danger:hover { background: #8b2525; }
+
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .sim-progress {
+    margin-bottom: 1rem;
+  }
+
+  .sim-step-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0;
+    font-size: 0.82rem;
+    color: #484f58;
+    transition: color 0.3s;
+  }
+
+  .sim-step-row.active { color: #58a6ff; }
+  .sim-step-row.done { color: #3fb950; }
+  .sim-step-row.gate { color: #d29922; }
+  .sim-step-row.skipped { color: #f85149; text-decoration: line-through; }
+
+  .sim-step-icon {
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
+    font-size: 0.9rem;
+  }
+
+  .terminal {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    max-height: 260px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  .terminal .line {
+    opacity: 0;
+    animation: typeLine 0.3s ease forwards;
+  }
+
+  @keyframes typeLine {
+    to { opacity: 1; }
+  }
+
+  .terminal .time { color: #484f58; }
+  .terminal .info { color: #58a6ff; }
+  .terminal .warn { color: #d29922; }
+  .terminal .success { color: #3fb950; }
+  .terminal .error { color: #f85149; }
+
+  /* --- How it works grid --- */
+  .how-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .how-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+
+  .how-card:hover {
+    border-color: #58a6ff;
+    transform: translateY(-2px);
+  }
+
+  .how-card .how-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+  .how-card h4 { color: #f0f6fc; margin-bottom: 0.5rem; }
+  .how-card p { font-size: 0.85rem; color: #8b949e; line-height: 1.5; }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    padding: 2rem;
+    color: #484f58;
+    font-size: 0.8rem;
+    border-top: 1px solid #21262d;
+  }
+
+  footer a {
+    color: #58a6ff;
+    text-decoration: none;
+  }
+
+  @media (max-width: 600px) {
+    .why-how { grid-template-columns: 1fr; }
+    .mode-row { flex-direction: column; align-items: center; }
+    .manifest-visual { flex-direction: column; align-items: center; }
+    .manifest-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="nerd">&#129299;</span> Deploy<span class="nope">NOPE</span></h1>
+  <p>Rollback System &mdash; two modes for rolling back production deployments safely</p>
+  <div class="tag">Rollback System &mdash; Standard &amp; Emergency Modes</div>
+</header>
+
+<!-- Mode Selector -->
+<div class="section">
+  <h2>Select Rollback Mode</h2>
+  <div class="mode-row">
+    <div class="mode-card standard selected" onclick="selectMode('standard')">
+      <div class="mode-icon">&#128260;</div>
+      <h3>Standard Rollback</h3>
+      <p>Full staging validation. Use when you have time to validate before production changes.</p>
+      <div class="mode-badge">Recommended</div>
+    </div>
+    <div class="mode-card emergency" onclick="selectMode('emergency')">
+      <div class="mode-icon">&#128680;</div>
+      <h3>Emergency Rollback</h3>
+      <p>Skip staging validation. For active outages only &mdash; goes straight to production.</p>
+      <div class="mode-badge">Active Outages Only</div>
+    </div>
+  </div>
+</div>
+
+<!-- Standard Rollback Workflow -->
+<div class="section" id="workflow-standard">
+  <h2>Standard Rollback Workflow <span class="sub">Full staging validation before production</span></h2>
+  <div class="workflow-container">
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#128269; Identify Releases</h4>
+        <p>Look up the current and previous release versions from the release manifest.</p>
+        <div class="code-block">
+          <span class="comment"># Read manifest</span><br>
+          <span class="cmd">cat</span> <span class="tag-name">releases/2.3.0.json</span><br>
+          <span class="comment"># Current: 2.3.0 &rarr; Rollback target: 2.2.0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#127760; Check Cross-Repo Scope</h4>
+        <p>Determine which repositories were included in the release and need to be rolled back together.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot yellow"></div>
+      <div class="step-card">
+        <h4>&#128270; Staging Contention Check</h4>
+        <p>Verify staging is available. If <code>staging/active</code> exists, wait or poll until it clears.</p>
+        <div class="code-block">
+          <span class="cmd">git fetch origin</span><br>
+          <span class="cmd">git tag -l</span> <span class="tag-name">"staging/active"</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#128274; Claim Staging</h4>
+        <p>Tag staging as claimed for the rollback operation.</p>
+        <div class="code-block">
+          <span class="cmd">git tag -a</span> <span class="tag-name">staging/active</span> <span class="str">-m "Claimed for rollback to 2.2.0"</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#128165; Frontend Cache-Bust Branch</h4>
+        <p>Bump <code>package.json</code> version to force new asset URLs so browsers fetch fresh files.</p>
+        <div class="code-block">
+          <span class="comment"># package.json version bump</span><br>
+          <span class="tag-name">2.2.0</span> <span class="comment">&rarr;</span> <span class="tag-name">2.2.1</span> <span class="comment">(patch bump for cache-bust)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#128259; Reset Staging to Rollback Target</h4>
+        <p>Hard-reset the staging branch to match the rollback target version.</p>
+        <div class="code-block">
+          <span class="cmd">git reset --hard</span> <span class="tag-name">v2.2.0</span><br>
+          <span class="cmd">git push origin staging --force</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot yellow"></div>
+      <div class="step-card human-gate">
+        <h4>&#128065; Validate on Staging <span class="gate-badge human">Human Gate</span></h4>
+        <p>Manual validation on the staging environment. Confirm the rollback target behaves as expected before touching production.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#128260; Cross-Repo Version Parity</h4>
+        <p>Verify all related repositories are aligned at the correct rollback version.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#128640; Reset Master (Backend First)</h4>
+        <p>Reset the master branch to the rollback target. Backend repos go first to avoid frontend pointing at non-existent API endpoints.</p>
+        <div class="code-block">
+          <span class="cmd">git reset --hard</span> <span class="tag-name">v2.2.0</span><br>
+          <span class="cmd">git push origin master --force</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#128221; Annotate GitHub Release</h4>
+        <p>Mark the rolled-back release as rolled back, noting the target version and reason.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot yellow"></div>
+      <div class="step-card human-gate">
+        <h4>&#128678; Production Smoke Test <span class="gate-badge human">Human Gate</span></h4>
+        <p>Verify production is working correctly after the rollback. Check critical paths and monitoring dashboards.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot green"></div>
+      <div class="step-card">
+        <h4>&#9989; Post-Rollback Checklist</h4>
+        <p>Release staging claim, notify the team, document the incident, and plan the fix-forward.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Emergency Rollback Workflow -->
+<div class="section hidden" id="workflow-emergency">
+  <h2>Emergency Rollback Workflow <span class="sub">Skip staging &mdash; for active outages only</span></h2>
+  <div class="workflow-container">
+
+    <div class="step">
+      <div class="step-dot red"></div>
+      <div class="step-card danger">
+        <h4>&#9888;&#65039; CONFIRM: This Is an Emergency <span class="gate-badge danger-badge">Human Gate</span></h4>
+        <p>Explicit acknowledgment that this is an active outage and you are intentionally skipping staging validation. This cannot be undone easily.</p>
+        <div class="code-block">
+          <span class="danger-text">WARNING: Emergency mode skips staging validation.</span><br>
+          <span class="danger-text">Only proceed if production is actively broken.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot red"></div>
+      <div class="step-card danger">
+        <h4>&#127919; CONFIRM: Target Version <span class="gate-badge danger-badge">Human Gate</span></h4>
+        <p>Explicitly confirm the version you are rolling back to. No ambiguity allowed in emergency mode.</p>
+        <div class="code-block">
+          <span class="comment"># Confirm rollback target</span><br>
+          <span class="danger-text">Rolling back to:</span> <span class="tag-name">v2.2.0</span><br>
+          <span class="comment"># Type the version to confirm</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#128165; Frontend Cache-Bust Branch</h4>
+        <p>Bump <code>package.json</code> version to force fresh asset URLs, even in emergency.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot red"></div>
+      <div class="step-card danger">
+        <h4>&#128680; Reset Master Directly <span class="gate-badge danger-badge">Staging Skipped</span></h4>
+        <p>Hard-reset master to the rollback target without staging validation. This is the dangerous step that emergency mode enables.</p>
+        <div class="code-block">
+          <span class="danger-text"># STAGING VALIDATION SKIPPED</span><br>
+          <span class="cmd">git reset --hard</span> <span class="tag-name">v2.2.0</span><br>
+          <span class="cmd">git push origin master --force</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot yellow"></div>
+      <div class="step-card human-gate">
+        <h4>&#128678; CONFIRM: CodePipeline Status <span class="gate-badge human">Human Gate</span></h4>
+        <p>Check that CodePipeline has picked up the change and is deploying the rolled-back version. Do not proceed until the pipeline is green.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot yellow"></div>
+      <div class="step-card human-gate">
+        <h4>&#128065; Mandatory Post-Rollback Validation <span class="gate-badge human">Human Gate</span></h4>
+        <p>Since staging was skipped, production validation is mandatory and extra thorough. Check all critical paths.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot blue"></div>
+      <div class="step-card">
+        <h4>&#128221; Annotate GitHub Release</h4>
+        <p>Mark the release as emergency-rolled-back with timestamp and reason.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-dot green"></div>
+      <div class="step-card">
+        <h4>&#9989; Post-Rollback Checklist</h4>
+        <p>Notify the team, document the incident, schedule a post-mortem, and plan the fix-forward. Extra scrutiny due to emergency mode.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Cache-Busting Explainer -->
+<div class="section">
+  <h2>Cache-Busting Explainer</h2>
+  <div class="explainer-panel">
+    <div class="why-how">
+      <div class="why-how-card">
+        <h4>Why?</h4>
+        <p>When rolling back, the code goes backwards but browsers have cached the old assets. Users will see broken pages with stale JS/CSS files.</p>
+      </div>
+      <div class="why-how-card">
+        <h4>How?</h4>
+        <p>Bump <code>package.json</code> version to generate new asset URLs. Browsers see unfamiliar filenames and fetch fresh files.</p>
+      </div>
+    </div>
+
+    <h3>Before &amp; After</h3>
+    <div class="cache-row">
+      <div class="cache-box stale">
+        <div class="file">app.v2.3.0.js</div>
+        <div class="label">&#10060; Cached &mdash; stale</div>
+      </div>
+      <div class="cache-arrow">&#10132;</div>
+      <div class="cache-box fresh">
+        <div class="file">app.v2.3.1.js</div>
+        <div class="label">&#9989; Fresh &mdash; correct</div>
+      </div>
+    </div>
+
+    <div class="manifest-json" style="max-width: 360px; margin: 0 auto;">
+      <span class="comment">// package.json</span><br>
+      <span class="key">"version"</span>: <span class="val">"2.2.0"</span> <span class="comment">&rarr;</span> <span class="val highlight">"2.2.1"</span><br>
+      <span class="comment">// Patch bump forces new asset filenames</span>
+    </div>
+  </div>
+</div>
+
+<!-- Release Manifest Lookup -->
+<div class="section">
+  <h2>Release Manifest Lookup</h2>
+  <div class="manifest-visual">
+
+    <div class="manifest-file">
+      <h4>&#128196; releases/2.3.0.json</h4>
+      <div class="manifest-json">
+        {<br>
+        &nbsp;&nbsp;<span class="key">"version"</span>: <span class="val">"2.3.0"</span>,<br>
+        &nbsp;&nbsp;<span class="key">"previousVersion"</span>: <span class="val highlight">"2.2.0"</span>,<br>
+        &nbsp;&nbsp;<span class="key">"date"</span>: <span class="val">"2026-03-10"</span>,<br>
+        &nbsp;&nbsp;<span class="key">"repos"</span>: [<span class="val">"api"</span>, <span class="val">"web"</span>],<br>
+        &nbsp;&nbsp;<span class="key">"status"</span>: <span class="val">"released"</span><br>
+        }
+      </div>
+    </div>
+
+    <div class="manifest-arrow">&#10132;</div>
+
+    <div class="manifest-file">
+      <h4>&#128196; releases/2.3.0.json <span style="color:#f85149; font-size:0.75rem;">(after rollback)</span></h4>
+      <div class="manifest-json">
+        {<br>
+        &nbsp;&nbsp;<span class="key">"version"</span>: <span class="val">"2.3.0"</span>,<br>
+        &nbsp;&nbsp;<span class="key">"previousVersion"</span>: <span class="val">"2.2.0"</span>,<br>
+        &nbsp;&nbsp;<span class="key">"date"</span>: <span class="val">"2026-03-10"</span>,<br>
+        &nbsp;&nbsp;<span class="key">"repos"</span>: [<span class="val">"api"</span>, <span class="val">"web"</span>],<br>
+        &nbsp;&nbsp;<span class="key">"status"</span>: <span class="val rolled-back">"rolled-back"</span>,<br>
+        &nbsp;&nbsp;<span class="key">"rolledBackAt"</span>: <span class="val rolled-back">"2026-03-14"</span><br>
+        }
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Interactive Simulation -->
+<div class="section">
+  <h2>Interactive Simulation</h2>
+  <div class="sim-panel">
+    <div class="sim-controls">
+      <button class="btn primary" id="btn-sim-standard" onclick="startSim('standard')">Simulate Standard Rollback</button>
+      <button class="btn danger" id="btn-sim-emergency" onclick="startSim('emergency')">Simulate Emergency Rollback</button>
+      <button class="btn" id="btn-sim-reset" onclick="resetSim()">Reset</button>
+    </div>
+
+    <div class="sim-progress" id="sim-progress"></div>
+
+    <div class="terminal" id="sim-terminal">
+      <div class="line"><span class="time">[--:--]</span> <span class="info">Ready</span> Select a simulation mode above</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>&#129299; DeployNOPE &mdash; Rollback System &mdash; <a href="https://github.com/SimTimms/deploynope">GitHub</a></p>
+</footer>
+
+<script>
+  /* --- Mode selector --- */
+  function selectMode(mode) {
+    document.querySelector('.mode-card.standard').classList.toggle('selected', mode === 'standard');
+    document.querySelector('.mode-card.emergency').classList.toggle('selected', mode === 'emergency');
+    document.getElementById('workflow-standard').classList.toggle('hidden', mode !== 'standard');
+    document.getElementById('workflow-emergency').classList.toggle('hidden', mode !== 'emergency');
+  }
+
+  /* --- Simulation --- */
+  let simRunning = false;
+  let simTimeout = null;
+
+  const standardSteps = [
+    { label: 'Identify current + previous releases', icon: '&#128269;', log: 'Reading releases/2.3.0.json... previousVersion: 2.2.0', level: 'info' },
+    { label: 'Check cross-repo scope', icon: '&#127760;', log: 'Repos in scope: api, web', level: 'info' },
+    { label: 'Staging contention check', icon: '&#128270;', log: 'git tag -l "staging/active" — no tag found, staging is free', level: 'success' },
+    { label: 'Claim staging', icon: '&#128274;', log: 'git tag -a staging/active -m "Claimed for rollback to 2.2.0"', level: 'info' },
+    { label: 'Frontend cache-bust branch', icon: '&#128165;', log: 'Bumping package.json: 2.2.0 → 2.2.1 (cache-bust patch)', level: 'info' },
+    { label: 'Reset staging to v2.2.0', icon: '&#128259;', log: 'git reset --hard v2.2.0 && git push origin staging --force', level: 'info' },
+    { label: 'Validate on staging', icon: '&#128065;', log: 'HUMAN GATE: Awaiting staging validation confirmation...', level: 'warn', gate: true },
+    { label: 'Staging validated', icon: '&#9989;', log: 'User confirmed: staging looks good', level: 'success', gateResume: true },
+    { label: 'Cross-repo version parity check', icon: '&#128260;', log: 'All repos aligned at v2.2.0 ✓', level: 'success' },
+    { label: 'Reset master (backend first)', icon: '&#128640;', log: 'git reset --hard v2.2.0 && git push origin master --force', level: 'info' },
+    { label: 'Annotate GitHub Release', icon: '&#128221;', log: 'Marked v2.3.0 as rolled-back in GitHub Release', level: 'info' },
+    { label: 'Production smoke test', icon: '&#128678;', log: 'HUMAN GATE: Awaiting production smoke test confirmation...', level: 'warn', gate: true },
+    { label: 'Smoke test passed', icon: '&#9989;', log: 'User confirmed: production is healthy', level: 'success', gateResume: true },
+    { label: 'Post-rollback checklist complete', icon: '&#127881;', log: 'Rollback complete. Staging released. Team notified.', level: 'success' },
+  ];
+
+  const emergencySteps = [
+    { label: 'CONFIRM: This is an emergency', icon: '&#9888;&#65039;', log: 'EMERGENCY HUMAN GATE: Is production actively broken?', level: 'error', gate: true },
+    { label: 'Emergency confirmed', icon: '&#9888;&#65039;', log: 'User confirmed: ACTIVE OUTAGE — proceeding with emergency rollback', level: 'error', gateResume: true },
+    { label: 'CONFIRM: Target version', icon: '&#127919;', log: 'HUMAN GATE: Confirm rollback target version...', level: 'warn', gate: true },
+    { label: 'Target confirmed: v2.2.0', icon: '&#127919;', log: 'User confirmed target: v2.2.0', level: 'success', gateResume: true },
+    { label: 'Frontend cache-bust branch', icon: '&#128165;', log: 'Bumping package.json: 2.2.0 → 2.2.1 (cache-bust patch)', level: 'info' },
+    { label: 'Reset master directly (STAGING SKIPPED)', icon: '&#128680;', log: 'DANGER: Skipping staging! git reset --hard v2.2.0 && git push origin master --force', level: 'error' },
+    { label: 'CONFIRM: CodePipeline status', icon: '&#128678;', log: 'HUMAN GATE: Is CodePipeline deploying v2.2.0?', level: 'warn', gate: true },
+    { label: 'Pipeline confirmed green', icon: '&#128678;', log: 'User confirmed: CodePipeline deploying v2.2.0', level: 'success', gateResume: true },
+    { label: 'Mandatory post-rollback validation', icon: '&#128065;', log: 'HUMAN GATE: Validate all critical paths in production...', level: 'warn', gate: true },
+    { label: 'Validation passed', icon: '&#128065;', log: 'User confirmed: production is healthy', level: 'success', gateResume: true },
+    { label: 'Annotate GitHub Release', icon: '&#128221;', log: 'Marked v2.3.0 as EMERGENCY-rolled-back in GitHub Release', level: 'error' },
+    { label: 'Post-rollback checklist complete', icon: '&#127881;', log: 'Emergency rollback complete. Team notified. Post-mortem scheduled.', level: 'success' },
+  ];
+
+  function getTimestamp() {
+    return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function addSimLog(msg, level) {
+    const terminal = document.getElementById('sim-terminal');
+    const line = document.createElement('div');
+    line.className = 'line';
+    line.innerHTML = '<span class="time">[' + getTimestamp() + ']</span> <span class="' + level + '">' + msg + '</span>';
+    terminal.appendChild(line);
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  function buildProgressUI(steps) {
+    const container = document.getElementById('sim-progress');
+    container.innerHTML = '';
+    steps.forEach(function(step, i) {
+      const row = document.createElement('div');
+      row.className = 'sim-step-row';
+      row.id = 'sim-step-' + i;
+      row.innerHTML = '<span class="sim-step-icon" id="sim-icon-' + i + '">&#9711;</span> <span>' + step.label + '</span>';
+      container.appendChild(row);
+    });
+  }
+
+  function startSim(mode) {
+    if (simRunning) return;
+    simRunning = true;
+
+    var steps = mode === 'standard' ? standardSteps : emergencySteps;
+
+    document.getElementById('btn-sim-standard').disabled = true;
+    document.getElementById('btn-sim-emergency').disabled = true;
+
+    buildProgressUI(steps);
+
+    var terminal = document.getElementById('sim-terminal');
+    terminal.innerHTML = '';
+    addSimLog(mode === 'standard' ? 'Starting standard rollback simulation...' : 'Starting EMERGENCY rollback simulation...', mode === 'standard' ? 'info' : 'error');
+
+    var i = 0;
+    function nextStep() {
+      if (i >= steps.length) {
+        addSimLog('--- Simulation complete ---', 'success');
+        simRunning = false;
+        document.getElementById('btn-sim-standard').disabled = false;
+        document.getElementById('btn-sim-emergency').disabled = false;
+        return;
+      }
+
+      var step = steps[i];
+      var row = document.getElementById('sim-step-' + i);
+      var icon = document.getElementById('sim-icon-' + i);
+
+      row.className = 'sim-step-row active';
+      icon.innerHTML = '&#9658;';
+      addSimLog(step.log, step.level);
+
+      if (step.gate) {
+        row.className = 'sim-step-row gate';
+        icon.innerHTML = '&#9888;';
+        // Auto-resolve gate after a pause
+        simTimeout = setTimeout(function() {
+          row.className = 'sim-step-row done';
+          icon.innerHTML = '&#10003;';
+          i++;
+          nextStep();
+        }, 2200);
+      } else if (step.gateResume) {
+        row.className = 'sim-step-row done';
+        icon.innerHTML = '&#10003;';
+        i++;
+        simTimeout = setTimeout(nextStep, 800);
+      } else {
+        simTimeout = setTimeout(function() {
+          row.className = 'sim-step-row done';
+          icon.innerHTML = '&#10003;';
+          i++;
+          nextStep();
+        }, 1200);
+      }
+    }
+
+    simTimeout = setTimeout(nextStep, 600);
+  }
+
+  function resetSim() {
+    simRunning = false;
+    clearTimeout(simTimeout);
+    document.getElementById('sim-progress').innerHTML = '';
+    var terminal = document.getElementById('sim-terminal');
+    terminal.innerHTML = '<div class="line"><span class="time">[--:--]</span> <span class="info">Ready</span> Select a simulation mode above</div>';
+    document.getElementById('btn-sim-standard').disabled = false;
+    document.getElementById('btn-sim-emergency').disabled = false;
+  }
+</script>
+
+</body>
+</html>

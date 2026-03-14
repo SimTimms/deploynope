@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeployNOPE — Feature Demos</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    min-height: 100vh;
+  }
+
+  header {
+    text-align: center;
+    padding: 4rem 1rem 2rem;
+  }
+
+  header h1 {
+    font-size: 3rem;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+  }
+
+  header h1 span.nerd { font-size: 2.6rem; }
+  header h1 span.nope { color: #f85149; }
+
+  header p {
+    font-size: 1.15rem;
+    color: #8b949e;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #1f2937;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+    color: #58a6ff;
+    margin-top: 1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .grid {
+    max-width: 1000px;
+    margin: 3rem auto;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 1.75rem;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card:hover {
+    border-color: #58a6ff;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(88, 166, 255, 0.1);
+  }
+
+  .card .icon {
+    font-size: 2.2rem;
+    margin-bottom: 1rem;
+  }
+
+  .card h3 {
+    font-size: 1.15rem;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+  }
+
+  .card p {
+    font-size: 0.9rem;
+    color: #8b949e;
+    line-height: 1.55;
+    flex: 1;
+  }
+
+  .card .card-footer {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #21262d;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: #58a6ff;
+  }
+
+  .card .card-footer .arrow {
+    transition: transform 0.2s;
+  }
+
+  .card:hover .card-footer .arrow {
+    transform: translateX(4px);
+  }
+
+  .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+
+  .badge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .badge.interactive {
+    background: rgba(88, 166, 255, 0.15);
+    color: #58a6ff;
+    border: 1px solid rgba(88, 166, 255, 0.3);
+  }
+
+  .badge.animated {
+    background: rgba(210, 153, 34, 0.15);
+    color: #d29922;
+    border: 1px solid rgba(210, 153, 34, 0.3);
+  }
+
+  .badge.simulation {
+    background: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+    border: 1px solid rgba(63, 185, 80, 0.3);
+  }
+
+  /* Stagger card animations */
+  .card {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: cardIn 0.5s ease forwards;
+  }
+
+  .card:nth-child(1) { animation-delay: 0.1s; }
+  .card:nth-child(2) { animation-delay: 0.2s; }
+  .card:nth-child(3) { animation-delay: 0.3s; }
+  .card:nth-child(4) { animation-delay: 0.4s; }
+  .card:nth-child(5) { animation-delay: 0.5s; }
+  .card:nth-child(6) { animation-delay: 0.6s; }
+  .card:nth-child(7) { animation-delay: 0.7s; }
+
+  @keyframes cardIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  footer {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #484f58;
+    font-size: 0.8rem;
+    border-top: 1px solid #21262d;
+    margin-top: 2rem;
+  }
+
+  footer a {
+    color: #58a6ff;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="nerd">&#129299;</span> Deploy<span class="nope">NOPE</span></h1>
+  <p>Interactive demos for every feature — staging contention, hooks, deployment pipelines, rollbacks, and more.</p>
+  <div class="tag">v2.3.0 &mdash; 7 interactive demos</div>
+</header>
+
+<div class="grid">
+
+  <a class="card" href="staging-contention-demo.html">
+    <div class="icon">&#9203;</div>
+    <h3>Staging Contention Polling</h3>
+    <p>When staging is claimed by another release, poll every minute until it clears and auto-resume the deployment flow. No more lost context.</p>
+    <div class="badges">
+      <span class="badge interactive">interactive</span>
+      <span class="badge animated">animated timeline</span>
+      <span class="badge simulation">live simulation</span>
+    </div>
+    <div class="card-footer">
+      View demo <span class="arrow">&rarr;</span>
+    </div>
+  </a>
+
+  <a class="card" href="deploy-process-demo.html">
+    <div class="icon">&#128640;</div>
+    <h3>Deployment Process</h3>
+    <p>The full 17-step deployment pipeline — from feature merge through staging, master reset, release, and post-deploy. Three workflow variants.</p>
+    <div class="badges">
+      <span class="badge interactive">interactive</span>
+      <span class="badge simulation">step-through sim</span>
+      <span class="badge animated">human gates</span>
+    </div>
+    <div class="card-footer">
+      View demo <span class="arrow">&rarr;</span>
+    </div>
+  </a>
+
+  <a class="card" href="hooks-demo.html">
+    <div class="icon">&#128737;</div>
+    <h3>Hook System</h3>
+    <p>9 bash hooks that intercept dangerous git/gh commands before they execute. Try commands and see hooks block or flag them in real time.</p>
+    <div class="badges">
+      <span class="badge interactive">try commands</span>
+      <span class="badge simulation">bypass resistance</span>
+      <span class="badge animated">architecture</span>
+    </div>
+    <div class="card-footer">
+      View demo <span class="arrow">&rarr;</span>
+    </div>
+  </a>
+
+  <a class="card" href="preflight-postdeploy-demo.html">
+    <div class="icon">&#9989;</div>
+    <h3>Preflight &amp; Post-Deploy</h3>
+    <p>Safety gates before and after every deployment. Animated checklists, traffic light verdicts, and branch alignment reports.</p>
+    <div class="badges">
+      <span class="badge interactive">4 scenarios</span>
+      <span class="badge animated">animated checks</span>
+      <span class="badge simulation">alignment report</span>
+    </div>
+    <div class="card-footer">
+      View demo <span class="arrow">&rarr;</span>
+    </div>
+  </a>
+
+  <a class="card" href="rollback-demo.html">
+    <div class="icon">&#128260;</div>
+    <h3>Rollback System</h3>
+    <p>Two rollback modes — Standard (full staging validation) and Emergency (skip staging for outages). Cache-busting and manifest tracking.</p>
+    <div class="badges">
+      <span class="badge interactive">mode selector</span>
+      <span class="badge simulation">rollback sim</span>
+      <span class="badge animated">cache-bust explainer</span>
+    </div>
+    <div class="card-footer">
+      View demo <span class="arrow">&rarr;</span>
+    </div>
+  </a>
+
+  <a class="card" href="branching-demo.html">
+    <div class="icon">&#127796;</div>
+    <h3>Branching &amp; New Work</h3>
+    <p>Branch architecture, base branch recommendations, version collision detection, drift checker, and worktree isolation.</p>
+    <div class="badges">
+      <span class="badge interactive">version checker</span>
+      <span class="badge animated">git graph</span>
+      <span class="badge simulation">drift toggle</span>
+    </div>
+    <div class="card-footer">
+      View demo <span class="arrow">&rarr;</span>
+    </div>
+  </a>
+
+  <a class="card" href="stale-config-demo.html">
+    <div class="icon">&#128202;</div>
+    <h3>Pipeline Health &amp; Config</h3>
+    <p>Staleness tiers, PR age tracking, pipeline queue, configuration panel, auto-activation triggers, and framework visibility tags.</p>
+    <div class="badges">
+      <span class="badge interactive">sortable dashboard</span>
+      <span class="badge animated">trigger activations</span>
+      <span class="badge simulation">stage replay</span>
+    </div>
+    <div class="card-footer">
+      View demo <span class="arrow">&rarr;</span>
+    </div>
+  </a>
+
+</div>
+
+<footer>
+  <p>&#129299; DeployNOPE v2.3.0 &mdash; <a href="https://github.com/SimTimms/deploynope">GitHub</a></p>
+</footer>
+
+</body>
+</html>
