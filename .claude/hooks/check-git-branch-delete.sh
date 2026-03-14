@@ -1,15 +1,59 @@
 #!/bin/bash
 # DeployNOPE hook: intercept branch deletion for user approval
+# Hard-blocks deletion of production, staging, and development branches.
 # Catches git branch -d, -D, and git push origin --delete.
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+
+# Determine protected branch names
+PROD_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.productionBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$PROD_BRANCH" ]; then
+  if cd "$CWD" 2>/dev/null && git rev-parse --verify origin/main &>/dev/null; then
+    PROD_BRANCH="main"
+  else
+    PROD_BRANCH="master"
+  fi
+fi
+STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$STAGING_BRANCH" ]; then
+  STAGING_BRANCH="staging"
+fi
+DEV_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.developmentBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$DEV_BRANCH" ]; then
+  DEV_BRANCH="development"
+fi
+
+# Helper: check if a branch name is protected
+is_protected_branch() {
+  local BNAME="$1"
+  case "$BNAME" in
+    "$PROD_BRANCH"|main|master|"$STAGING_BRANCH"|staging|"$DEV_BRANCH"|development|develop|dev)
+      return 0 ;;
+    *)
+      return 1 ;;
+  esac
+}
 
 # Catch git branch -d/-D (match anywhere in command to handle cd/&& prefixes)
 if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+branch\s+-[dD]'; then
   BRANCH_TO_DELETE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i~/-[dD]/) {print $(i+1); exit}}')
   if [ -z "$BRANCH_TO_DELETE" ]; then
     BRANCH_TO_DELETE="unknown"
+  fi
+
+  if is_protected_branch "$BRANCH_TO_DELETE"; then
+    cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "[DeployNOPE] BLOCKED — Cannot delete protected branch '${BRANCH_TO_DELETE}'.\n\nProduction ('${PROD_BRANCH}'), staging ('${STAGING_BRANCH}'), and development ('${DEV_BRANCH}') branches cannot be deleted through Claude Code. If you need to delete this branch, do so manually via git outside Claude Code."
+  }
+}
+EOF
+    exit 0
   fi
 
   cat <<EOF
@@ -31,6 +75,19 @@ if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+push\s+\S+\s+--delete'; 
     BRANCH_TO_DELETE="unknown"
   fi
 
+  if is_protected_branch "$BRANCH_TO_DELETE"; then
+    cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "[DeployNOPE] BLOCKED — Cannot delete protected remote branch '${BRANCH_TO_DELETE}'.\n\nProduction ('${PROD_BRANCH}'), staging ('${STAGING_BRANCH}'), and development ('${DEV_BRANCH}') branches cannot be deleted through Claude Code. If you need to delete this branch, do so manually via git outside Claude Code."
+  }
+}
+EOF
+    exit 0
+  fi
+
   cat <<EOF
 {
   "hookSpecificOutput": {
@@ -48,6 +105,19 @@ if echo "$COMMAND" | grep -qE '(^|\s|&&|\|\||;)\s*git\s+push\s+\S+\s+:'; then
   BRANCH_TO_DELETE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if(substr($i,1,1)==":") {print substr($i,2); exit}}')
   if [ -z "$BRANCH_TO_DELETE" ]; then
     BRANCH_TO_DELETE="unknown"
+  fi
+
+  if is_protected_branch "$BRANCH_TO_DELETE"; then
+    cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "[DeployNOPE] BLOCKED — Cannot delete protected remote ref '${BRANCH_TO_DELETE}'.\n\nProduction ('${PROD_BRANCH}'), staging ('${STAGING_BRANCH}'), and development ('${DEV_BRANCH}') branches cannot be deleted through Claude Code. If you need to delete this ref, do so manually via git outside Claude Code."
+  }
+}
+EOF
+    exit 0
   fi
 
   cat <<EOF

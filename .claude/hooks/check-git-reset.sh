@@ -1,5 +1,6 @@
 #!/bin/bash
 # DeployNOPE hook: intercept git reset --hard for user approval
+# Hard-blocks resets on production unless branch protection is verified unlocked.
 # Shows what will be overwritten and flags staging/master resets.
 
 INPUT=$(cat)
@@ -33,13 +34,47 @@ if [ -z "$PROD_BRANCH" ]; then
   fi
 fi
 
-# Flag if resetting a critical branch
+# Determine staging branch
+STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$STAGING_BRANCH" ]; then
+  STAGING_BRANCH="staging"
+fi
+
+# HARD BLOCK: reset --hard on production branch requires verified protection unlock
+if [ "$BRANCH" = "$PROD_BRANCH" ]; then
+  STATE_FILE="$CWD/.deploynope-protection-unlocked"
+  if [ -f "$STATE_FILE" ]; then
+    # Protection was toggled off via the proper procedure — allow with confirmation
+    UNLOCKED_AT=$(head -1 "$STATE_FILE" 2>/dev/null)
+    cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "ask",
+    "permissionDecisionReason": "[DeployNOPE] PRODUCTION RESET — branch protection verified unlocked.\n\nBranch: ${BRANCH}\nCurrent HEAD: ${CURRENT_HEAD}\nReset target: ${RESET_TARGET}\nVersion: ${VERSION}\nProtection unlocked at: ${UNLOCKED_AT}\nCommand: ${COMMAND}\n\nThis resets the PRODUCTION branch. Force-push protection has been verified as unlocked. Approve this reset?"
+  }
+}
+EOF
+    exit 0
+  else
+    # No state file — hard block
+    cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "[DeployNOPE] BLOCKED — git reset --hard on production branch '${PROD_BRANCH}' requires branch protection to be unlocked first.\n\nNo protection unlock state file found (.deploynope-protection-unlocked). This means either:\n1. Force-push has not been enabled on '${PROD_BRANCH}' yet, or\n2. The protection toggle was done outside the DeployNOPE workflow.\n\nUse /deploynope-deploy to follow the correct procedure. The branch protection API call (enabling force-push) must happen first — the hook will create the state file automatically."
+  }
+}
+EOF
+    exit 0
+  fi
+fi
+
+# Flag if resetting staging
 SEVERITY="WARNING"
 EXTRA=""
-if [ "$BRANCH" = "$PROD_BRANCH" ]; then
-  SEVERITY="PRODUCTION BRANCH"
-  EXTRA="\n\nThis resets the PRODUCTION branch. Ensure branch protection toggle procedure is being followed."
-elif [ "$BRANCH" = "staging" ]; then
+if [ "$BRANCH" = "$STAGING_BRANCH" ]; then
   SEVERITY="STAGING BRANCH"
   EXTRA="\n\nThis resets STAGING. Ensure staging contention check has passed and staging/active tag is claimed."
 fi

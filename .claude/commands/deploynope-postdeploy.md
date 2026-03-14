@@ -72,10 +72,13 @@ back. This is required to keep `development` aligned.
 
 ```shell
 gh api repos/{owner}/{repo}/branches/master/protection --jq '.allow_force_pushes.enabled'
+ls -la .deploynope-protection-unlocked 2>/dev/null
 ```
 
 Force-push must be `false`. If it is `true`, branch protection was not re-locked after
-the master reset.
+the master reset. Also check for the `.deploynope-protection-unlocked` state file — if
+it exists, the protection toggle hook did not clean up properly. Remove the state file
+after confirming protection is re-locked.
 
 ### 6. Staging Cleared
 
@@ -139,7 +142,7 @@ _Date: `<today>` | Version: `<version>` | Type: `<feature/hotfix/chore>`_
 | 2 | GitHub Releases created | ✅ / ❌ | Release `<version>` found / No release found |
 | 3 | Release manifest written | ✅ / ❌ | `releases/<version>.json` exists / Not found |
 | 4 | Merged into development | ✅ / ❌ | `development` aligned / X commits behind `master` |
-| 5 | Branch protection re-enabled | ✅ / ❌ | Force-push disabled / Force-push still enabled |
+| 5 | Branch protection re-enabled | ✅ / ❌ | Force-push disabled / Force-push still enabled or state file present |
 | 6 | Staging cleared | ✅ / ❌ | No active claim / `staging/active` tag still present |
 | 7 | Confluence release notes | ✅ / ⏭️ / ❌ | Written / Skipped (not configured) / Not written |
 | 8 | Branch alignment | ✅ / ⚠️ | All aligned / Drift detected — details |

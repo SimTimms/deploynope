@@ -1,6 +1,7 @@
 #!/bin/bash
 # DeployNOPE hook: intercept every git push for user approval
-# Hard-blocks pushes to production when staging exists; asks for all others.
+# Hard-blocks pushes to production when staging exists.
+# Escalates force-push warnings for staging and release branches.
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
@@ -23,6 +24,12 @@ if [ -z "$PROD_BRANCH" ]; then
   else
     PROD_BRANCH="master"
   fi
+fi
+
+# Determine staging branch
+STAGING_BRANCH=$(cd "$CWD" 2>/dev/null && jq -r '.stagingBranch // empty' .deploynope.json 2>/dev/null)
+if [ -z "$STAGING_BRANCH" ]; then
+  STAGING_BRANCH="staging"
 fi
 
 # Check if staging branch exists
@@ -48,10 +55,19 @@ if [ -z "$COMMITS" ]; then
   COMMIT_COUNT="0"
 fi
 
+# Detect force-push flags
+IS_FORCE_PUSH="false"
+if echo "$COMMAND" | grep -qE '\s--force($|\s)|\s-f($|\s)'; then
+  IS_FORCE_PUSH="true"
+fi
+if echo "$COMMAND" | grep -q '\-\-force-with-lease'; then
+  IS_FORCE_PUSH="true"
+fi
+
 # Production push with staging exists
 if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "true" ]; then
 
-  # ALLOW with confirmation: --force-with-lease is the controlled staging → production reset
+  # ALLOW with confirmation: --force-with-lease is the controlled staging -> production reset
   if echo "$COMMAND" | grep -q '\-\-force-with-lease'; then
     # Verify staging and local production are aligned (this IS the reset step)
     STAGING_SHA=$(cd "$CWD" 2>/dev/null && git rev-parse origin/staging 2>/dev/null || echo "unknown")
@@ -62,7 +78,7 @@ if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "true" ]; then
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] PRODUCTION RESET — force-with-lease push to '${PROD_BRANCH}' detected.\n\nThis appears to be the staging → production reset step.\n\nLocal HEAD: ${LOCAL_SHA}\norigin/staging: ${STAGING_SHA}\nVersion: ${VERSION}\n\nThis will update production to match staging. Approve this production reset?"
+    "permissionDecisionReason": "[DeployNOPE] PRODUCTION RESET — force-with-lease push to '${PROD_BRANCH}' detected.\n\nThis appears to be the staging -> production reset step.\n\nLocal HEAD: ${LOCAL_SHA}\norigin/staging: ${STAGING_SHA}\nVersion: ${VERSION}\n\nThis will update production to match staging. Approve this production reset?"
   }
 }
 EOF
@@ -75,7 +91,7 @@ EOF
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "deny",
-    "permissionDecisionReason": "[DeployNOPE] BLOCKED — Direct push to production branch '${PROD_BRANCH}' is not allowed. A staging branch exists. All changes must go through the staging → production reset process. Use /deploynope-deploy to follow the correct procedure."
+    "permissionDecisionReason": "[DeployNOPE] BLOCKED — Direct push to production branch '${PROD_BRANCH}' is not allowed. A staging branch exists. All changes must go through the staging -> production reset process. Use /deploynope-deploy to follow the correct procedure."
   }
 }
 EOF
@@ -89,7 +105,42 @@ if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "false" ]; then
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Push to production branch '${PROD_BRANCH}' — NO STAGING BRANCH detected.\n\nBranch: ${BRANCH} → origin/${BRANCH}\nVersion: ${VERSION}\nCommits: ${COMMIT_COUNT}\n${COMMITS}\n\nNo staging validation is possible. Consider running /deploynope-configure to set up staging infrastructure.\n\nApprove this direct push to production?"
+    "permissionDecisionReason": "[DeployNOPE] Push to production branch '${PROD_BRANCH}' — NO STAGING BRANCH detected.\n\nBranch: ${BRANCH} -> origin/${BRANCH}\nVersion: ${VERSION}\nCommits: ${COMMIT_COUNT}\n${COMMITS}\n\nNo staging validation is possible. Consider running /deploynope-configure to set up staging infrastructure.\n\nApprove this direct push to production?"
+  }
+}
+EOF
+  exit 0
+fi
+
+# Escalated warning for force-pushes to staging or other branches
+if [ "$IS_FORCE_PUSH" = "true" ]; then
+  FORCE_TARGET="$BRANCH"
+  # Check if pushing to a named branch explicitly
+  EXPLICIT_TARGET=$(echo "$COMMAND" | sed -n 's/.*push[[:space:]]\{1,\}[^[:space:]]\{1,\}[[:space:]]\{1,\}\([^[:space:]-][^[:space:]]*\).*/\1/p')
+  if [ -n "$EXPLICIT_TARGET" ]; then
+    FORCE_TARGET="$EXPLICIT_TARGET"
+  fi
+
+  if [ "$FORCE_TARGET" = "$STAGING_BRANCH" ]; then
+    cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "ask",
+    "permissionDecisionReason": "[DeployNOPE] FORCE-PUSH TO STAGING — This could overwrite another deployment in progress.\n\nBranch: ${FORCE_TARGET}\nVersion: ${VERSION}\nCommand: ${COMMAND}\n\nForce-pushing to staging can destroy work from a concurrent deployment. Verify that no one else is using staging right now.\n\nApprove this force-push to staging?"
+  }
+}
+EOF
+    exit 0
+  fi
+
+  # Force-push to any other branch — escalated warning
+  cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "ask",
+    "permissionDecisionReason": "[DeployNOPE] FORCE-PUSH detected.\n\nTarget: ${FORCE_TARGET}\nVersion: ${VERSION}\nCommand: ${COMMAND}\n\nForce-pushing rewrites history. If others have based work on this branch, their work will be affected.\n\nApprove this force-push?"
   }
 }
 EOF
@@ -102,7 +153,7 @@ cat <<EOF
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
     "permissionDecision": "ask",
-    "permissionDecisionReason": "[DeployNOPE] Git push intercepted.\n\nBranch: ${BRANCH} → origin/${BRANCH}\nVersion: ${VERSION}\nCommits: ${COMMIT_COUNT}\n${COMMITS}\n\nReview and approve this push."
+    "permissionDecisionReason": "[DeployNOPE] Git push intercepted.\n\nBranch: ${BRANCH} -> origin/${BRANCH}\nVersion: ${VERSION}\nCommits: ${COMMIT_COUNT}\n${COMMITS}\n\nReview and approve this push."
   }
 }
 EOF

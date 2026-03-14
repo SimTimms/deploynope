@@ -95,6 +95,19 @@ git log origin/development..origin/master --oneline
 If `master`, `staging`, and `development` are not aligned, a previous deployment may
 not have completed fully. Flag it.
 
+### 9. Abandoned Protection Unlock
+
+Check for `.deploynope-protection-unlocked` state file in the project root:
+
+```shell
+ls -la .deploynope-protection-unlocked 2>/dev/null
+cat .deploynope-protection-unlocked 2>/dev/null
+```
+
+If this file exists, a previous deployment enabled force-push on the production branch
+but never re-locked it. This is a **blocker** — branch protection must be re-enabled
+before any new deployment work begins. Show the timestamp from the file contents.
+
 ---
 
 ## Output Format
@@ -114,6 +127,7 @@ _Date: `<today>` | Time: `<current time>` | Branch: `<current-branch>`_
 | 6 | Version parity | ✅ / ⚠️ / — | Matching / Mismatch / Other repo not checked |
 | 7 | Open PRs | ✅ / ℹ️ | None / X open — list any targeting key branches |
 | 8 | Branch drift | ✅ / ⚠️ | All aligned / Drift detected — details |
+| 9 | Protection state | ✅ / ❌ | Clean / Abandoned unlock from `<timestamp>` — re-lock immediately |
 
 ---
 
@@ -155,6 +169,6 @@ After the table, display one of:
 
 | Severity | Meaning | Examples |
 |----------|---------|----------|
-| ❌ Blocker | Cannot deploy until resolved | Rules not loaded, staging claimed, staging has unreleased commits |
+| ❌ Blocker | Cannot deploy until resolved | Rules not loaded, staging claimed, staging has unreleased commits, abandoned protection unlock |
 | ⚠️ Warning | Can proceed but should be aware | After cutoff time, uncommitted changes, branch drift, other repo not checked |
 | ✅ Pass | No issues | — |
