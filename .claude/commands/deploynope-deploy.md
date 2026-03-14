@@ -594,6 +594,17 @@ is the last step before `git commit` runs.
   block IS the final gate.
 - If the user wants to change the message, branch, or anything else, update and re-present
   the block before committing.
+- **Commit prefixes:** If `commitPrefixes` is `true` in `.deploynope.json`, every commit
+  message **must** start with a prefix followed by a colon and space (e.g. `feat: add login`).
+  Choose the prefix based on the change:
+  - `feat` — new functionality
+  - `fix` — bug fix
+  - `chore` — maintenance, deps, config
+  - `refactor` — restructuring, no behaviour change
+  - `docs` — documentation only
+  - `test` — adding or updating tests
+  If the user provides a message without a prefix, prepend the appropriate one.
+  If `commitPrefixes` is `false` or not set, do not add prefixes.
 
 ---
 
