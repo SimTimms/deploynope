@@ -40,8 +40,14 @@ _PUSH_ARGS=$(echo "$COMMAND" | sed -n 's/.*git[[:space:]]\{1,\}push[[:space:]]\{
 if [ -n "$_PUSH_ARGS" ]; then
   # Extract non-flag arguments (skip words starting with -)
   _NON_FLAG_ARGS=$(echo "$_PUSH_ARGS" | tr ' ' '\n' | grep -v '^-' | head -2)
-  # Second non-flag argument is the branch (first is the remote)
-  EXPLICIT_PUSH_TARGET=$(echo "$_NON_FLAG_ARGS" | sed -n '2p')
+  # Second non-flag argument is the branch/refspec (first is the remote)
+  _RAW_TARGET=$(echo "$_NON_FLAG_ARGS" | sed -n '2p')
+  # Handle refspec format (e.g. HEAD:main, feature:main) — extract the destination after ':'
+  if echo "$_RAW_TARGET" | grep -q ':'; then
+    EXPLICIT_PUSH_TARGET=$(echo "$_RAW_TARGET" | cut -d':' -f2)
+  else
+    EXPLICIT_PUSH_TARGET="$_RAW_TARGET"
+  fi
 fi
 
 # Use explicit target if available, otherwise fall back to current branch

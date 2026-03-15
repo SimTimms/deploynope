@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.7.0] - 2026-03-15
+
+### Fixed
+- Direct `git merge` into production branch now returns `deny` instead of `ask`, enforcing the staging reset flow
+- Push refspec parsing (`HEAD:main`, `feature:main`) now correctly detects production-targeting pushes and blocks them
+- Branch protection stale-warning no longer false-positives on fresh unlocks (state file write moved after stale check)
+
+[2.7.0]: https://github.com/SimTimms/deploynope/compare/v2.6.0...v2.7.0
+
 ## [2.6.0] - 2026-03-15
 
 ### Fixed
