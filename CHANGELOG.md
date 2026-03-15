@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.9.0] - 2026-03-15
+
+### Added
+- DeployNOPE sidecar console: monitor deployment guardrails in a separate terminal pane via `tail -f .deploynope/console.log`
+- New `/deploynope-console` command to re-print the monitor setup banner anytime
+- Sidecar logging rule in Framework Visibility: all `🤓 DeployNOPE` messages are now also written to `.deploynope/console.log`
+- Console banner automatically shown after branch creation in `/deploynope-new-work`
+
+[2.9.0]: https://github.com/SimTimms/deploynope/compare/v2.7.0...v2.9.0
+
 ## [2.7.0] - 2026-03-15
 
 ### Fixed
