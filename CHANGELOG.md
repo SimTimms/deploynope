@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.12.0] - 2026-03-15
+
+### Fixed
+- Branch architecture diagram commit dots now align with flow arrow connection points
+
+[2.12.0]: https://github.com/SimTimms/deploynope/compare/v2.11.0...v2.12.0
+
 ## [2.11.0] - 2026-03-15
 
 ### Added
