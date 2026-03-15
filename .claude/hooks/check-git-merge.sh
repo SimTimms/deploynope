@@ -36,7 +36,8 @@ DEV_BRANCH=$(resolve_dev_branch "$CWD")
 EXTRA=""
 DECISION="ask"
 if [ "$BRANCH" = "$PROD_BRANCH" ]; then
-  EXTRA=$(printf '\n\nYou are merging INTO the production branch. DeployNOPE requires all changes reach production via staging reset, not direct merge.')
+  DECISION="deny"
+  EXTRA=$(printf '\n\nBLOCKED: Direct merge into the production branch ('\''%s'\'') is not allowed. DeployNOPE requires all changes reach production via staging reset, not direct merge.\n\nThe correct flow is:\n1. Merge into staging\n2. Validate on staging\n3. Reset production to match staging (git push --force-with-lease)\n\nUse /deploynope-deploy to follow the correct procedure.' "$PROD_BRANCH")
 elif [ "$BRANCH" = "$STAGING_BRANCH" ]; then
   EXTRA=$(printf '\n\nYou are merging into staging. Ensure staging contention check has passed and staging/active tag is claimed.')
 elif [ "$BRANCH" = "$DEV_BRANCH" ] || [ "$BRANCH" = "develop" ] || [ "$BRANCH" = "dev" ]; then

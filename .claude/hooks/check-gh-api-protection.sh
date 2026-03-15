@@ -33,8 +33,6 @@ STATE_FILE="$CWD/.deploynope-protection-unlocked"
 
 if echo "$COMMAND" | grep -q 'allow_force_pushes.*true'; then
   FORCE_PUSH_STATE="ENABLING force-push"
-  # Write state file to track that protection is unlocked
-  echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$STATE_FILE" 2>/dev/null
 elif echo "$COMMAND" | grep -q 'allow_force_pushes.*false'; then
   FORCE_PUSH_STATE="DISABLING force-push (re-locking)"
   # Remove state file — protection is being re-locked
@@ -44,10 +42,15 @@ fi
 # Extract the API path
 API_PATH=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i=="api") {print $(i+1); exit}}')
 
-# Check if there's an existing stale unlock
+# Check if there's an existing stale unlock BEFORE writing the new state file
 STALE_WARNING=""
 if [ "$FORCE_PUSH_STATE" = "ENABLING force-push" ] && [ -f "$STATE_FILE" ]; then
   STALE_WARNING="\n\nWARNING: A previous protection unlock state file already exists. This may indicate a prior deployment that did not re-lock protection."
+fi
+
+# Write state file AFTER the stale check so we don't false-positive on ourselves
+if [ "$FORCE_PUSH_STATE" = "ENABLING force-push" ]; then
+  echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$STATE_FILE" 2>/dev/null
 fi
 
 REASON=$(printf '[DeployNOPE] BRANCH PROTECTION MODIFICATION intercepted.\n\nAPI path: %s\nAction: %s%s\n\nBranch protection changes are security-critical. If enabling force-push, it MUST be re-disabled immediately after the reset — even if the reset fails.\n\nApprove this branch protection change?' "$API_PATH" "$FORCE_PUSH_STATE" "$STALE_WARNING")

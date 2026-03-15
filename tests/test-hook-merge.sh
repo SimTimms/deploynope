@@ -38,15 +38,23 @@ assert_decision "$OUTPUT" "deny"
 
 cd "$TEMP_DIR" && git checkout -q main
 
-# ── Merges into production branch → ask with warning ─────────────────────────
+# ── Merges into production branch → deny (hard block) ────────────────────────
 
-begin_test "merge into main → ask with production warning"
+begin_test "merge into main → deny (direct merge to production blocked)"
 OUTPUT=$(run_hook "$HOOK" 'git merge staging')
-assert_decision "$OUTPUT" "ask"
+assert_decision "$OUTPUT" "deny"
 
-begin_test "production merge reason mentions production"
+begin_test "production merge reason mentions BLOCKED"
 OUTPUT=$(run_hook "$HOOK" 'git merge staging')
-assert_reason_contains "$OUTPUT" "production branch"
+assert_reason_contains "$OUTPUT" "BLOCKED"
+
+begin_test "production merge reason mentions staging reset"
+OUTPUT=$(run_hook "$HOOK" 'git merge staging')
+assert_reason_contains "$OUTPUT" "staging reset"
+
+begin_test "merge any branch into main → deny"
+OUTPUT=$(run_hook "$HOOK" 'git merge feature/something')
+assert_decision "$OUTPUT" "deny"
 
 # ── Merges into staging → ask with staging warning ───────────────────────────
 

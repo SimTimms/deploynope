@@ -35,6 +35,35 @@ OUTPUT=$(run_hook "$HOOK" 'gh api repos/Owner/repo/branches/main/protection -X P
 EOF')
 assert_decision "$OUTPUT" "ask"
 
+# ── Stale unlock warning ──────────────────────────────────────────────────────
+
+begin_test "fresh enable (no prior state file) → no stale warning"
+rm -f "$TEMP_DIR/.deploynope-protection-unlocked" 2>/dev/null
+OUTPUT=$(run_hook "$HOOK" 'gh api repos/Owner/repo/branches/main/protection -X PUT -f allow_force_pushes=true')
+REASON=$(echo "$OUTPUT" | jq -r '.hookSpecificOutput.permissionDecisionReason // ""')
+if echo "$REASON" | grep -q "previous protection unlock"; then
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  printf "  ${RED}FAIL${NC} %s → stale warning present on fresh enable\n" "$TEST_NAME"
+else
+  PASS_COUNT=$((PASS_COUNT + 1))
+  printf "  ${GREEN}PASS${NC} %s → no stale warning on fresh enable\n" "$TEST_NAME"
+fi
+
+begin_test "second enable (state file exists) → stale warning present"
+# State file was written by the previous test's hook run
+OUTPUT=$(run_hook "$HOOK" 'gh api repos/Owner/repo/branches/main/protection -X PUT -f allow_force_pushes=true')
+assert_reason_contains "$OUTPUT" "previous protection unlock"
+
+begin_test "disable clears state file"
+run_hook "$HOOK" 'gh api repos/Owner/repo/branches/main/protection -X PUT -f allow_force_pushes=false' > /dev/null
+if [ -f "$TEMP_DIR/.deploynope-protection-unlocked" ]; then
+  FAIL_COUNT=$((FAIL_COUNT + 1))
+  printf "  ${RED}FAIL${NC} %s → state file still exists after disable\n" "$TEST_NAME"
+else
+  PASS_COUNT=$((PASS_COUNT + 1))
+  printf "  ${GREEN}PASS${NC} %s → state file removed\n" "$TEST_NAME"
+fi
+
 # ── Should NOT intercept: GET protection (read-only) ─────────────────────────
 
 begin_test "GET protection → passthrough"
