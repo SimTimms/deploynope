@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.11.0] - 2026-03-15
+
+### Added
+- Optional branch protection setup (§21) in `/deploynope-configure` — detects current GitHub protection state, shows comparison table, and lets the user opt in, skip, or customise
+
+### Fixed
+- Hardcoded `origin/master` in staging contention polling now uses config-driven `origin/<production-branch>..origin/<staging-branch>`
+- Production branch default in configure changed from hardcoded `master` to auto-detected (prefers `main`, falls back to `master`)
+
+[2.11.0]: https://github.com/SimTimms/deploynope/compare/v2.10.0...v2.11.0
+
 ## [2.10.0] - 2026-03-15
 
 ### Changed
