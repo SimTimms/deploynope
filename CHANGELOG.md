@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.10.0] - 2026-03-15
+
+### Changed
+- Framework visibility tags now include context (release version or branch name) and severity emojis: `🤓` normal, `⚠️` caution, `🚨` alert
+- Tag format changed from `🤓 DeployNOPE @ Stage` to `<emoji> DeployNOPE <context> · Stage` across all 11 command files, CLAUDE.md, and README
+
+### Removed
+- Sidecar console log (`.deploynope/console.log` + `tail -f`) — every write required a Bash permission prompt that cluttered the main chat
+- `/deploynope-console` command deprecated (sidecar removed)
+
+[2.10.0]: https://github.com/SimTimms/deploynope/compare/v2.9.0...v2.10.0
+
 ## [2.9.0] - 2026-03-15
 
 ### Added
