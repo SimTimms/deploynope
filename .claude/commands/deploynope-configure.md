@@ -108,17 +108,17 @@ suggest a common pattern (e.g., if backend is `foo-server`, suggest `foo-client`
 
 The branch that represents production. Used throughout as the target for resets.
 
-**Default:** `master`
+**Default:** Detected from remote (prefers `main`, falls back to `master`)
 
-**Detection:** Check if `master` or `main` exists:
+**Detection:** Check if `main` or `master` exists:
 ```shell
 git branch -r | grep -E 'origin/(master|main)$'
 ```
 
 **Prompt:**
 > "Production branch name:
-> Detected: `<master or main>`
-> Default: `master`"
+> Detected: `<main or master>`
+> Default: `<detected branch>`"
 
 **Config key:** `productionBranch`
 
@@ -372,6 +372,81 @@ on all commit messages.
 
 ---
 
+### 21. Branch Protection (Optional)
+
+Server-side branch protection for the production branch. DeployNOPE enforces rules
+locally via hooks and commands, but without server-side protection, merges through the
+GitHub UI can bypass those rules entirely.
+
+This step is **opt-in** — DeployNOPE will never modify GitHub settings without explicit
+permission.
+
+**Detection:** Check the current branch protection state for each configured repo:
+
+```shell
+gh api repos/<owner>/<repo>/branches/<productionBranch>/protection 2>/dev/null
+```
+
+Parse the response to determine:
+- Whether branch protection exists at all
+- `enforce_admins` status
+- Whether pull request reviews are required (and how many)
+- Whether status checks are required
+
+**Prompt:**
+
+Display the current state, then ask:
+
+> "**Branch protection for `<productionBranch>`:**
+>
+> | Setting | Current | Recommended |
+> |---------|---------|-------------|
+> | Protection exists | ✅ / ❌ | ✅ |
+> | Require PR reviews | `<count>` or None | At least 1 |
+> | Enforce for admins | ✅ / ❌ | ✅ |
+>
+> DeployNOPE enforces deployment rules locally, but without server-side protection,
+> direct merges via the GitHub UI can bypass these rules.
+>
+> Would you like to apply the recommended branch protection settings?
+> 1. Yes — apply recommended settings
+> 2. No — skip (I'll manage branch protection myself)
+> 3. Custom — let me choose which settings to apply"
+
+If the user chooses **Yes**, apply:
+
+```shell
+gh api repos/<owner>/<repo>/branches/<productionBranch>/protection \
+  -X PUT \
+  -H "Accept: application/vnd.github+json" \
+  --input - <<'EOF'
+{
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1
+  },
+  "enforce_admins": true,
+  "required_status_checks": null,
+  "restrictions": null
+}
+EOF
+```
+
+Run this for each configured repo (frontend and backend, if both are set).
+
+If the user chooses **Custom**, prompt for each setting individually:
+- "Require pull request reviews? If yes, how many approvals? (default: 1)"
+- "Enforce for admins? (default: yes)"
+
+If the user chooses **No**, acknowledge and move on. Do not apply any changes.
+
+**Config key:** `branchProtection.enabled` (`true`, `false`, or `"custom"`)
+
+If protection was applied, also store:
+- `branchProtection.requiredReviews` (number)
+- `branchProtection.enforceAdmins` (boolean)
+
+---
+
 ## Writing the Config
 
 After all values are collected, write `.deploynope.json` to the project root:
@@ -405,7 +480,12 @@ After all values are collected, write `.deploynope.json` to the project root:
     "npmInstallCommand": "<value>"
   },
   "teamSize": "<number>",
-  "commitPrefixes": "<true or false>"
+  "commitPrefixes": "<true or false>",
+  "branchProtection": {
+    "enabled": "<true, false, or custom>",
+    "requiredReviews": "<number or null>",
+    "enforceAdmins": "<true, false, or null>"
+  }
 }
 ```
 
@@ -461,6 +541,7 @@ Display the validation results in a table:
 | Staging branch exists | ✅ / ⚠️ | Found / Not found on remote |
 | Development branch exists | ✅ / ⚠️ | Found / Not found on remote |
 | Branch protection API | ✅ / ⚠️ | Accessible / Cannot read protection settings |
+| Branch protection applied | ✅ / ⏭️ | Applied / Skipped by user |
 
 ---
 
@@ -489,6 +570,7 @@ After writing, display:
 > | Backend npm install | `<value>` |
 > | Team size | `<value>` |
 > | Commit prefixes | `<value>` |
+> | Branch protection | `<enabled / disabled / custom>` |
 >
 > Other DeployNOPE commands will read from this file. Run `/deploynope-configure`
 > again at any time to update.
