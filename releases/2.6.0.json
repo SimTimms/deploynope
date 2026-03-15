@@ -1,0 +1,18 @@
+{
+  "version": "2.6.0",
+  "type": "fix",
+  "timestamp": "2026-03-15T00:05:00Z",
+  "deployer": "Tim Simms",
+  "backend": {
+    "sha": "b12b6abb48afb713b6809a93db501ec047e424d8",
+    "branch": "2.6.0",
+    "repo": "SimTimms/deploynope",
+    "githubReleaseUrl": "https://github.com/SimTimms/deploynope/releases/tag/v2.6.0"
+  },
+  "frontend": null,
+  "jiraTickets": [],
+  "confluencePageUrl": null,
+  "previousVersion": "2.5.0",
+  "status": "deployed",
+  "rollback": null
+}
