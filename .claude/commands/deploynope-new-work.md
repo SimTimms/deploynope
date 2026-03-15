@@ -6,7 +6,7 @@
 > For the full deployment ruleset (deployment process, staging, <production-branch> reset), run
 > `/deploynope-deploy` first.
 >
-> **Framework Visibility:** Tag every response with **`🤓 DeployNOPE @ New Work`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 DN <context> · New Work`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
@@ -159,50 +159,30 @@ For the full deployment ruleset (staging contention, <production-branch> reset, 
 
 ## DeployNOPE Console (Sidecar Log)
 
-After the branch is created, set up and present the sidecar console so the user can
+After the branch is created, present the sidecar console banner so the user can
 monitor DeployNOPE messages in a separate terminal pane.
 
-### Setup
-
-Create the log directory and file if they don't exist:
-
-```shell
-mkdir -p .deploynope
-touch .deploynope/console.log
-```
+**Note:** The sidecar log directory, file, and seed message should already exist at this
+point — they are created in Step 0 (see `/deploynope-deploy` § Sidecar Console Logging).
+If for any reason they don't exist, create them now.
 
 ### Console Banner
 
 Print this banner after the branch is created, replacing `<WORKDIR>` with the actual
-absolute path of the current working directory:
+absolute path and `<WORKTREE>` with the worktree/directory name:
 
-```
-┌──────────────────────────────────────────────────────┐
-│  🤓 DEPLOYNOPE CONSOLE                              │
-│  Monitor deployment guardrails in a separate pane.   │
-│                                                      │
-│  Run in a new terminal:                              │
-│                                                      │
-│  cd <WORKDIR> && tail -f .deploynope/console.log     │
-└──────────────────────────────────────────────────────┘
-```
+**🤓 DEPLOYNOPE CONSOLE**
+Worktree: `<WORKTREE>`
+Monitor deployment guardrails in a separate pane.
+
+Run in a new terminal:
+1. `cd <WORKDIR>`
+2. `tail -f .deploynope/console.log`
 
 The user can also run `/deploynope-console` at any time to re-print this banner.
 
 ### Sidecar Logging
 
-While any DeployNOPE command is active, **every `🤓 DeployNOPE @ <Stage>` message** must
-also be appended to `.deploynope/console.log` with a timestamp:
-
-```shell
-echo "[$(date '+%H:%M:%S')] 🤓 DeployNOPE @ <Stage> — <message>" >> .deploynope/console.log
-```
-
-This allows the user to monitor DeployNOPE progress in a separate terminal pane using
-`tail -f`, without needing to read through all of Claude's general output.
-
-**Rules:**
-- Append to the log — never overwrite it.
-- One line per message — keep messages concise and actionable.
-- Include the stage tag and a short summary (e.g. "Drift check: clean", "Branch created: feature-x from main").
-- Do not log general conversation or code output — only DeployNOPE guardrail messages.
+See `/deploynope-deploy` § Sidecar Console Logging (Step 0) for the full specification.
+The key rule: **every tagged message must be logged from the very first message onwards** —
+not after the banner, not after the branch is created, from the moment the command activates.

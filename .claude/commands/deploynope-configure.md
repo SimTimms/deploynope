@@ -6,7 +6,7 @@
 > Config is saved to `.deploynope.json` in the current project root.
 > All other DeployNOPE commands read from this file to fill in placeholders.
 >
-> **Framework Visibility:** Tag every response with **`🤓 DeployNOPE @ Configure`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 DN <context> · Configure`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---

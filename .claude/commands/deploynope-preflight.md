@@ -5,7 +5,7 @@
 >
 > This is a read-only check. It does not modify any state.
 >
-> **Framework Visibility:** Tag every response with **`🤓 DeployNOPE @ Preflight`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 DN <context> · Preflight`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
