@@ -27,6 +27,20 @@ begin_test "push with cd prefix to main → deny"
 OUTPUT=$(run_hook "$HOOK" 'cd /tmp && git push origin main')
 assert_decision "$OUTPUT" "deny"
 
+# ── Refspec push to production → deny ─────────────────────────────────────────
+
+begin_test "push HEAD:main (refspec) → deny"
+OUTPUT=$(run_hook "$HOOK" 'git push origin HEAD:main')
+assert_decision "$OUTPUT" "deny"
+
+begin_test "push feature:main (refspec) → deny"
+OUTPUT=$(run_hook "$HOOK" 'git push origin feature:main')
+assert_decision "$OUTPUT" "deny"
+
+begin_test "refspec deny reason mentions BLOCKED"
+OUTPUT=$(run_hook "$HOOK" 'git push origin HEAD:main')
+assert_reason_contains "$OUTPUT" "BLOCKED"
+
 # ── Force-with-lease to production → ask (controlled reset) ─────────────────
 
 begin_test "force-with-lease push to main → ask (reset step)"
