@@ -315,7 +315,7 @@ If the user accepts:
    ```
 
    - If `staging/active` still exists → report "Still waiting — staging claimed by `<name>`."
-   - If `staging/active` is gone **and** `git log origin/master..origin/staging --oneline`
+   - If `staging/active` is gone **and** `git log origin/<production-branch>..origin/<staging-branch> --oneline`
      shows no unreleased commits → report **"Staging is now clear!"** and proceed.
 
 2. **Clean up immediately** — as soon as staging is detected as clear (or the user cancels
