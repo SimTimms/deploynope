@@ -118,9 +118,14 @@ echo "[$(date '+%H:%M:%S')] <emoji> DN <context> · <Stage> — <message>" >> .d
   avoids cluttering the user's main chat with extra Bash permission prompts. If a message
   has no associated Bash action (e.g. a pure chat response), skip the sidecar write — the
   user sees it in the main chat already.
+  **Exception:** Human gate waiting messages (see below) are the one case where a
+  standalone sidecar write is acceptable, because there is no Bash action to chain onto —
+  the workflow is paused.
 - **Human gate logging:** When a DeployNOPE human gate or confirmation prompt is presented
-  and the workflow is waiting for user input, log a waiting message to the sidecar. Chain
-  this onto the last Bash action before the gate. Format:
+  and the workflow is waiting for user input, log a waiting message to the sidecar
+  **before** presenting the prompt to the user. This is a standalone Bash call — it is the
+  one permitted exception to the piggyback rule, because the user needs to see the waiting
+  state on the tail before they respond. Format:
   `[HH:MM:SS] ⏳ DN <context> · <Stage> — Waiting for input: <what is being confirmed>`
 - **Completion logging:** When a command or significant step finishes successfully, log a
   completion message. Format:
