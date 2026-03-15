@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.6.0] - 2026-03-15
+
+### Fixed
+- Move demo pages from worktree path to `docs/` at repo root for GitHub Pages compatibility
+
+[2.6.0]: https://github.com/SimTimms/deploynope/compare/v2.5.0...v2.6.0
+
 ## [2.5.0] - 2026-03-14
 
 ### Added
