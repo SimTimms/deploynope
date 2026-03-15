@@ -154,3 +154,55 @@ Never branch off or merge from a stale local branch.
 Once worktree, branch name, base branch, and drift check are confirmed, you may create the branch. **Creating a branch** remains a human gate — confirm the branch name and base branch before running `git checkout -b <name> <base>`.
 
 For the full deployment ruleset (staging contention, <production-branch> reset, cross-repo checks, etc.), ensure `/deploynope-deploy` has been run in this session.
+
+---
+
+## DeployNOPE Console (Sidecar Log)
+
+After the branch is created, set up and present the sidecar console so the user can
+monitor DeployNOPE messages in a separate terminal pane.
+
+### Setup
+
+Create the log directory and file if they don't exist:
+
+```shell
+mkdir -p .deploynope
+touch .deploynope/console.log
+```
+
+### Console Banner
+
+Print this banner after the branch is created, replacing `<WORKDIR>` with the actual
+absolute path of the current working directory:
+
+```
+┌──────────────────────────────────────────────────────┐
+│  🤓 DEPLOYNOPE CONSOLE                              │
+│  Monitor deployment guardrails in a separate pane.   │
+│                                                      │
+│  Run in a new terminal:                              │
+│                                                      │
+│  cd <WORKDIR> && tail -f .deploynope/console.log     │
+└──────────────────────────────────────────────────────┘
+```
+
+The user can also run `/deploynope-console` at any time to re-print this banner.
+
+### Sidecar Logging
+
+While any DeployNOPE command is active, **every `🤓 DeployNOPE @ <Stage>` message** must
+also be appended to `.deploynope/console.log` with a timestamp:
+
+```shell
+echo "[$(date '+%H:%M:%S')] 🤓 DeployNOPE @ <Stage> — <message>" >> .deploynope/console.log
+```
+
+This allows the user to monitor DeployNOPE progress in a separate terminal pane using
+`tail -f`, without needing to read through all of Claude's general output.
+
+**Rules:**
+- Append to the log — never overwrite it.
+- One line per message — keep messages concise and actionable.
+- Include the stage tag and a short summary (e.g. "Drift check: clean", "Branch created: feature-x from main").
+- Do not log general conversation or code output — only DeployNOPE guardrail messages.

@@ -40,6 +40,7 @@ Each command and deployment step has its own stage label:
 | `/deploynope-release-manifest` | `🤓 DeployNOPE @ Release Manifest` |
 | `/deploynope-postdeploy` | `🤓 DeployNOPE @ Post-Deploy` |
 | `/deploynope-rollback` | `🤓 DeployNOPE @ Rollback` |
+| `/deploynope-console` | `🤓 DeployNOPE @ Console` |
 | Feature/ticket work (coding, committing) | `🤓 DeployNOPE @ Feature` |
 | Staging contention check or claiming <staging-branch> | `🤓 DeployNOPE @ Staging` |
 | Validating on <staging-branch> | `🤓 DeployNOPE @ Staging Validation` |
@@ -55,6 +56,14 @@ Each command and deployment step has its own stage label:
   both: **`🤓 DeployNOPE @ <Stage>`** **`[Agile V]`**.
 - If an action *should* be governed by DeployNOPE but you are about to skip it, state
   that explicitly rather than proceeding silently.
+- **Sidecar logging:** Every `🤓 DeployNOPE @ <Stage>` message must also be appended to
+  `.deploynope/console.log` with a timestamp, so the user can monitor progress in a
+  separate terminal pane using `tail -f`. Format:
+  ```shell
+  echo "[$(date '+%H:%M:%S')] 🤓 DeployNOPE @ <Stage> — <message>" >> .deploynope/console.log
+  ```
+  Create the directory and file if they don't exist (`mkdir -p .deploynope && touch .deploynope/console.log`).
+  The user can run `/deploynope-console` at any time to get the `tail -f` command.
 
 This rule exists because silent framework compliance (or non-compliance) is invisible
 to the user and has caused missed steps in the past.
