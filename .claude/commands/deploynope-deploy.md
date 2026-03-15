@@ -25,45 +25,57 @@ for the full mapping). If it does not exist, use the placeholder names as-is and
 stage tag so the user can immediately see which framework is driving decisions **and what
 stage of the process they are in**.
 
-The tag format is: **`🤓 DeployNOPE @ <Stage>`**
+### Tag Format
+
+The tag format is: **`<emoji> DeployNOPE <context> · <Stage>`**
+
+Where:
+- **`<emoji>`** indicates severity (see Severity Levels below)
+- **`DeployNOPE`** identifies the framework
+- **`<context>`** is the release version (e.g. `2.10.0`) or branch name (e.g. `fix/login-bug`) for the current work
+- **`<Stage>`** is the current workflow step
+
+Example: **`🤓 DeployNOPE 2.10.0 · Feature`**
+
+### Severity Levels
+
+| Emoji | Level | When to use |
+|-------|-------|-------------|
+| `🤓` | Normal | Branch creation, PRs, merges to release, drift checks, routine actions |
+| `⚠️` | Caution | Reset master/staging, force push, merge to staging/production |
+| `🚨` | Alert | Rollback, failed gates, blocked actions |
+
+### Stage Labels
 
 Each command and deployment step has its own stage label:
 
-| Context | Tag |
+| Context | Stage |
 |---|---|
-| `/deploynope-new-work` or starting new work | `🤓 DeployNOPE @ New Work` |
-| `/deploynope-preflight` | `🤓 DeployNOPE @ Preflight` |
-| `/deploynope-configure` | `🤓 DeployNOPE @ Configure` |
-| `/deploynope-deploy-status` | `🤓 DeployNOPE @ Deploy Status` |
-| `/deploynope-verify-rules` | `🤓 DeployNOPE @ Verify Rules` |
-| `/deploynope-stale-check` | `🤓 DeployNOPE @ Stale Check` |
-| `/deploynope-release-manifest` | `🤓 DeployNOPE @ Release Manifest` |
-| `/deploynope-postdeploy` | `🤓 DeployNOPE @ Post-Deploy` |
-| `/deploynope-rollback` | `🤓 DeployNOPE @ Rollback` |
-| `/deploynope-console` | `🤓 DeployNOPE @ Console` |
-| Feature/ticket work (coding, committing) | `🤓 DeployNOPE @ Feature` |
-| Staging contention check or claiming <staging-branch> | `🤓 DeployNOPE @ Staging` |
-| Validating on <staging-branch> | `🤓 DeployNOPE @ Staging Validation` |
-| Resetting <production-branch> / production deployment | `🤓 DeployNOPE @ Production` |
-| Creating a GitHub Release | `🤓 DeployNOPE @ Release` |
-| Post-deployment alignment check | `🤓 DeployNOPE @ Post-Deploy` |
-| General deployment work (no specific step) | `🤓 DeployNOPE @ Deploy` |
+| `/deploynope-new-work` or starting new work | `New Work` |
+| `/deploynope-preflight` | `Preflight` |
+| `/deploynope-configure` | `Configure` |
+| `/deploynope-deploy-status` | `Deploy Status` |
+| `/deploynope-verify-rules` | `Verify Rules` |
+| `/deploynope-stale-check` | `Stale Check` |
+| `/deploynope-release-manifest` | `Release Manifest` |
+| `/deploynope-postdeploy` | `Post-Deploy` |
+| `/deploynope-rollback` | `Rollback` |
+| Feature/ticket work (coding, committing) | `Feature` |
+| Staging contention check or claiming <staging-branch> | `Staging` |
+| Validating on <staging-branch> | `Staging Validation` |
+| Resetting <production-branch> / production deployment | `Production` |
+| Creating a GitHub Release | `Release` |
+| Post-deployment alignment check | `Post-Deploy` |
+| General deployment work (no specific step) | `Deploy` |
 
 **Rules:**
 - Tag every message — not just the first one — for the duration of the workflow.
 - Update the stage label as the workflow progresses through different steps.
+- Choose the correct severity emoji for the action (see Severity Levels above).
 - If a DeployNOPE command is invoked alongside another framework (e.g. Agile V), tag
-  both: **`🤓 DeployNOPE @ <Stage>`** **`[Agile V]`**.
+  both: **`🤓 DeployNOPE <context> · <Stage>`** **`[Agile V]`**.
 - If an action *should* be governed by DeployNOPE but you are about to skip it, state
   that explicitly rather than proceeding silently.
-- **Sidecar logging:** Every `🤓 DeployNOPE @ <Stage>` message must also be appended to
-  `.deploynope/console.log` with a timestamp, so the user can monitor progress in a
-  separate terminal pane using `tail -f`. Format:
-  ```shell
-  echo "[$(date '+%H:%M:%S')] 🤓 DeployNOPE @ <Stage> — <message>" >> .deploynope/console.log
-  ```
-  Create the directory and file if they don't exist (`mkdir -p .deploynope && touch .deploynope/console.log`).
-  The user can run `/deploynope-console` at any time to get the `tail -f` command.
 
 This rule exists because silent framework compliance (or non-compliance) is invisible
 to the user and has caused missed steps in the past.
@@ -972,7 +984,7 @@ is the last step before `git commit` runs.
 
 **Confirmation block format:**
 
-> **`🤓 DeployNOPE @ <Stage>`**
+> **`<emoji> DeployNOPE <context> · <Stage>`**
 >
 > | | |
 > |---|---|
@@ -1022,7 +1034,7 @@ before `git push` runs.
 
 **Confirmation block format:**
 
-> **`🤓 DeployNOPE @ <Stage>`**
+> **`<emoji> DeployNOPE <context> · <Stage>`**
 >
 > | | |
 > |---|---|

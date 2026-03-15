@@ -48,28 +48,32 @@ All commands are prefixed with `deploynope-` so they stay distinct in your slash
 
 ---
 
-## Stage Tags
+## Stage Tags & Severity
 
-When DeployNOPE is active, every response is tagged with `🤓 DeployNOPE @ <Stage>` so you always know which stage of the workflow you're in. If the tag is missing from a deployment-related response, that's a red flag — the framework wasn't loaded.
+When DeployNOPE is active, every response is tagged with `<emoji> DeployNOPE <context> · <Stage>` so you always know which stage of the workflow you're in and what release/branch it relates to. If the tag is missing from a deployment-related response, that's a red flag — the framework wasn't loaded.
 
-| Context | Tag |
-|---------|-----|
-| Starting new work or `/deploynope-new-work` | `🤓 DeployNOPE @ New Work` |
-| Feature/ticket work (coding, committing) | `🤓 DeployNOPE @ Feature` |
-| `/deploynope-preflight` | `🤓 DeployNOPE @ Preflight` |
-| `/deploynope-configure` | `🤓 DeployNOPE @ Configure` |
-| `/deploynope-deploy-status` | `🤓 DeployNOPE @ Deploy Status` |
-| `/deploynope-verify-rules` | `🤓 DeployNOPE @ Verify Rules` |
-| `/deploynope-stale-check` | `🤓 DeployNOPE @ Stale Check` |
-| `/deploynope-release-manifest` | `🤓 DeployNOPE @ Release Manifest` |
-| `/deploynope-postdeploy` | `🤓 DeployNOPE @ Post-Deploy` |
-| `/deploynope-rollback` | `🤓 DeployNOPE @ Rollback` |
-| Staging contention check or claiming `<staging-branch>` | `🤓 DeployNOPE @ Staging` |
-| Validating on `<staging-branch>` | `🤓 DeployNOPE @ Staging Validation` |
-| Resetting `<production-branch>` / production deployment | `🤓 DeployNOPE @ Production` |
-| Creating a GitHub Release | `🤓 DeployNOPE @ Release` |
-| Post-deployment alignment check | `🤓 DeployNOPE @ Post-Deploy` |
-| General deployment work (no specific step) | `🤓 DeployNOPE @ Deploy` |
+**Severity:** `🤓` Normal | `⚠️` Caution (resets, force push) | `🚨` Alert (rollback, blocked)
+
+| Context | Stage |
+|---------|-------|
+| Starting new work or `/deploynope-new-work` | `New Work` |
+| Feature/ticket work (coding, committing) | `Feature` |
+| `/deploynope-preflight` | `Preflight` |
+| `/deploynope-configure` | `Configure` |
+| `/deploynope-deploy-status` | `Deploy Status` |
+| `/deploynope-verify-rules` | `Verify Rules` |
+| `/deploynope-stale-check` | `Stale Check` |
+| `/deploynope-release-manifest` | `Release Manifest` |
+| `/deploynope-postdeploy` | `Post-Deploy` |
+| `/deploynope-rollback` | `Rollback` |
+| Staging contention check or claiming `<staging-branch>` | `Staging` |
+| Validating on `<staging-branch>` | `Staging Validation` |
+| Resetting `<production-branch>` / production deployment | `Production` |
+| Creating a GitHub Release | `Release` |
+| Post-deployment alignment check | `Post-Deploy` |
+| General deployment work (no specific step) | `Deploy` |
+
+**Examples:** `🤓 DeployNOPE 2.10.0 · Feature`, `⚠️ DeployNOPE 2.10.0 · Production`, `🚨 DeployNOPE 2.10.0 · Rollback`
 
 ---
 
