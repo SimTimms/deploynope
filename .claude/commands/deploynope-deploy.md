@@ -39,11 +39,20 @@ Example in chat: **`🤓 DN 2.10.0 · Feature`**
 
 ### Severity Levels
 
+**Chat + sidecar tags:**
+
 | Emoji | Level | When to use |
 |-------|-------|-------------|
 | `🤓` | Normal | Branch creation, PRs, merges to release, drift checks, routine actions |
 | `⚠️` | Caution | Reset master/staging, force push, merge to staging/production |
 | `🚨` | Alert | Rollback, failed gates, blocked actions |
+
+**Sidecar-only indicators** (these appear in the console log but not in chat tags):
+
+| Emoji | Level | When to use |
+|-------|-------|-------------|
+| `⏳` | Waiting | Human gate — workflow paused for user input |
+| `✅` | Complete | A command or significant step finished successfully |
 
 ### Stage Labels
 
@@ -86,6 +95,8 @@ checks, gates, or actions.** Create the log directory/file and write a seed mess
 
 ```shell
 mkdir -p .deploynope && touch .deploynope/console.log
+echo "" >> .deploynope/console.log
+echo "─── $(date '+%Y-%m-%d %H:%M:%S') ───────────────────────────" >> .deploynope/console.log
 echo "[$(date '+%H:%M:%S')] 🤓 DN <context> · <Stage> — <command name> activated" >> .deploynope/console.log
 ```
 
@@ -111,10 +122,28 @@ echo "[$(date '+%H:%M:%S')] <emoji> DN <context> · <Stage> — <message>" >> .d
   and the workflow is waiting for user input, log a waiting message to the sidecar. Chain
   this onto the last Bash action before the gate. Format:
   `[HH:MM:SS] ⏳ DN <context> · <Stage> — Waiting for input: <what is being confirmed>`
-  Examples:
-  - `[21:30:15] ⏳ DN 2.10.0 · Feature — Waiting for input: commit confirmation`
-  - `[21:31:02] ⏳ DN 2.10.0 · Production — Waiting for input: reset master to staging`
-  - `[21:40:00] ⏳ DN 2.10.0 · New Work — Waiting for input: branch name`
+- **Completion logging:** When a command or significant step finishes successfully, log a
+  completion message. Format:
+  `[HH:MM:SS] ✅ DN <context> · <Stage> — <what completed>`
+- **Error/blocked logging:** When a check fails, a gate blocks progress, or an error is
+  encountered, log it immediately. Format:
+  `[HH:MM:SS] 🚨 DN <context> · <Stage> — <what failed or was blocked>`
+
+**Sidecar-only emoji reference** (these appear in the console log but not in chat tags):
+
+| Emoji | Meaning | When to use |
+|-------|---------|-------------|
+| `⏳` | Waiting | Human gate or confirmation prompt — workflow paused for input |
+| `✅` | Complete | A command or significant step finished successfully |
+| `🚨` | Error/Blocked | A check failed, gate blocked, or error encountered |
+
+**Examples:**
+- `[21:30:15] ⏳ DN 2.10.0 · Feature — Waiting for input: commit confirmation`
+- `[21:30:20] ✅ DN 2.10.0 · Feature — Committed: feat: add login (a1b2c3d)`
+- `[21:31:02] ⏳ DN 2.10.0 · Production — Waiting for input: reset master to staging`
+- `[21:31:10] ✅ DN 2.10.0 · Production — Master reset to staging`
+- `[21:40:00] 🚨 DN 2.10.0 · New Work — Drift detected: main has commits not in development`
+- `[21:40:05] 🚨 DN 2.10.0 · Staging — Staging contention: staging is claimed by another release`
 
 This rule exists because silent framework compliance (or non-compliance) is invisible
 to the user and has caused missed steps in the past.

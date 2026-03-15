@@ -52,7 +52,8 @@ All commands are prefixed with `deploynope-` so they stay distinct in your slash
 
 When DeployNOPE is active, every response is tagged with `<emoji> DN <context> · <Stage>` so you always know which stage of the workflow you're in and what release/branch it relates to. If the tag is missing from a deployment-related response, that's a red flag — the framework wasn't loaded.
 
-**Severity levels:** `🤓` Normal | `⚠️` Caution (resets, force push) | `🚨` Alert (rollback, blocked)
+**Chat tags:** `🤓` Normal | `⚠️` Caution (resets, force push) | `🚨` Alert (rollback, blocked)
+**Sidecar only:** `⏳` Waiting for input | `✅` Complete
 
 | Context | Stage |
 |---------|-------|
