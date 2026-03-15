@@ -6,7 +6,7 @@
 > For the full deployment ruleset (deployment process, staging, <production-branch> reset), run
 > `/deploynope-deploy` first.
 >
-> **Framework Visibility:** Tag every response with **`🤓 DN <context> · New Work`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 DeployNOPE <context> · New Work`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
@@ -155,34 +155,3 @@ Once worktree, branch name, base branch, and drift check are confirmed, you may 
 
 For the full deployment ruleset (staging contention, <production-branch> reset, cross-repo checks, etc.), ensure `/deploynope-deploy` has been run in this session.
 
----
-
-## DeployNOPE Console (Sidecar Log)
-
-After the branch is created, present the sidecar console banner so the user can
-monitor DeployNOPE messages in a separate terminal pane.
-
-**Note:** The sidecar log directory, file, and seed message should already exist at this
-point — they are created in Step 0 (see `/deploynope-deploy` § Sidecar Console Logging).
-If for any reason they don't exist, create them now.
-
-### Console Banner
-
-Print this banner after the branch is created, replacing `<WORKDIR>` with the actual
-absolute path and `<WORKTREE>` with the worktree/directory name:
-
-**🤓 DEPLOYNOPE CONSOLE**
-Worktree: `<WORKTREE>`
-Monitor deployment guardrails in a separate pane.
-
-Run in a new terminal:
-1. `cd <WORKDIR>`
-2. `tail -f .deploynope/console.log`
-
-The user can also run `/deploynope-console` at any time to re-print this banner.
-
-### Sidecar Logging
-
-See `/deploynope-deploy` § Sidecar Console Logging (Step 0) for the full specification.
-The key rule: **every tagged message must be logged from the very first message onwards** —
-not after the banner, not after the branch is created, from the moment the command activates.

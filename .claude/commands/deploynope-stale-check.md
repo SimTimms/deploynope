@@ -6,7 +6,7 @@
 >
 > This is a read-only check. It does not modify any state.
 >
-> **Framework Visibility:** Tag every response with **`🤓 DN <context> · Stale Check`** while this command
+> **Framework Visibility:** Tag every response with **`🤓 DeployNOPE <context> · Stale Check`** while this command
 > is active. See `/deploynope-deploy` § Framework Visibility for full details.
 
 ---
@@ -136,7 +136,7 @@ Calculate how long ago the last release was. Flag if it's been more than 2 weeks
 
 Display the results in this format:
 
-**`🤓 DN <context> · Stale Check`**
+**`🤓 DeployNOPE <context> · Stale Check`**
 
 **Stale Work & Pipeline Health Check**
 _Repo: `<owner>/<repo>` | Date: `<today>` | Branch: `<current-branch>`_

@@ -27,32 +27,23 @@ stage of the process they are in**.
 
 ### Tag Format
 
-The tag format is: **`<emoji> DN <context> · <Stage>`**
+The tag format is: **`<emoji> DeployNOPE <context> · <Stage>`**
 
 Where:
 - **`<emoji>`** indicates severity (see Severity Levels below)
-- **`DN`** is the short identifier for DeployNOPE
+- **`DeployNOPE`** identifies the framework
 - **`<context>`** is the release version (e.g. `2.10.0`) or branch name (e.g. `fix/login-bug`) for the current work
 - **`<Stage>`** is the current workflow step
 
-Example in chat: **`🤓 DN 2.10.0 · Feature`**
+Example: **`🤓 DeployNOPE 2.10.0 · Feature`**
 
 ### Severity Levels
-
-**Chat + sidecar tags:**
 
 | Emoji | Level | When to use |
 |-------|-------|-------------|
 | `🤓` | Normal | Branch creation, PRs, merges to release, drift checks, routine actions |
 | `⚠️` | Caution | Reset master/staging, force push, merge to staging/production |
 | `🚨` | Alert | Rollback, failed gates, blocked actions |
-
-**Sidecar-only indicators** (these appear in the console log but not in chat tags):
-
-| Emoji | Level | When to use |
-|-------|-------|-------------|
-| `⏳` | Waiting | Human gate — workflow paused for user input |
-| `✅` | Complete | A command or significant step finished successfully |
 
 ### Stage Labels
 
@@ -69,7 +60,6 @@ Each command and deployment step has its own stage label:
 | `/deploynope-release-manifest` | `Release Manifest` |
 | `/deploynope-postdeploy` | `Post-Deploy` |
 | `/deploynope-rollback` | `Rollback` |
-| `/deploynope-console` | `Console` |
 | Feature/ticket work (coding, committing) | `Feature` |
 | Staging contention check or claiming <staging-branch> | `Staging` |
 | Validating on <staging-branch> | `Staging Validation` |
@@ -83,72 +73,9 @@ Each command and deployment step has its own stage label:
 - Update the stage label as the workflow progresses through different steps.
 - Choose the correct severity emoji for the action (see Severity Levels above).
 - If a DeployNOPE command is invoked alongside another framework (e.g. Agile V), tag
-  both: **`🤓 DN <context> · <Stage>`** **`[Agile V]`**.
+  both: **`🤓 DeployNOPE <context> · <Stage>`** **`[Agile V]`**.
 - If an action *should* be governed by DeployNOPE but you are about to skip it, state
   that explicitly rather than proceeding silently.
-
-### Sidecar Console Logging (Step 0)
-
-**This is the first thing you do when any DeployNOPE command activates — before any other
-checks, gates, or actions.** Create the log directory/file and write a seed message so
-`tail -f` shows immediate output:
-
-```shell
-mkdir -p .deploynope && touch .deploynope/console.log
-echo "" >> .deploynope/console.log
-echo "─── $(date '+%Y-%m-%d %H:%M:%S') ───────────────────────────" >> .deploynope/console.log
-echo "[$(date '+%H:%M:%S')] 🤓 DN <context> · <Stage> — <command name> activated" >> .deploynope/console.log
-```
-
-From this point, **every tagged message** must also be appended to `.deploynope/console.log`:
-
-```shell
-echo "[$(date '+%H:%M:%S')] <emoji> DN <context> · <Stage> — <message>" >> .deploynope/console.log
-```
-
-**Rules:**
-- Append to the log — never overwrite it.
-- One line per message — keep messages concise and actionable.
-- Include the severity emoji, DN prefix, context, stage, and a short summary.
-- Do not log general conversation or code output — only DeployNOPE guardrail messages.
-- The user can run `/deploynope-console` at any time to get the `tail -f` command.
-- **Piggyback logging:** Never issue a standalone Bash call just to write to the sidecar
-  log. Always chain the `echo >> .deploynope/console.log` onto the Bash command it relates
-  to (e.g. `git commit -m "..." && echo "[...] DN ..." >> .deploynope/console.log`). This
-  avoids cluttering the user's main chat with extra Bash permission prompts. If a message
-  has no associated Bash action (e.g. a pure chat response), skip the sidecar write — the
-  user sees it in the main chat already.
-  **Exception:** Human gate waiting messages (see below) are the one case where a
-  standalone sidecar write is acceptable, because there is no Bash action to chain onto —
-  the workflow is paused.
-- **Human gate logging:** When a DeployNOPE human gate or confirmation prompt is presented
-  and the workflow is waiting for user input, log a waiting message to the sidecar
-  **before** presenting the prompt to the user. This is a standalone Bash call — it is the
-  one permitted exception to the piggyback rule, because the user needs to see the waiting
-  state on the tail before they respond. Format:
-  `[HH:MM:SS] ⏳ DN <context> · <Stage> — Waiting for input: <what is being confirmed>`
-- **Completion logging:** When a command or significant step finishes successfully, log a
-  completion message. Format:
-  `[HH:MM:SS] ✅ DN <context> · <Stage> — <what completed>`
-- **Error/blocked logging:** When a check fails, a gate blocks progress, or an error is
-  encountered, log it immediately. Format:
-  `[HH:MM:SS] 🚨 DN <context> · <Stage> — <what failed or was blocked>`
-
-**Sidecar-only emoji reference** (these appear in the console log but not in chat tags):
-
-| Emoji | Meaning | When to use |
-|-------|---------|-------------|
-| `⏳` | Waiting | Human gate or confirmation prompt — workflow paused for input |
-| `✅` | Complete | A command or significant step finished successfully |
-| `🚨` | Error/Blocked | A check failed, gate blocked, or error encountered |
-
-**Examples:**
-- `[21:30:15] ⏳ DN 2.10.0 · Feature — Waiting for input: commit confirmation`
-- `[21:30:20] ✅ DN 2.10.0 · Feature — Committed: feat: add login (a1b2c3d)`
-- `[21:31:02] ⏳ DN 2.10.0 · Production — Waiting for input: reset master to staging`
-- `[21:31:10] ✅ DN 2.10.0 · Production — Master reset to staging`
-- `[21:40:00] 🚨 DN 2.10.0 · New Work — Drift detected: main has commits not in development`
-- `[21:40:05] 🚨 DN 2.10.0 · Staging — Staging contention: staging is claimed by another release`
 
 This rule exists because silent framework compliance (or non-compliance) is invisible
 to the user and has caused missed steps in the past.
@@ -1057,7 +984,7 @@ is the last step before `git commit` runs.
 
 **Confirmation block format:**
 
-> **`<emoji> DN <context> · <Stage>`**
+> **`<emoji> DeployNOPE <context> · <Stage>`**
 >
 > | | |
 > |---|---|
@@ -1107,7 +1034,7 @@ before `git push` runs.
 
 **Confirmation block format:**
 
-> **`<emoji> DN <context> · <Stage>`**
+> **`<emoji> DeployNOPE <context> · <Stage>`**
 >
 > | | |
 > |---|---|
