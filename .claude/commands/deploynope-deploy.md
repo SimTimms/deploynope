@@ -101,6 +101,20 @@ echo "[$(date '+%H:%M:%S')] <emoji> DN <context> · <Stage> — <message>" >> .d
 - Include the severity emoji, DN prefix, context, stage, and a short summary.
 - Do not log general conversation or code output — only DeployNOPE guardrail messages.
 - The user can run `/deploynope-console` at any time to get the `tail -f` command.
+- **Piggyback logging:** Never issue a standalone Bash call just to write to the sidecar
+  log. Always chain the `echo >> .deploynope/console.log` onto the Bash command it relates
+  to (e.g. `git commit -m "..." && echo "[...] DN ..." >> .deploynope/console.log`). This
+  avoids cluttering the user's main chat with extra Bash permission prompts. If a message
+  has no associated Bash action (e.g. a pure chat response), skip the sidecar write — the
+  user sees it in the main chat already.
+- **Human gate logging:** When a DeployNOPE human gate or confirmation prompt is presented
+  and the workflow is waiting for user input, log a waiting message to the sidecar. Chain
+  this onto the last Bash action before the gate. Format:
+  `[HH:MM:SS] ⏳ DN <context> · <Stage> — Waiting for input: <what is being confirmed>`
+  Examples:
+  - `[21:30:15] ⏳ DN 2.10.0 · Feature — Waiting for input: commit confirmation`
+  - `[21:31:02] ⏳ DN 2.10.0 · Production — Waiting for input: reset master to staging`
+  - `[21:40:00] ⏳ DN 2.10.0 · New Work — Waiting for input: branch name`
 
 This rule exists because silent framework compliance (or non-compliance) is invisible
 to the user and has caused missed steps in the past.
