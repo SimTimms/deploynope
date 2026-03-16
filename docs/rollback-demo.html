@@ -681,11 +681,11 @@
     <div class="step">
       <div class="step-dot blue"></div>
       <div class="step-card">
-        <h4>&#128640; Reset Master (Backend First)</h4>
-        <p>Reset the master branch to the rollback target. Backend repos go first to avoid frontend pointing at non-existent API endpoints.</p>
+        <h4>&#128640; Reset Production (Backend First)</h4>
+        <p>Reset the production branch to the rollback target. Backend repos go first to avoid frontend pointing at non-existent API endpoints.</p>
         <div class="code-block">
           <span class="cmd">git reset --hard</span> <span class="tag-name">v2.2.0</span><br>
-          <span class="cmd">git push origin master --force</span>
+          <span class="cmd">git push origin main --force</span>
         </div>
       </div>
     </div>
@@ -758,12 +758,12 @@
     <div class="step">
       <div class="step-dot red"></div>
       <div class="step-card danger">
-        <h4>&#128680; Reset Master Directly <span class="gate-badge danger-badge">Staging Skipped</span></h4>
-        <p>Hard-reset master to the rollback target without staging validation. This is the dangerous step that emergency mode enables.</p>
+        <h4>&#128680; Reset Production Directly <span class="gate-badge danger-badge">Staging Skipped</span></h4>
+        <p>Hard-reset the production branch to the rollback target without staging validation. This is the dangerous step that emergency mode enables.</p>
         <div class="code-block">
           <span class="danger-text"># STAGING VALIDATION SKIPPED</span><br>
           <span class="cmd">git reset --hard</span> <span class="tag-name">v2.2.0</span><br>
-          <span class="cmd">git push origin master --force</span>
+          <span class="cmd">git push origin main --force</span>
         </div>
       </div>
     </div>
@@ -921,7 +921,7 @@
     { label: 'Validate on staging', icon: '&#128065;', log: 'HUMAN GATE: Awaiting staging validation confirmation...', level: 'warn', gate: true },
     { label: 'Staging validated', icon: '&#9989;', log: 'User confirmed: staging looks good', level: 'success', gateResume: true },
     { label: 'Cross-repo version parity check', icon: '&#128260;', log: 'All repos aligned at v2.2.0 ✓', level: 'success' },
-    { label: 'Reset master (backend first)', icon: '&#128640;', log: 'git reset --hard v2.2.0 && git push origin master --force', level: 'info' },
+    { label: 'Reset production (backend first)', icon: '&#128640;', log: 'git reset --hard v2.2.0 && git push origin main --force', level: 'info' },
     { label: 'Annotate GitHub Release', icon: '&#128221;', log: 'Marked v2.3.0 as rolled-back in GitHub Release', level: 'info' },
     { label: 'Production smoke test', icon: '&#128678;', log: 'HUMAN GATE: Awaiting production smoke test confirmation...', level: 'warn', gate: true },
     { label: 'Smoke test passed', icon: '&#9989;', log: 'User confirmed: production is healthy', level: 'success', gateResume: true },
@@ -934,7 +934,7 @@
     { label: 'CONFIRM: Target version', icon: '&#127919;', log: 'HUMAN GATE: Confirm rollback target version...', level: 'warn', gate: true },
     { label: 'Target confirmed: v2.2.0', icon: '&#127919;', log: 'User confirmed target: v2.2.0', level: 'success', gateResume: true },
     { label: 'Frontend cache-bust branch', icon: '&#128165;', log: 'Bumping package.json: 2.2.0 → 2.2.1 (cache-bust patch)', level: 'info' },
-    { label: 'Reset master directly (STAGING SKIPPED)', icon: '&#128680;', log: 'DANGER: Skipping staging! git reset --hard v2.2.0 && git push origin master --force', level: 'error' },
+    { label: 'Reset production directly (STAGING SKIPPED)', icon: '&#128680;', log: 'DANGER: Skipping staging! git reset --hard v2.2.0 && git push origin main --force', level: 'error' },
     { label: 'CONFIRM: CodePipeline status', icon: '&#128678;', log: 'HUMAN GATE: Is CodePipeline deploying v2.2.0?', level: 'warn', gate: true },
     { label: 'Pipeline confirmed green', icon: '&#128678;', log: 'User confirmed: CodePipeline deploying v2.2.0', level: 'success', gateResume: true },
     { label: 'Mandatory post-rollback validation', icon: '&#128065;', log: 'HUMAN GATE: Validate all critical paths in production...', level: 'warn', gate: true },

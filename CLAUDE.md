@@ -43,7 +43,7 @@ reset, release, etc.), the confirmation prompt **must** include a visible
 Examples:
 > "Ready to commit all of this? **`🤓 DeployNOPE 2.10.0 · Feature`**"
 > "Shall I push this to origin? **`🤓 DeployNOPE 2.10.0 · Feature`**"
-> "Ready to reset `master` to match `staging`? **`⚠️ DeployNOPE 2.10.0 · Production`**"
+> "Ready to reset `main` to match `staging`? **`⚠️ DeployNOPE 2.10.0 · Production`**"
 
 The absence of the tag on a deployment-related confirmation is itself a red flag that
 the framework was not loaded.

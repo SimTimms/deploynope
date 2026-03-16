@@ -15,28 +15,28 @@ Maps every enforceable rule to its enforcement mechanism and test coverage.
 
 | # | Rule | Hook | Decision | Test File | Tests |
 |---|------|------|----------|-----------|-------|
-| 1 | Direct push to production (staging exists) | `check-git-push.sh` | **deny** | `test-hook-push.sh` | 4 |
-| 2 | Force-with-lease push to production (reset step) | `check-git-push.sh` | ask | `test-hook-push.sh` | 2 |
-| 3 | Push to production (no staging) | `check-git-push.sh` | ask+warn | `test-hook-push.sh` | 2 |
-| 4 | Push to non-production branch | `check-git-push.sh` | ask | `test-hook-push.sh` | 2 |
-| 5 | PR targeting production (main/master) | `check-gh-pr-create.sh` | **deny** | `test-hook-pr-create.sh` | 4 |
-| 6 | PR targeting staging | `check-gh-pr-create.sh` | **deny** | `test-hook-pr-create.sh` | 2 |
-| 7 | PR targeting development | `check-gh-pr-create.sh` | **deny** | `test-hook-pr-create.sh` | 3 |
-| 8 | PR targeting release branch | `check-gh-pr-create.sh` | ask | `test-hook-pr-create.sh` | 3 |
-| 9 | Merge non-production into development | `check-git-merge.sh` | **deny** | `test-hook-merge.sh` | 3 |
-| 10 | Merge production into development (post-deploy) | `check-git-merge.sh` | ask | `test-hook-merge.sh` | 2 |
-| 11 | Merge into production branch | `check-git-merge.sh` | ask+warn | `test-hook-merge.sh` | 2 |
-| 12 | Merge into staging | `check-git-merge.sh` | ask+warn | `test-hook-merge.sh` | 2 |
-| 13 | Every git commit | `check-git-commit.sh` | ask | `test-hook-commit.sh` | 6 |
-| 14 | git reset --hard on production branch | `check-git-reset.sh` | ask | `test-hook-reset.sh` | 2 |
-| 15 | git reset --hard on staging | `check-git-reset.sh` | ask | `test-hook-reset.sh` | 2 |
-| 16 | git reset --hard on any branch | `check-git-reset.sh` | ask | `test-hook-reset.sh` | 2 |
-| 17 | GitHub Release creation | `check-gh-release.sh` | ask | `test-hook-release.sh` | 5 |
-| 18 | Branch protection PUT (enable/disable force-push) | `check-gh-api-protection.sh` | ask | `test-hook-api-protection.sh` | 4 |
-| 19 | Local branch deletion | `check-git-branch-delete.sh` | ask | `test-hook-branch-delete.sh` | 3 |
-| 20 | Remote branch deletion | `check-git-branch-delete.sh` | ask | `test-hook-branch-delete.sh` | 3 |
-| 21 | Tag creation (incl. staging/active claim) | `check-git-tag.sh` | ask | `test-hook-tag.sh` | 3 |
-| 22 | Tag deletion (incl. staging/active clear) | `check-git-tag.sh` | ask | `test-hook-tag.sh` | 2 |
+| 1 | Direct push to production (staging exists) | `check-git-push.sh` | **deny** | `test-hook-push.sh` | 16 |
+| 2 | Force-with-lease push to production (reset step) | `check-git-push.sh` | ask | `test-hook-push.sh` | ↑ |
+| 3 | Push to production (no staging) | `check-git-push.sh` | ask+warn | `test-hook-push.sh` | ↑ |
+| 4 | Push to non-production branch | `check-git-push.sh` | ask | `test-hook-push.sh` | ↑ |
+| 5 | PR targeting production (main/master) | `check-gh-pr-create.sh` | **deny** | `test-hook-pr-create.sh` | 19 |
+| 6 | PR targeting staging | `check-gh-pr-create.sh` | **deny** | `test-hook-pr-create.sh` | ↑ |
+| 7 | PR targeting development | `check-gh-pr-create.sh` | **deny** | `test-hook-pr-create.sh` | ↑ |
+| 8 | PR targeting release branch | `check-gh-pr-create.sh` | ask | `test-hook-pr-create.sh` | ↑ |
+| 9 | Merge non-production into development | `check-git-merge.sh` | **deny** | `test-hook-merge.sh` | 16 |
+| 10 | Merge production into development (post-deploy) | `check-git-merge.sh` | ask | `test-hook-merge.sh` | ↑ |
+| 11 | Merge into production branch | `check-git-merge.sh` | **deny** | `test-hook-merge.sh` | ↑ |
+| 12 | Merge into staging | `check-git-merge.sh` | ask | `test-hook-merge.sh` | ↑ |
+| 13 | Every git commit | `check-git-commit.sh` | ask | `test-hook-commit.sh` | 14 |
+| 14 | git reset --hard on production branch | `check-git-reset.sh` | **deny**/ask | `test-hook-reset.sh` | 15 |
+| 15 | git reset --hard on staging | `check-git-reset.sh` | ask | `test-hook-reset.sh` | ↑ |
+| 16 | git reset --hard on any branch | `check-git-reset.sh` | ask | `test-hook-reset.sh` | ↑ |
+| 17 | GitHub Release creation | `check-gh-release.sh` | ask | `test-hook-release.sh` | 9 |
+| 18 | Branch protection PUT (enable/disable force-push) | `check-gh-api-protection.sh` | ask | `test-hook-api-protection.sh` | 9 |
+| 19 | Local branch deletion | `check-git-branch-delete.sh` | ask | `test-hook-branch-delete.sh` | 12 |
+| 20 | Remote branch deletion | `check-git-branch-delete.sh` | ask | `test-hook-branch-delete.sh` | ↑ |
+| 21 | Tag creation (incl. staging/active claim) | `check-git-tag.sh` | ask | `test-hook-tag.sh` | 12 |
+| 22 | Tag deletion (incl. staging/active clear) | `check-git-tag.sh` | ask | `test-hook-tag.sh` | ↑ |
 
 ## Bypass Resistance (Tested)
 
@@ -66,7 +66,7 @@ They are covered by `/deploynope-verify-rules` (manual self-check) but have **no
 | 9 | Release manifest creation | `/deploynope-release-manifest` | Medium — audit trail gap |
 | 10 | Confluence release notes | `/deploynope-deploy` | Low — documentation only |
 | 11 | Framework auto-activation (CLAUDE.md triggers) | `CLAUDE.md` | **High** — relies on AI reading CLAUDE.md |
-| 12 | `Protected by DeployNOPE` tag on every response | `CLAUDE.md` | Medium — visibility only |
+| 12 | `<emoji> DeployNOPE <context> · <Stage>` tag on every response | `CLAUDE.md` | Medium — visibility only |
 
 ## Passthrough Safety (Tested)
 

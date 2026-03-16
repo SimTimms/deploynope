@@ -936,10 +936,10 @@
   // ===== Auto-Activation Triggers =====
   const triggers = [
     'deploy', 'release', 'ship code',
-    'push to staging / master / main',
-    'reset staging', 'reset master',
+    'push to staging / main / production',
+    'reset staging', 'reset production',
     'create a PR',
-    'merge into staging / master / development',
+    'merge into staging / main / development',
     'create GitHub Release', 'tag a version',
     'bump version',
     'roll back a deployment',
@@ -981,7 +981,7 @@
     { who: 'agent', tag: 'Staging', text: 'Running staging contention check... staging/active not found. Claiming staging.' },
     { who: 'agent', tag: 'Staging Validation', text: 'Staging reset complete. Please validate and confirm.' },
     { who: 'user', text: '"It\'s validated."' },
-    { who: 'agent', tag: 'Production', text: 'Resetting master to match staging... force-push enabled, reset, re-locked.' },
+    { who: 'agent', tag: 'Production', text: 'Resetting production branch to match staging... force-push enabled, reset, re-locked.' },
     { who: 'agent', tag: 'Release', text: 'Creating GitHub Release v2.4.0 on both repos.' },
     { who: 'agent', tag: 'Post-Deploy', text: 'Branch alignment: all green. Staging cleared. Ready for new work.' }
   ];

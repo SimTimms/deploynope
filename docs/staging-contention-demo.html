@@ -538,7 +538,7 @@
       <h3><span class="icon">&#9203;</span> Polling Offered</h3>
       <p>Instead of stopping, DeployNOPE offers to poll every minute until staging clears.</p>
       <div class="code-block">
-        <span class="comment"># CronCreate: */1 * * * *</span><br>
+        <span class="comment"># Background poll: check every 60s</span><br>
         <span class="cmd">git fetch origin</span><br>
         <span class="cmd">git tag -l</span> <span class="tag-name">"staging/active"</span>
       </div>
@@ -549,10 +549,10 @@
     <div class="dot"></div>
     <div class="card" style="margin-left: auto;">
       <h3><span class="icon">&#9989;</span> Staging Cleared</h3>
-      <p>The tag is gone, no unreleased commits remain. Cron job is cleaned up immediately via <code>CronDelete</code>.</p>
+      <p>The tag is gone, no unreleased commits remain. Background poll exits automatically.</p>
       <div class="code-block">
-        <span class="cmd">CronDelete</span> <span class="tag-name">dee018eb</span><br>
-        <span class="comment"># Polling cancelled</span>
+        <span class="cmd">STAGING_CLEAR</span><br>
+        <span class="comment"># Background poll completed</span>
       </div>
     </div>
   </div>
@@ -612,7 +612,7 @@
     <div class="terminal" id="terminal">
       <div class="line"><span class="time">[00:00]</span> <span class="info">Agent A</span> claims staging for 2.4.0</div>
       <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> staging contention detected &mdash; staging/active exists</div>
-      <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> polling started (CronCreate */1 * * * *)</div>
+      <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> background poll started (every 60s)</div>
     </div>
 
   </div>
@@ -635,12 +635,12 @@
     <div class="how-card">
       <div class="how-icon">&#9203;</div>
       <h4>Poll</h4>
-      <p><code>CronCreate</code> checks <code>staging/active</code> every minute. Reports status each tick.</p>
+      <p>Background shell loop checks <code>staging/active</code> every 60 seconds. Reports status each tick.</p>
     </div>
     <div class="how-card">
       <div class="how-icon">&#128465;</div>
       <h4>Clean Up</h4>
-      <p><code>CronDelete</code> fires immediately when staging clears or the user cancels. No orphaned jobs.</p>
+      <p>Background poll exits automatically when staging clears. No orphaned processes.</p>
     </div>
     <div class="how-card">
       <div class="how-icon">&#9654;</div>
@@ -713,7 +713,7 @@
       btn.disabled = true;
 
       addLog('Agent B', 'staging/active cleared!', 'success');
-      addLog('Agent B', 'CronDelete dee018eb — polling cancelled', 'success');
+      addLog('Agent B', 'STAGING_CLEAR — background poll completed', 'success');
 
       setTimeout(() => {
         // Agent B claims
@@ -763,7 +763,7 @@
     terminal.innerHTML = `
       <div class="line"><span class="time">[00:00]</span> <span class="info">Agent A</span> claims staging for 2.4.0</div>
       <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> staging contention detected &mdash; staging/active exists</div>
-      <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> polling started (CronCreate */1 * * * *)</div>
+      <div class="line"><span class="time">[00:01]</span> <span class="warn">Agent B</span> background poll started (every 60s)</div>
     `;
 
     startPolling();
