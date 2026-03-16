@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.13.0] - 2026-03-16
+
+### Added
+- `/deploynope-reconcile` command — audits and remediates manual releases done outside DeployNOPE, with auto-detection, 8 alignment checks, and numbered remediation offers
+
+[2.13.0]: https://github.com/SimTimms/deploynope/compare/v2.12.0...v2.13.0
+
 ## [2.12.0] - 2026-03-15
 
 ### Fixed
