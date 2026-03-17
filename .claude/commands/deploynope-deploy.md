@@ -321,21 +321,29 @@ the option to poll until staging is released rather than abandoning the workflow
 
 If the user accepts:
 
-1. **Set up a recurring poll** using `CronCreate` with a `*/1 * * * *` schedule that runs:
+1. **Set up a background polling loop** using the Bash tool with `run_in_background: true`:
 
    ```shell
-   git fetch origin && git tag -l "staging/active"
+   while true; do
+     git fetch origin 2>/dev/null
+     if ! git tag -l "staging/active" | grep -q "staging/active"; then
+       UNRELEASED=$(git log origin/<production-branch>..origin/<staging-branch> --oneline 2>/dev/null)
+       if [ -z "$UNRELEASED" ]; then
+         echo "STAGING_CLEAR"
+         exit 0
+       fi
+     fi
+     echo "Still waiting — staging claimed."
+     sleep 60
+   done
    ```
 
-   - If `staging/active` still exists → report "Still waiting — staging claimed by `<name>`."
-   - If `staging/active` is gone **and** `git log origin/<production-branch>..origin/<staging-branch> --oneline`
-     shows no unreleased commits → report **"Staging is now clear!"** and proceed.
+   - The loop checks every 60 seconds whether `staging/active` has been removed.
+   - When the tag is gone **and** there are no unreleased commits on staging, it prints
+     `STAGING_CLEAR` and exits.
+   - You will be notified when the background task completes — do not poll or sleep-wait for it.
 
-2. **Clean up immediately** — as soon as staging is detected as clear (or the user cancels
-   the wait), delete the cron job using `CronDelete` with the job ID returned by `CronCreate`.
-   Never leave a polling job running after it has served its purpose.
-
-3. **Resume the deployment flow** — once staging is clear and the cron job is cleaned up,
+2. **Resume the deployment flow** — once the background poll reports staging is clear,
    continue from the "Claiming staging" step below without requiring the user to re-invoke
    the deployment command.
 

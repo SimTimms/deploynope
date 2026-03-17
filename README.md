@@ -45,6 +45,7 @@ All commands are prefixed with `deploynope-` so they stay distinct in your slash
 | `/deploynope-rollback` | Guides you through rolling back production to a previous release. Supports standard (through staging) and emergency (skip staging) modes. Handles frontend cache-busting automatically. |
 | `/deploynope-stale-check` | Identifies stale branches, aging PRs, and pipeline bottlenecks. Helps keep the repo tidy and surfaces work that may have been forgotten. |
 | `/deploynope-verify-rules` | A read-only self-check that confirms the deployment ruleset is loaded and Claude understands all 10 critical safety rules. Good for sanity-checking before a big release. |
+| `/deploynope-console` | **DEPRECATED** (removed in 2.10.0). The sidecar console log feature has been replaced by inline chat tags (`<emoji> DeployNOPE <context> · <Stage>`). |
 
 ---
 
@@ -221,7 +222,7 @@ If you previously had these commands inside a project's `.claude/commands/`, you
 
 ## Tests
 
-DeployNOPE includes a bash test suite covering all 9 hooks with 116 assertions. Tests create disposable git repos, simulate hook JSON input, and verify deny/ask/passthrough decisions.
+DeployNOPE includes a bash test suite covering all 9 hooks with 124 assertions. Tests create disposable git repos, simulate hook JSON input, and verify deny/ask/passthrough decisions.
 
 ```bash
 ./tests/run-tests.sh              # all tests

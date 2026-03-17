@@ -535,7 +535,7 @@
     <ul class="check-list" id="postdeploy-list">
       <li class="check-item pending" data-index="0">
         <span class="check-icon"></span>
-        <span class="check-label">Master reset completed (master = staging)</span>
+        <span class="check-label">Production reset completed (production = staging)</span>
       </li>
       <li class="check-item pending" data-index="1">
         <span class="check-icon"></span>
@@ -563,7 +563,7 @@
       </li>
       <li class="check-item pending" data-index="7">
         <span class="check-icon"></span>
-        <span class="check-label">Branch alignment (master = staging = dev)</span>
+        <span class="check-label">Branch alignment (production = staging = dev)</span>
       </li>
       <li class="check-item pending" data-index="8">
         <span class="check-icon"></span>
@@ -609,12 +609,12 @@
     </thead>
     <tbody>
       <tr>
-        <td class="check-name">master = staging</td>
+        <td class="check-name">production = staging</td>
         <td class="status-pass">&#9989;</td>
         <td class="detail">abc1234 &mdash; heads match</td>
       </tr>
       <tr>
-        <td class="check-name">master = development</td>
+        <td class="check-name">production = development</td>
         <td class="status-pass">&#9989;</td>
         <td class="detail">abc1234 &mdash; heads match</td>
       </tr>
@@ -749,14 +749,14 @@
 
   // ---- Post-Deploy ----
   const postdeployLabels = [
-    'Master reset completed (master = staging)',
+    'Production reset completed (production = staging)',
     'GitHub Releases created',
     'Release manifest written',
     'Release branch merged into development',
     'Branch protection re-enabled',
     'Staging cleared (staging/active removed)',
     'Confluence release notes written',
-    'Branch alignment (master = staging = dev)',
+    'Branch alignment (production = staging = dev)',
     'Changelog updated',
     'Production smoke test confirmed'
   ];
@@ -815,12 +815,12 @@
     if (alignmentHealthy) {
       tbody.innerHTML = `
         <tr>
-          <td class="check-name">master = staging</td>
+          <td class="check-name">production = staging</td>
           <td class="status-pass">&#9989;</td>
           <td class="detail">abc1234 &mdash; heads match</td>
         </tr>
         <tr>
-          <td class="check-name">master = development</td>
+          <td class="check-name">production = development</td>
           <td class="status-pass">&#9989;</td>
           <td class="detail">abc1234 &mdash; heads match</td>
         </tr>
@@ -848,14 +848,14 @@
     } else {
       tbody.innerHTML = `
         <tr>
-          <td class="check-name">master = staging</td>
+          <td class="check-name">production = staging</td>
           <td class="status-fail">&#10060;</td>
-          <td class="detail">master: abc1234, staging: def5678 &mdash; 3 commits ahead</td>
+          <td class="detail">main: abc1234, staging: def5678 &mdash; 3 commits ahead</td>
         </tr>
         <tr>
-          <td class="check-name">master = development</td>
+          <td class="check-name">production = development</td>
           <td class="status-fail">&#10060;</td>
-          <td class="detail">master: abc1234, dev: 9ab0cde &mdash; 5 commits behind</td>
+          <td class="detail">main: abc1234, dev: 9ab0cde &mdash; 5 commits behind</td>
         </tr>
         <tr>
           <td class="check-name">Version parity</td>

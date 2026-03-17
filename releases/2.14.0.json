@@ -1,0 +1,18 @@
+{
+  "version": "2.14.0",
+  "type": "chore",
+  "timestamp": "2026-03-16T14:42:22Z",
+  "deployer": "Tim Simms",
+  "frontend": {
+    "sha": "fb0025944d374f2dd14073b5a057b2fc76a3f670",
+    "branch": "2.14.0",
+    "repo": "SimTimms/deploynope",
+    "githubReleaseUrl": "https://github.com/SimTimms/deploynope/releases/tag/v2.14.0"
+  },
+  "backend": null,
+  "jiraTickets": [],
+  "confluencePageUrl": null,
+  "previousVersion": "2.12.0",
+  "status": "deployed",
+  "rollback": null
+}

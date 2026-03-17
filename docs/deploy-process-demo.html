@@ -418,8 +418,8 @@
 
 <header>
   <h1><span class="nerd">&#129299;</span> Deploy<span class="nope">NOPE</span></h1>
-  <p>Deployment Process &mdash; the core 17-step workflow that all releases follow from staging to master to release</p>
-  <div class="tag">staging &rarr; master &rarr; release</div>
+  <p>Deployment Process &mdash; the core 17-step workflow that all releases follow from staging to production to release</p>
+  <div class="tag">staging &rarr; production &rarr; release</div>
 </header>
 
 <!-- Workflow Tabs -->
@@ -460,12 +460,12 @@
     <div class="how-card">
       <div class="how-icon">&#128737;</div>
       <h4>Branch Protection</h4>
-      <p>Direct pushes to <code>staging</code>, <code>master</code>, and <code>development</code> are blocked. All changes flow through release branches with controlled resets.</p>
+      <p>Direct pushes to <code>staging</code>, the production branch, and <code>development</code> are blocked. All changes flow through release branches with controlled resets.</p>
     </div>
     <div class="how-card">
       <div class="how-icon">&#128721;</div>
       <h4>Human Gates</h4>
-      <p>Three mandatory human checkpoints: release readiness, staging validation, and master reset. No gate can be skipped or automated away.</p>
+      <p>Three mandatory human checkpoints: release readiness, staging validation, and production reset. No gate can be skipped or automated away.</p>
     </div>
     <div class="how-card">
       <div class="how-icon">&#128274;</div>
@@ -475,7 +475,7 @@
     <div class="how-card">
       <div class="how-icon">&#128260;</div>
       <h4>Cross-Repo Parity</h4>
-      <p>Before promoting to master, version numbers are checked across all related repositories to prevent mismatched deployments.</p>
+      <p>Before promoting to production, version numbers are checked across all related repositories to prevent mismatched deployments.</p>
     </div>
     <div class="how-card">
       <div class="how-icon">&#128203;</div>
@@ -485,7 +485,7 @@
     <div class="how-card">
       <div class="how-icon">&#9989;</div>
       <h4>Auto Post-Deploy</h4>
-      <p>After master is updated, branches are synced, staging is cleared, Confluence notes are written, and health checks run automatically.</p>
+      <p>After the production branch is updated, branches are synced, staging is cleared, Confluence notes are written, and health checks run automatically.</p>
     </div>
   </div>
 </div>
@@ -498,7 +498,7 @@
   // --- Step definitions ---
   const ALL_STEPS = [
     { id: 'merge-features',    icon: '&#128256;', title: 'Merge feature branches into release branch',      desc: 'All approved feature branches are merged into the release branch via fast-forward merges.', gate: false, tags: ['feature'] },
-    { id: 'sync-master',       icon: '&#128260;', title: 'Sync release branch with master',                 desc: 'Rebase or merge master into the release branch to pick up any hotfix commits.',             gate: false, tags: ['feature', 'chore'] },
+    { id: 'sync-master',       icon: '&#128260;', title: 'Sync release branch with production',              desc: 'Rebase or merge the production branch into the release branch to pick up any hotfix commits.',             gate: false, tags: ['feature', 'chore'] },
     { id: 'update-changelog',  icon: '&#128221;', title: 'Update changelog',                                desc: 'CHANGELOG.md is updated with all changes included in this release.',                        gate: false, tags: ['feature', 'hotfix'] },
     { id: 'confirm-ready',     icon: '&#128227;', title: 'Confirm release branch ready',                    desc: 'Human reviews the release branch and confirms it is ready to proceed.',                     gate: true,  tags: ['feature', 'hotfix', 'chore'] },
     { id: 'contention-check',  icon: '&#128270;', title: 'Staging contention check',                        desc: 'Three-point check: unreleased commits, staging/active tag, stale branch guard.',            gate: false, tags: ['feature', 'hotfix', 'chore'] },
@@ -506,11 +506,11 @@
     { id: 'reset-staging',     icon: '&#128259;', title: 'Reset staging to release branch',                 desc: 'git reset --hard staging to the release branch HEAD, then force push.',                     gate: false, tags: ['feature', 'hotfix', 'chore'] },
     { id: 'validate-staging',  icon: '&#128065;', title: 'Validate on staging',                             desc: 'Human verifies the release works correctly on the staging environment.',                    gate: true,  tags: ['feature', 'hotfix', 'chore'] },
     { id: 'cross-repo-parity', icon: '&#128260;', title: 'Cross-repo version parity check',                 desc: 'Verify version numbers match across all related repositories before promotion.',            gate: false, tags: ['feature', 'hotfix'] },
-    { id: 'reset-master',      icon: '&#128721;', title: 'Reset master to match staging',                   desc: 'Human confirms master reset. Master is force-reset to match staging exactly.',              gate: true,  tags: ['feature', 'hotfix', 'chore'] },
-    { id: 'codepipeline',      icon: '&#9881;',   title: 'Confirm CodePipeline healthy',                    desc: 'Wait for CI/CD pipeline to report all green after the master push.',                        gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'reset-master',      icon: '&#128721;', title: 'Reset production to match staging',                desc: 'Human confirms production reset. The production branch is force-reset to match staging exactly.',              gate: true,  tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'codepipeline',      icon: '&#9881;',   title: 'Confirm CodePipeline healthy',                    desc: 'Wait for CI/CD pipeline to report all green after the production push.',                        gate: false, tags: ['feature', 'hotfix', 'chore'] },
     { id: 'github-release',    icon: '&#127873;', title: 'Create GitHub Release',                           desc: 'Tag and publish a GitHub Release with auto-generated release notes.',                       gate: false, tags: ['feature', 'hotfix', 'chore'] },
     { id: 'write-manifest',    icon: '&#128203;', title: 'Write release manifest',                          desc: 'Immediately write the release manifest to the repository after the GitHub Release.',        gate: false, tags: ['feature', 'hotfix', 'chore'] },
-    { id: 'sync-branches',     icon: '&#128257;', title: 'Sync staging + development with master',          desc: 'Reset staging and development branches to match the new master.',                           gate: false, tags: ['feature', 'hotfix', 'chore'] },
+    { id: 'sync-branches',     icon: '&#128257;', title: 'Sync staging + development with production',       desc: 'Reset staging and development branches to match the new production branch.',                           gate: false, tags: ['feature', 'hotfix', 'chore'] },
     { id: 'clear-staging',     icon: '&#128275;', title: 'Clear staging (remove tag)',                       desc: 'Delete the staging/active tag to release the staging lock for other deployments.',           gate: false, tags: ['feature', 'hotfix', 'chore'] },
     { id: 'confluence',        icon: '&#128220;', title: 'Write Confluence release notes',                   desc: 'Publish structured release notes to the team Confluence space.',                            gate: false, tags: ['feature', 'hotfix'] },
     { id: 'post-deploy',       icon: '&#9989;',   title: 'Post-deploy checks',                              desc: 'Automatic health checks, smoke tests, and deployment verification.',                        gate: false, tags: ['feature', 'hotfix', 'chore'] },
@@ -518,7 +518,7 @@
 
   const TERMINAL_COMMANDS = {
     'merge-features':    'git checkout release/2.5.0 && git merge --ff-only feature/new-widget',
-    'sync-master':       'git fetch origin master && git rebase origin/master',
+    'sync-master':       'git fetch origin main && git rebase origin/main',
     'update-changelog':  'echo "## 2.5.0" >> CHANGELOG.md && git add CHANGELOG.md',
     'confirm-ready':     '# HUMAN GATE: Awaiting confirmation that release branch is ready...',
     'contention-check':  'git fetch origin && git tag -l "staging/active"',
@@ -526,11 +526,11 @@
     'reset-staging':     'git checkout staging && git reset --hard release/2.5.0 && git push --force origin staging',
     'validate-staging':  '# HUMAN GATE: Validate release on staging environment...',
     'cross-repo-parity': 'node scripts/check-parity.js --repos api,frontend,shared --version 2.5.0',
-    'reset-master':      '# HUMAN GATE: git checkout master && git reset --hard staging && git push --force origin master',
+    'reset-master':      '# HUMAN GATE: git checkout main && git reset --hard staging && git push --force origin main',
     'codepipeline':      'aws codepipeline get-pipeline-state --name prod-pipeline | jq .stageStates[].latestExecution.status',
-    'github-release':    'gh release create v2.5.0 --generate-notes --target master',
+    'github-release':    'gh release create v2.5.0 --generate-notes --target main',
     'write-manifest':    'echo \'{"version":"2.5.0","date":"2026-03-14","sha":"abc1234"}\' > manifests/2.5.0.json',
-    'sync-branches':     'git checkout staging && git reset --hard master && git push --force origin staging development',
+    'sync-branches':     'git checkout staging && git reset --hard main && git push --force origin staging development',
     'clear-staging':     'git tag -d staging/active && git push origin :refs/tags/staging/active',
     'confluence':        'node scripts/publish-confluence.js --version 2.5.0 --space DEPLOY',
     'post-deploy':       'curl -sf https://api.example.com/health && echo "All checks passed"',

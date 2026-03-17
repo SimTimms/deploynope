@@ -470,7 +470,7 @@
         <span class="hook-badge badge-deny">Deny</span>
       </div>
       <div class="hook-intercepts">Intercepts: <strong>gh pr create</strong></div>
-      <div class="hook-desc">Hard-blocks PRs targeting master, main, staging, or development. Only release branches are valid PR targets &mdash; no exceptions.</div>
+      <div class="hook-desc">Hard-blocks PRs targeting the production branch (main/master), staging, or development. Only release branches are valid PR targets &mdash; no exceptions.</div>
     </div>
 
     <div class="hook-card">
@@ -725,7 +725,7 @@
         { text: '', delay: 300 },
         { text: '<span class="hook-label">[hook] check-gh-pr-create.sh</span> intercepting gh pr create...', delay: 600 },
         { text: '<span class="dim">PR target: main</span>', delay: 900 },
-        { text: '<span class="dim">Checking protected branch list: master, main, staging, development</span>', delay: 1200 },
+        { text: '<span class="dim">Checking protected branch list: main, master, staging, development</span>', delay: 1200 },
         { text: '<span class="warn">Target branch "main" is protected.</span>', delay: 1500 },
         { text: '', delay: 1700 },
         { text: '<span class="error">&#128721; DENIED &mdash; PRs to main are not allowed.</span>', delay: 1900 },
