@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.15.0] - 2026-03-17
+
+### Fixed
+- Hook command parsing: chained commands (`cd && git checkout && git merge`) now correctly detect the merge target and source branch
+- Hook push guard: post-reset fast-forward pushes to production (e.g. release manifests) are prompted for approval instead of hard-blocked
+- Hook merge guard: `origin/` prefix stripped when comparing merge source against production branch name
+
+[2.15.0]: https://github.com/SimTimms/deploynope/compare/v2.14.0...v2.15.0
+
+## [2.14.0] - 2026-03-16
+
+### Changed
+- Hardened branch protection and aligned docs with config-driven branch model
+
+[2.14.0]: https://github.com/SimTimms/deploynope/compare/v2.13.0...v2.14.0
+
 ## [2.13.0] - 2026-03-16
 
 ### Added
