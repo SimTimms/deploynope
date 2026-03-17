@@ -23,8 +23,18 @@ CWD=$(resolve_effective_cwd "$INPUT" "$COMMAND")
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
 VERSION=$(resolve_version "$CWD")
 
-# Extract source branch being merged (first non-flag argument after "merge")
-MERGE_SOURCE=$(echo "$COMMAND" | awk '{for(i=1;i<=NF;i++) if($i!="git" && $i!="merge" && substr($i,1,1)!="-") {print $i; exit}}')
+# If the command chains a checkout before the merge (e.g. "git checkout staging && git merge ..."),
+# the merge target is the checkout branch, not the current branch
+CHECKOUT_TARGET=$(echo "$COMMAND" | grep -oE 'git\s+checkout\s+[^;&|]+' | tail -1 | awk '{for(i=1;i<=NF;i++) if($i!="git" && $i!="checkout" && substr($i,1,1)!="-") {print $i; exit}}')
+if [ -n "$CHECKOUT_TARGET" ]; then
+  BRANCH="$CHECKOUT_TARGET"
+fi
+
+# Extract the git merge subcommand from chained commands (handles cd && git checkout && git merge ...)
+MERGE_SUBCMD=$(echo "$COMMAND" | grep -oE 'git\s+merge\s+[^;&|]+')
+
+# Extract source branch being merged (first non-flag argument after "git merge")
+MERGE_SOURCE=$(echo "$MERGE_SUBCMD" | awk '{for(i=1;i<=NF;i++) if($i!="git" && $i!="merge" && substr($i,1,1)!="-") {print $i; exit}}')
 
 # Determine production branch
 PROD_BRANCH=$(resolve_prod_branch "$CWD")
@@ -43,7 +53,9 @@ elif [ "$BRANCH" = "$STAGING_BRANCH" ]; then
 elif [ "$BRANCH" = "$DEV_BRANCH" ] || [ "$BRANCH" = "develop" ] || [ "$BRANCH" = "dev" ]; then
   # Only the production branch should be merged into development (post-deployment step)
   # Use config-driven PROD_BRANCH — no hardcoded master/main assumptions
-  if [ "$MERGE_SOURCE" != "$PROD_BRANCH" ]; then
+  # Strip origin/ prefix for comparison (origin/main and main are the same branch)
+  MERGE_SOURCE_BARE=$(echo "$MERGE_SOURCE" | sed 's|^origin/||')
+  if [ "$MERGE_SOURCE_BARE" != "$PROD_BRANCH" ]; then
     DECISION="deny"
     EXTRA=$(printf '\n\nBLOCKED: Only the production branch ('\''%s'\'') should be merged into '\''%s'\''. Merging other branches into development causes drift and breaks branch alignment.\n\nThe correct flow is:\n1. Feature/release branch → staging reset → validate → production reset\n2. THEN merge '\''%s'\'' into '\''%s'\'' (post-deployment step)\n\nThe branch '\''%s'\'' must go through the full deployment process first.' "$PROD_BRANCH" "$DEV_BRANCH" "$PROD_BRANCH" "$DEV_BRANCH" "$MERGE_SOURCE")
   fi

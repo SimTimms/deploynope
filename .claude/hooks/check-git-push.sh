@@ -92,7 +92,20 @@ if [ "$PUSHING_TO_PROD" = "true" ] && [ "$HAS_STAGING" = "true" ]; then
     exit 0
   fi
 
-  # HARD BLOCK: regular push to production when staging exists
+  # ALLOW with confirmation: post-reset fast-forward pushes (e.g. release manifest, branch sync)
+  # A fast-forward means origin/prod is an ancestor of HEAD — safe after a controlled reset
+  IS_FAST_FORWARD="false"
+  if cd "$CWD" 2>/dev/null && git merge-base --is-ancestor "origin/${PROD_BRANCH}" HEAD 2>/dev/null; then
+    IS_FAST_FORWARD="true"
+  fi
+
+  if [ "$IS_FAST_FORWARD" = "true" ]; then
+    REASON=$(printf '[DeployNOPE] Post-reset push to '\''%s'\'' detected (fast-forward).\n\nBranch: %s\nVersion: %s\nCommits: %s\n%s\n\nThis is a fast-forward push (not a force-push), typically used for post-deployment commits like release manifests or branch sync.\n\nApprove this push to production?' "$PROD_BRANCH" "$PUSH_BRANCH" "$VERSION" "$COMMIT_COUNT" "$COMMITS")
+    jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
+    exit 0
+  fi
+
+  # HARD BLOCK: non-fast-forward regular push to production when staging exists
   REASON=$(printf '[DeployNOPE] BLOCKED — Direct push to production branch '\''%s'\'' is not allowed. A staging branch exists. All changes must go through the staging → production reset process. Use /deploynope-deploy to follow the correct procedure.' "$PROD_BRANCH")
   jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$reason}}'
   exit 0
