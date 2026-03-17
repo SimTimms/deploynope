@@ -59,6 +59,7 @@ Each command and deployment step has its own stage label:
 | `/deploynope-stale-check` | `Stale Check` |
 | `/deploynope-release-manifest` | `Release Manifest` |
 | `/deploynope-postdeploy` | `Post-Deploy` |
+| `/deploynope-reconcile` | `Reconcile` |
 | `/deploynope-rollback` | `Rollback` |
 | Feature/ticket work (coding, committing) | `Feature` |
 | Staging contention check or claiming <staging-branch> | `Staging` |
