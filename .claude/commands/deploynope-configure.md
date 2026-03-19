@@ -355,7 +355,33 @@ contention checks and Slack notifications are relevant.
 
 ---
 
-### 20. Commit Message Prefixes
+### 20. Default Base Branch for New Work
+
+The branch that new feature, chore, and release branches are created from by default.
+This allows teams to customise their branching model — for example, branching from
+`development` instead of the production branch.
+
+**Default:** The value of `productionBranch` (i.e. the production branch)
+
+**Detection:** Check the existing config. If not set, default to the production branch.
+
+**Prompt:**
+> "Which branch should new work branch from by default?
+> This is the branch that `/deploynope-new-work` will recommend as the base for new
+> feature branches, release branches, hotfixes, and chores.
+>
+> Common choices:
+> 1. `<productionBranch>` — branch from production (traditional release flow)
+> 2. `<developmentBranch>` — branch from development (integration-first flow)
+> 3. Other — please specify
+>
+> Default: `<productionBranch>`"
+
+**Config key:** `defaultBaseBranch`
+
+---
+
+### 21. Commit Message Prefixes
 
 Whether to enforce conventional commit prefixes (`feat:`, `fix:`, `chore:`, etc.)
 on all commit messages.
@@ -372,7 +398,7 @@ on all commit messages.
 
 ---
 
-### 21. Branch Protection (Optional)
+### 22. Branch Protection (Optional)
 
 Server-side branch protection for the production branch. DeployNOPE enforces rules
 locally via hooks and commands, but without server-side protection, merges through the
@@ -481,6 +507,7 @@ After all values are collected, write `.deploynope.json` to the project root:
   },
   "teamSize": "<number>",
   "commitPrefixes": "<true or false>",
+  "defaultBaseBranch": "<branch name or null>",
   "branchProtection": {
     "enabled": "<true, false, or custom>",
     "requiredReviews": "<number or null>",
@@ -570,6 +597,7 @@ After writing, display:
 > | Backend npm install | `<value>` |
 > | Team size | `<value>` |
 > | Commit prefixes | `<value>` |
+> | Default base branch | `<value or productionBranch>` |
 > | Branch protection | `<enabled / disabled / custom>` |
 >
 > Other DeployNOPE commands will read from this file. Run `/deploynope-configure`
@@ -620,6 +648,7 @@ the values and substitute them for the placeholders:
 | Changelog include links | `changelog.includeLinks` |
 | Team size | `teamSize` |
 | Commit prefixes enabled | `commitPrefixes` |
+| Default base branch for new work | `defaultBaseBranch` (falls back to `productionBranch` if null) |
 
 If `.deploynope.json` is not found, the commands should still work but will use the
 placeholder names as-is (current behaviour) and suggest running `/deploynope-configure`.

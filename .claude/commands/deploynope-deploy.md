@@ -181,15 +181,22 @@ Whenever a new task, feature, fix, or piece of work begins — before doing anyt
 
 2. **Ask for the branch name** — never invent one.
 
-3. **Ask which branch to base it on.** Suggest the most appropriate base branch according
-   to the deployment process document, and explain why:
+3. **Ask which branch to base it on.** Check `.deploynope.json` for the `defaultBaseBranch`
+   setting. If set, use that as the recommended base (shown as `<default-base-branch>`).
+   If not set or `null`, fall back to `<production-branch>`.
+
+   Suggest the most appropriate base branch according to the deployment process document,
+   and explain why:
 
    | Work type | Recommended base | Reason |
    |---|---|---|
-   | Feature release | `<production-branch>` | Release branches are cut from <production-branch> |
-   | Hotfix | `<production-branch>` | Hotfixes branch directly from production |
+   | Feature release | `<default-base-branch>` | Release branches are cut from the default base branch |
+   | Hotfix | `<production-branch>` | Hotfixes always branch directly from production |
    | Ticket/feature branch | The current release branch (e.g. `6.51.0`) | Ticket branches feed into the release branch |
-   | Chore / config | `<production-branch>` | All work types follow the same <staging-branch> → <production-branch> process |
+   | Chore / config | `<default-base-branch>` | All work types follow the same <staging-branch> → <production-branch> process |
+
+   > **Note:** Hotfixes always branch from `<production-branch>` regardless of the
+   > `defaultBaseBranch` setting — they must be based on what is currently in production.
 
    **Before suggesting a release branch as a base**, fetch from the remote and verify it
    has not already been released:
@@ -208,22 +215,17 @@ Whenever a new task, feature, fix, or piece of work begins — before doing anyt
    > Would you like to create a new release branch? The next available version is `<next-version>`."
 
    Present the recommendation with a short explanation, then offer alternatives:
-   > "Based on the deployment process, I'd recommend branching from `<production-branch>` because [reason].
+   > "Based on the deployment process, I'd recommend branching from `<default-base-branch>` because [reason].
    > Would you like to use that, or a different base?
-   > 1. `<production-branch>` ← recommended
+   > 1. `<default-base-branch>` ← recommended (configured default)
    > 2. An existing release branch (e.g. `release/1.2.0`) — for ticket/feature work feeding into a release
    > 3. Other — please specify"
-
-   **Warning:** Do **not** offer `<development-branch>` as a base branch. The `<development-branch>` branch is
-   only updated by merging the release branch into it **after** production deployment. Branching
-   from `<development-branch>` creates a mismatch: the PR hook will block PRs targeting `<development-branch>`,
-   and the work cannot follow the correct release flow (`feature → release → <staging-branch> → <production-branch> → <development-branch>`).
 
    If the user's work is a feature or ticket and no release branch exists yet, prompt them to
    create one first:
 
    > "There's no active release branch. Would you like to create one (e.g. `release/X.Y.Z`)
-   > from `<production-branch>` first? Feature branches should target a release branch, not `<development-branch>`."
+   > from `<default-base-branch>` first? Feature branches should target a release branch."
 
 4. **If creating a release branch, run the release version check** (see below).
 
@@ -511,7 +513,7 @@ The `{owner}/{repo}` placeholders should be replaced with your actual repository
 - **Always use `--force-with-lease`** instead of `--force`.
 - **Always run the <staging-branch> contention check** before resetting `<staging-branch>`.
 - **All work types follow the same process** — feature releases, hotfixes, and chore/config changes all go through <staging-branch> → <production-branch> reset. No shortcuts.
-- Branches are created off `<production-branch>` unless explicitly told otherwise.
+- Branches are created off `<default-base-branch>` (from `defaultBaseBranch` in config, falling back to `<production-branch>`) unless explicitly told otherwise. Hotfixes always branch from `<production-branch>`.
 
 ---
 

@@ -41,7 +41,7 @@ correctly understood.
 | 7 | What happens to <production-branch> branch protection during reset? | Force-push is temporarily enabled, the reset is performed, and force-push is immediately re-disabled. If the reset fails, <production-branch> is still re-locked immediately. |
 | 8 | What is the <staging-branch> claim/clear lifecycle? | Claim (`staging/active` tag) before resetting staging. Clear only after <production-branch> has been reset and deployment is confirmed healthy. |
 | 9 | What must match across repos before production deployment? | Version numbers in `package.json` must match on both frontend and backend. |
-| 10 | What branch do all work types branch from? | `<production-branch>`. Feature releases, hotfixes, and chore/config changes all branch from `<production-branch>`. |
+| 10 | What branch do all work types branch from? | `<default-base-branch>` (configured via `defaultBaseBranch` in `.deploynope.json`, falls back to `<production-branch>`). Hotfixes always branch from `<production-branch>` regardless of this setting. |
 
 ---
 
