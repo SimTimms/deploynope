@@ -398,6 +398,43 @@ on all commit messages.
 
 ---
 
+### 21. Branch Reconciliation Strategy
+
+The preferred strategy for re-aligning branches when a release branch, version branch, or
+feature branch has diverged from the protected branches (`<production-branch>`, `<staging-branch>`,
+`<development-branch>`). This applies during `/deploynope-reconcile` and any manual branch
+re-synchronisation.
+
+**Options:**
+
+| Value | Behaviour |
+|-------|-----------|
+| `merge` | Always default to merge. Safest — guarantees all commits are included. Can introduce merge commits and bring in unwanted history. |
+| `cherry-pick` | Always default to cherry-pick. Selective — only the commits you choose are applied. Risk: commits can be missed, leading to silent divergence. |
+| `ask` | No default — DeployNOPE analyses the situation and makes a recommendation each time, then asks the user to choose. **(Recommended)** |
+
+**Default:** `ask`
+
+**Prompt:**
+> "When reconciling branches that have diverged (e.g. re-aligning `development` with
+> `main` after a manual release), which strategy should DeployNOPE default to?
+>
+> 1. `merge` — always merge (safest, no commits missed, but may bring unwanted history)
+> 2. `cherry-pick` — always cherry-pick (selective, but risk of missing commits)
+> 3. `ask` — analyse and recommend each time, then ask me to choose ← **recommended**
+>
+> Default: `ask`"
+
+Also prompt:
+
+> "Allow overriding the default at runtime? (If yes, DeployNOPE will still offer both
+> options even if a default is set.)
+> Default: `true` (yes)"
+
+**Config keys:** `reconciliation.preferredStrategy`, `reconciliation.allowOverride`
+
+---
+
 ### 22. Branch Protection (Optional)
 
 Server-side branch protection for the production branch. DeployNOPE enforces rules
@@ -508,6 +545,10 @@ After all values are collected, write `.deploynope.json` to the project root:
   "teamSize": "<number>",
   "commitPrefixes": "<true or false>",
   "defaultBaseBranch": "<branch name or null>",
+  "reconciliation": {
+    "preferredStrategy": "<merge, cherry-pick, or ask>",
+    "allowOverride": "<true or false>"
+  },
   "branchProtection": {
     "enabled": "<true, false, or custom>",
     "requiredReviews": "<number or null>",
@@ -598,6 +639,8 @@ After writing, display:
 > | Team size | `<value>` |
 > | Commit prefixes | `<value>` |
 > | Default base branch | `<value or productionBranch>` |
+> | Reconciliation strategy | `<merge / cherry-pick / ask>` |
+> | Reconciliation allow override | `<value>` |
 > | Branch protection | `<enabled / disabled / custom>` |
 >
 > Other DeployNOPE commands will read from this file. Run `/deploynope-configure`
@@ -649,6 +692,8 @@ the values and substitute them for the placeholders:
 | Team size | `teamSize` |
 | Commit prefixes enabled | `commitPrefixes` |
 | Default base branch for new work | `defaultBaseBranch` (falls back to `productionBranch` if null) |
+| Reconciliation strategy | `reconciliation.preferredStrategy` |
+| Reconciliation allow override | `reconciliation.allowOverride` |
 
 If `.deploynope.json` is not found, the commands should still work but will use the
 placeholder names as-is (current behaviour) and suggest running `/deploynope-configure`.
