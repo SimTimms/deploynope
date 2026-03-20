@@ -249,7 +249,8 @@ and let the user choose which ones to proceed with.
 >    I can gather the SHAs, branch info, and release URLs automatically.
 >
 > 3. ❌ **`<development-branch>` not updated** — `<production-branch>` has X commits not in `<development-branch>`.
->    Would you like me to merge `<production-branch>` into `<development-branch>` to align them?
+>    Would you like me to reconcile these branches? I'll analyse the divergence and
+>    recommend a strategy (merge or cherry-pick) based on your config and the branch state.
 >
 > 4. ❌ **Branch protection unlocked** — Force-push is still enabled on `<production-branch>`.
 >    Would you like me to re-lock it?
@@ -296,6 +297,68 @@ GitHub, present it for review, then write and commit the file.
 
 #### Branch Alignment (`<development-branch>`)
 
+Branch alignment requires choosing a **reconciliation strategy**. Read the configured
+preference from `.deploynope.json` (`reconciliation.preferredStrategy`). Then analyse
+the divergence to make a recommendation.
+
+**Step A — Analyse the divergence:**
+
+```shell
+# Count commits each way
+git log origin/<development-branch>..origin/<production-branch> --oneline
+git log origin/<production-branch>..origin/<development-branch> --oneline
+
+# Check for merge commits (indicates shared history vs rebased/squashed history)
+git log origin/<development-branch>..origin/<production-branch> --merges --oneline
+
+# Check if branches share a recent common ancestor
+git merge-base origin/<production-branch> origin/<development-branch>
+```
+
+Use these heuristics to form a recommendation:
+
+| Signal | Recommends | Reason |
+|--------|------------|--------|
+| `<development-branch>` has 0 commits ahead of `<production-branch>` | **Merge** | Clean fast-forward possible; no risk of lost work |
+| `<production-branch>` is many commits ahead (>10) | **Merge** | Too many commits to cherry-pick safely — high risk of missing one |
+| `<production-branch>` is 1–3 commits ahead, `<development-branch>` is 0 ahead | **Either** | Both are safe; cherry-pick gives a cleaner history |
+| Both branches have diverged (commits on both sides) | **Merge** | Cherry-picking from diverged branches is error-prone and can silently drop changes |
+| History was squash-merged or rebased (no shared merge commits) | **Merge** | Cherry-pick relies on matching commit SHAs — squash/rebase breaks this |
+| Prior cherry-pick reconciliation lost commits (known incident) | **Merge** | Safety over cleanliness — merge guarantees completeness |
+
+**Step B — Present the recommendation:**
+
+If `reconciliation.preferredStrategy` is `"ask"`, or if `reconciliation.allowOverride`
+is `true`:
+
+> **Reconciliation Strategy**
+>
+> The branches have diverged as follows:
+> - `<production-branch>` has **X commits** not in `<development-branch>`
+> - `<development-branch>` has **Y commits** not in `<production-branch>`
+>
+> **Recommendation: `<merge or cherry-pick>`**
+> _Reason: `<explanation based on the heuristics above>`_
+>
+> | Strategy | Pros | Cons |
+> |----------|------|------|
+> | **Merge** | All commits included, no risk of missed work | Merge commit in history, may bring unwanted changes |
+> | **Cherry-pick** | Selective, cleaner history | Must identify every commit individually — risk of missing work |
+>
+> Which strategy would you like to use?
+> 1. **Merge** `<production-branch>` into `<development-branch>` ← `<recommended or not>`
+> 2. **Cherry-pick** specific commits from `<production-branch>` into `<development-branch>` ← `<recommended or not>`
+
+If the configured preference is `"merge"` or `"cherry-pick"` and `allowOverride` is
+`false`, skip the prompt and proceed with the configured strategy. Still show the
+recommendation analysis so the user can see *why* that strategy is being used.
+
+**[HUMAN GATE]** — Wait for the user to choose a strategy before proceeding.
+
+**Step C — Execute the chosen strategy:**
+
+**If Merge:**
+
 ```shell
 git checkout <development-branch>
 git pull origin <development-branch>
@@ -307,6 +370,64 @@ git merge origin/<production-branch> --no-edit
 ```shell
 git push origin <development-branch>
 ```
+
+**If Cherry-pick:**
+
+First, list the commits that need to be cherry-picked:
+
+```shell
+git log origin/<development-branch>..origin/<production-branch> --oneline --reverse
+```
+
+Present the list and ask the user to confirm which commits to include:
+
+> "The following commits on `<production-branch>` are not in `<development-branch>`:
+>
+> ```
+> <commit list>
+> ```
+>
+> **Include all of these?** If not, tell me which to skip.
+>
+> ⚠️ **Warning:** cherry-picking is selective by nature. Any commit not included will
+> be permanently absent from `<development-branch>`. If you are unsure whether a commit
+> is needed, include it — it is safer to include too many than too few."
+
+**[HUMAN GATE]** — Wait for confirmation of the commit list.
+
+```shell
+git checkout <development-branch>
+git pull origin <development-branch>
+git cherry-pick <sha1> <sha2> ... --no-edit
+```
+
+If conflicts arise during cherry-pick, stop and report:
+
+> "Cherry-pick conflict on commit `<sha>` (`<message>`). This is a risk of cherry-pick
+> reconciliation — the commit depends on context that doesn't exist in `<development-branch>`.
+>
+> Options:
+> 1. Resolve the conflict manually (I'll show you the conflicting files)
+> 2. Abort cherry-pick and switch to **merge** instead (recommended if multiple conflicts)
+> 3. Skip this commit"
+
+**[HUMAN GATE]** — Ask before pushing.
+
+```shell
+git push origin <development-branch>
+```
+
+After pushing, run a verification diff to confirm alignment:
+
+```shell
+git log origin/<development-branch>..origin/<production-branch> --oneline
+```
+
+If commits remain, warn:
+
+> "⚠️ After cherry-pick, `<production-branch>` still has **N commits** not in
+> `<development-branch>`. This is expected if you chose to skip some, but verify this
+> is intentional."
 
 #### Branch Protection Re-Lock
 
