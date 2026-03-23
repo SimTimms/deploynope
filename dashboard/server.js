@@ -48,12 +48,14 @@ function broadcastState() {
   }
 }
 
-// Watch state file for changes
+// Watch state directory for changes (watching the file directly breaks on macOS
+// when atomic writes replace the inode via mv)
 let debounceTimer = null;
-fs.watch(STATE_FILE, () => {
-  // Debounce rapid writes (multiple hooks firing close together)
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(broadcastState, 100);
+fs.watch(STATE_DIR, (eventType, filename) => {
+  if (filename === 'dashboard-state.json') {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(broadcastState, 100);
+  }
 });
 
 const server = http.createServer((req, res) => {
