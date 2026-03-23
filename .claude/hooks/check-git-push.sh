@@ -138,4 +138,6 @@ fi
 REASON=$(printf '[DeployNOPE] Git push intercepted.\n\nBranch: %s → origin/%s\nVersion: %s\nCommits: %s\n%s\n\nReview and approve this push.' "$PUSH_BRANCH" "$PUSH_BRANCH" "$VERSION" "$COMMIT_COUNT" "$COMMITS")
 jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
+dashboard_update "$CWD" "git-push" "$COMMAND" "ask" &
+
 exit 0

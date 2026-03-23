@@ -62,4 +62,6 @@ fi
 REASON=$(printf '[DeployNOPE] %s — git reset --hard intercepted.\n\nBranch: %s\nCurrent HEAD: %s\nReset target: %s\nVersion: %s\nCommand: %s%s\n\nThis is destructive and cannot be undone. Approve this reset?' "$SEVERITY" "$BRANCH" "$CURRENT_HEAD" "$RESET_TARGET" "$VERSION" "$COMMAND" "$EXTRA")
 jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
+dashboard_update "$CWD" "git-reset" "$COMMAND" "ask" &
+
 exit 0

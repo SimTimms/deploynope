@@ -68,4 +68,6 @@ fi
 REASON=$(printf '[DeployNOPE] PR creation intercepted.\n\nSource: %s\nTarget: %s\nTitle: %s\nVersion: %s\n\nApprove this PR creation?' "$BRANCH" "$TARGET_BRANCH" "$PR_TITLE" "$VERSION")
 jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
+dashboard_update "$CWD" "gh-pr" "$COMMAND" "ask" &
+
 exit 0
