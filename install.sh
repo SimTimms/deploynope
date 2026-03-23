@@ -134,7 +134,58 @@ else
   info "Merged DeployNOPE hooks into $CLAUDE_SETTINGS without removing unrelated hook settings."
 fi
 
-# --- Step 6: Verify ---
+# --- Step 6: Add Stop hook for dashboard stage tracking ---
+DEPLOYNOPE_STOP_HOOK=$(cat <<ENDJSON
+{
+  "hooks": [
+    {"type": "command", "command": "$HOME/.claude/hooks/update-dashboard-stage.sh", "timeout": 5}
+  ]
+}
+ENDJSON
+)
+
+DEPLOYNOPE_STOP_REGEX='update-dashboard-stage\.sh$'
+
+jq \
+  --argjson deploynopeStop "$DEPLOYNOPE_STOP_HOOK" \
+  --arg deploynopeStopRegex "$DEPLOYNOPE_STOP_REGEX" \
+  '
+  .hooks.Stop = (
+    (.hooks.Stop // [])
+    | map(
+        if ((.hooks // null) | type) == "array" then
+          .hooks |= map(select((.command // "") | test($deploynopeStopRegex) | not))
+        else
+          .
+        end
+      )
+    | map(
+        if ((.hooks // null) | type) == "array" then
+          select((.hooks | length) > 0)
+        else
+          .
+        end
+      )
+    | . + [$deploynopeStop]
+  )
+  ' "$CLAUDE_SETTINGS" > "$CLAUDE_SETTINGS.tmp"
+
+mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
+info "Added Stop hook for dashboard stage tracking."
+
+# --- Step 7: Install deploynope-scan command ---
+SCAN_LINK="$HOME/.local/bin/deploynope-scan"
+mkdir -p "$HOME/.local/bin"
+ln -sf "$DEPLOYNOPE_DIR/dashboard/scan.sh" "$SCAN_LINK"
+info "Installed deploynope-scan to $SCAN_LINK"
+
+# Check if ~/.local/bin is in PATH
+if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
+  warn "$HOME/.local/bin is not in your PATH."
+  echo "  Add it to your shell profile: export PATH=\"\$HOME/.local/bin:\$PATH\""
+fi
+
+# --- Step 8: Verify ---
 ERRORS=0
 
 if [ ! -L "$CLAUDE_HOOKS_DIR" ] && [ ! -d "$CLAUDE_HOOKS_DIR" ]; then
@@ -165,4 +216,8 @@ fi
 echo ""
 echo "  Hooks will fire in every Claude Code session."
 echo "  Run /deploynope-configure in each project to set up project-specific settings."
+echo ""
+echo "  Dashboard:"
+echo "    Start:  node $DEPLOYNOPE_DIR/dashboard/server.js"
+echo "    Scan:   deploynope-scan ~/GitHub/repo1 ~/GitHub/repo2"
 echo ""

@@ -129,7 +129,7 @@ dashboard_update() {
 
   local STATE_DIR="$HOME/.deploynope"
   local STATE_FILE="$STATE_DIR/dashboard-state.json"
-  local AGENT_ID="${CLAUDE_SESSION_KEY:-$$}"
+  local AGENT_ID="${CLAUDE_CODE_SSE_PORT:-$$}"
   local NOW
   NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -168,7 +168,7 @@ dashboard_update() {
         TARGET="origin/$BRANCH"
       fi
       ;;
-    git-reset)   TARGET="$PROD_BRANCH" ;;
+    git-reset)   TARGET="$BRANCH" ;;
     git-merge)   TARGET="$BRANCH" ;;
     gh-pr)       TARGET=$(echo "$COMMAND" | sed -n 's/.*--base[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p') ;;
     gh-release)  TARGET="$PROD_BRANCH" ;;
