@@ -120,7 +120,7 @@ resolve_repo_name() {
 # Called by every hook to keep the dashboard current.
 # Runs in the background (&) to avoid slowing down hooks.
 #
-# Usage: dashboard_update "$CWD" "git-push" "$COMMAND" "ask" &
+# Usage: dashboard_update "$CWD" "git-push" "$COMMAND" "ask"
 dashboard_update() {
   local CWD="$1"
   local ACTION_TYPE="$2"

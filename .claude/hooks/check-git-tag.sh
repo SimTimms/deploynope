@@ -39,6 +39,6 @@ fi
 REASON=$(printf '[DeployNOPE] Git tag operation intercepted.\n\nCommand: %s%s\n\nApprove this tag operation?' "$COMMAND" "$EXTRA")
 jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
-dashboard_update "$CWD" "git-tag" "$COMMAND" "ask" &
+dashboard_update "$CWD" "git-tag" "$COMMAND" "ask"
 
 exit 0

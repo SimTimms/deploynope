@@ -56,6 +56,6 @@ fi
 REASON=$(printf '[DeployNOPE] BRANCH PROTECTION MODIFICATION intercepted.\n\nAPI path: %s\nAction: %s%s\n\nBranch protection changes are security-critical. If enabling force-push, it MUST be re-disabled immediately after the reset — even if the reset fails.\n\nApprove this branch protection change?' "$API_PATH" "$FORCE_PUSH_STATE" "$STALE_WARNING")
 jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
-dashboard_update "$CWD" "gh-api-protection" "$COMMAND" "ask" &
+dashboard_update "$CWD" "gh-api-protection" "$COMMAND" "ask"
 
 exit 0

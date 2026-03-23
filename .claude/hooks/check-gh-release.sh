@@ -36,6 +36,6 @@ REMOTE=$(cd "$CWD" 2>/dev/null && git remote get-url origin 2>/dev/null || echo 
 REASON=$(printf '[DeployNOPE] GitHub Release creation intercepted.\n\nTag: %s\nRepo: %s\nBranch: %s\nVersion (package.json): %s\nRemote: %s\n\nRemember: releases must be created on BOTH repos with matching versions.\n\nApprove this release?' "$TAG" "$REPO" "$BRANCH" "$VERSION" "$REMOTE")
 jq -n --arg reason "$REASON" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
 
-dashboard_update "$CWD" "gh-release" "$COMMAND" "ask" &
+dashboard_update "$CWD" "gh-release" "$COMMAND" "ask"
 
 exit 0
