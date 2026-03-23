@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.16.0] - 2026-03-20
+
+### Added
+- Configurable reconciliation strategy (`merge`/`cherry-pick`/`ask`) for branch alignment during `/deploynope-reconcile` — analyses divergence and recommends a strategy based on commit count, direction, and history shape
+- Configurable default base branch for new work (`defaultBaseBranch` in `/deploynope-configure`)
+
+[2.16.0]: https://github.com/SimTimms/deploynope/compare/v2.15.0...v2.16.0
+
 ## [2.15.0] - 2026-03-17
 
 ### Fixed
