@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeployNOPE Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 0.75rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 {
+    font-size: 1.1rem;
+    color: #f0f6fc;
+    font-weight: 600;
+  }
+  .header h1 span { color: #f85149; }
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: #8b949e;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3fb950;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .status-dot.warning { background: #d29922; }
+  .status-dot.error { background: #f85149; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem 2rem;
+  }
+
+  /* ── Warnings Banner ── */
+  .warnings-banner {
+    background: rgba(248, 81, 73, 0.1);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+    border-radius: 0;
+    padding: 0.6rem 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    animation: fadeIn 0.4s ease;
+  }
+  .warnings-banner .icon { font-size: 1rem; }
+  .warnings-banner .text {
+    font-size: 0.8rem;
+    color: #f85149;
+    font-weight: 500;
+  }
+  .warnings-banner .detail {
+    font-size: 0.75rem;
+    color: #8b949e;
+    margin-left: auto;
+  }
+
+  /* ── Staging Claim ── */
+  .staging-bar {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 0;
+    padding: 0.6rem 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+  }
+  .staging-bar.claimed { border-color: rgba(210, 153, 34, 0.4); }
+  .staging-bar.free { border-color: rgba(63, 185, 80, 0.3); }
+  .staging-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8b949e;
+    white-space: nowrap;
+  }
+  .staging-status { font-weight: 500; }
+  .staging-status.claimed { color: #d29922; }
+  .staging-status.free { color: #3fb950; }
+  .staging-time {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: #484f58;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* ── Main Grid ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1rem;
+  }
+
+  /* ── Section Headers ── */
+  .agents-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+  .agents-section h2,
+  .activity-section h2 {
+    font-size: 0.75rem;
+    color: #8b949e;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .activity-section h2 {
+    margin-bottom: 0.75rem;
+  }
+  .new-work-btn {
+    background: none;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    font-size: 0.75rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    padding: 0.3rem 0.75rem;
+    cursor: pointer;
+  }
+  .new-work-btn:hover {
+    border-color: #58a6ff;
+    color: #58a6ff;
+  }
+
+  /* ── Agent Cards ── */
+  .agent-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .agent-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 0;
+    padding: 0.85rem 1rem;
+    animation: slideUp 0.4s ease;
+  }
+
+  .agent-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .agent-name {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: #f0f6fc;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .agent-meta {
+    font-size: 0.65rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: #8b949e;
+    white-space: nowrap;
+  }
+  .agent-branch-arrow {
+    color: #484f58;
+  }
+  .agent-tag {
+    font-size: 0.65rem;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-left: auto;
+  }
+  .agent-tag.feature { color: #58a6ff; }
+  .agent-tag.staging { color: #d29922; }
+  .agent-tag.production { color: #f85149; }
+  .agent-tag.no-deploynope {
+    color: #f85149;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  .agent-tag.idle { color: #484f58; }
+
+  /* ── Progress Bar ── */
+  .progress-row {
+    margin-bottom: 0.5rem;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: #8b949e;
+    margin-bottom: 0.2rem;
+  }
+  .progress-bar {
+    height: 3px;
+    background: #21262d;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+  }
+  .progress-fill { background: #58a6ff; }
+
+  /* ── Gate Banner ── */
+  .gate-banner {
+    background: rgba(210, 153, 34, 0.08);
+    border: 1px solid rgba(210, 153, 34, 0.25);
+    border-radius: 0;
+    padding: 0.4rem 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    margin-bottom: 0.4rem;
+  }
+  .gate-banner .gate-text { color: #d29922; font-weight: 500; }
+  .gate-banner .gate-time {
+    margin-left: auto;
+    color: #484f58;
+    font-size: 0.65rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* ── Last Action ── */
+  .last-action {
+    font-size: 0.7rem;
+    color: #484f58;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .last-action code {
+    background: #1f2937;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.65rem;
+    color: #8b949e;
+  }
+
+  /* ── Activity Feed ── */
+  .activity-section {
+    position: sticky;
+    top: 1rem;
+  }
+  .activity-feed {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 0;
+    padding: 0.75rem;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+  }
+  .activity-feed::-webkit-scrollbar { width: 5px; }
+  .activity-feed::-webkit-scrollbar-track { background: transparent; }
+  .activity-feed::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+  .activity-item {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #21262d;
+  }
+  .activity-item:last-child { border-bottom: none; }
+
+  .activity-dot-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 0.15rem;
+  }
+  .activity-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .activity-dot.blue { background: #58a6ff; }
+  .activity-dot.green { background: #3fb950; }
+  .activity-dot.yellow { background: #d29922; }
+  .activity-dot.red { background: #f85149; }
+  .activity-dot.gray { background: #484f58; }
+  .activity-line {
+    width: 1px;
+    flex: 1;
+    background: #21262d;
+    margin-top: 0.2rem;
+  }
+
+  .activity-content {
+    flex: 1;
+    min-width: 0;
+  }
+  .activity-action {
+    font-size: 0.75rem;
+    color: #c9d1d9;
+    line-height: 1.3;
+  }
+  .activity-action strong {
+    color: #58a6ff;
+    font-weight: 600;
+  }
+  .activity-meta {
+    font-size: 0.65rem;
+    color: #484f58;
+    margin-top: 0.1rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="header">
+  <h1>Deploy<span>NOPE</span></h1>
+  <div class="header-status">
+    <div class="status-dot warning"></div>
+    <span>1 warning &middot; 3 agents</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ── Warning Banner ── -->
+  <div class="warnings-banner">
+    <span class="icon">&#9888;</span>
+    <span class="text">Agent c7f3a is performing deployment work without DeployNOPE active</span>
+    <span class="detail">git push origin staging &middot; 2m ago</span>
+  </div>
+
+  <!-- ── Staging Contention ── -->
+  <div class="staging-bar claimed">
+    <span class="staging-label">Staging</span>
+    <span class="staging-status claimed">&#128274; Claimed by a1b2c &middot; 2.17.0</span>
+    <span class="staging-time">14m ago</span>
+  </div>
+
+  <!-- ── Main Grid ── -->
+  <div class="main-grid">
+
+    <!-- Agent Cards -->
+    <div class="agents-section">
+      <div class="agents-header">
+        <h2>Agents</h2>
+        <button class="new-work-btn">+ New work</button>
+      </div>
+      <div class="agent-cards">
+
+        <!-- Agent 1: Staging deployment -->
+        <div class="agent-card">
+          <div class="agent-header">
+            <span class="agent-name">Release 2.17.0</span>
+            <span class="agent-meta">SimTimms/my-app-fe</span>
+            <span class="agent-meta">2.17.0 <span class="agent-branch-arrow">&rarr;</span> staging</span>
+            <span class="agent-tag staging">Staging</span>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">
+              <span>Step 10/18 &middot; Staging validation</span>
+              <span>55%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: 55%"></div>
+            </div>
+          </div>
+          <div class="gate-banner">
+            <span class="gate-text">&#9995; Human gate: waiting for "it's validated"</span>
+            <span class="gate-time">4m 22s</span>
+          </div>
+          <div class="last-action">
+            <code>git push origin staging</code> 12s ago
+          </div>
+        </div>
+
+        <!-- Agent 2: Feature work -->
+        <div class="agent-card">
+          <div class="agent-header">
+            <span class="agent-name">Dashboard UI</span>
+            <span class="agent-meta">SimTimms/my-app-api</span>
+            <span class="agent-meta">feature/dashboard-ui <span class="agent-branch-arrow">&rarr;</span> development</span>
+            <span class="agent-tag feature">Feature</span>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">
+              <span>Step 3/18 &middot; Feature development</span>
+              <span>16%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: 16%"></div>
+            </div>
+          </div>
+          <div class="last-action">
+            <code>git commit -m "feat: add agent cards"</code> 45s ago
+          </div>
+        </div>
+
+        <!-- Agent 3: No DeployNOPE - WARNING -->
+        <div class="agent-card">
+          <div class="agent-header">
+            <span class="agent-name">Login bug hotfix</span>
+            <span class="agent-meta">SimTimms/my-app-fe</span>
+            <span class="agent-meta">hotfix/login-bug <span class="agent-branch-arrow">&rarr;</span> staging</span>
+            <span class="agent-tag no-deploynope">NO DEPLOYNOPE</span>
+          </div>
+          <div class="last-action">
+            <code>git push origin staging</code> 2m ago
+          </div>
+        </div>
+
+        <!-- Agent 4: Stale -->
+        <div class="agent-card" style="opacity: 0.5;">
+          <div class="agent-header">
+            <span class="agent-name">API refactor</span>
+            <span class="agent-meta">SimTimms/my-app-api</span>
+            <span class="agent-meta">feature/api-refactor <span class="agent-branch-arrow">&rarr;</span> development</span>
+            <span class="agent-tag idle">Stale</span>
+          </div>
+          <div class="last-action">
+            <code>git commit -m "refactor: extract handler"</code> 8m ago
+          </div>
+        </div>
+
+        <!-- Agent 5: Production deploy -->
+        <div class="agent-card">
+          <div class="agent-header">
+            <span class="agent-name">Hotfix 2.16.1</span>
+            <span class="agent-meta">SimTimms/my-app-fe</span>
+            <span class="agent-meta">staging <span class="agent-branch-arrow">&rarr;</span> main</span>
+            <span class="agent-tag production">Production</span>
+          </div>
+          <div class="progress-row">
+            <div class="progress-label">
+              <span>Step 16/18 &middot; Production reset</span>
+              <span>88%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: 88%"></div>
+            </div>
+          </div>
+          <div class="last-action">
+            <code>git reset main to staging</code> 5s ago
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Activity Feed -->
+    <div class="activity-section">
+      <h2>Activity</h2>
+      <div class="activity-feed">
+
+        <div class="activity-item">
+          <div class="activity-dot-col">
+            <div class="activity-dot red"></div>
+            <div class="activity-line"></div>
+          </div>
+          <div class="activity-content">
+            <div class="activity-action"><strong>c7f3a</strong> pushed to staging without DeployNOPE</div>
+            <div class="activity-meta">2m &middot; frontend &middot; hotfix/login-bug</div>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <div class="activity-dot-col">
+            <div class="activity-dot yellow"></div>
+            <div class="activity-line"></div>
+          </div>
+          <div class="activity-content">
+            <div class="activity-action"><strong>a1b2c</strong> gate pending: staging validation</div>
+            <div class="activity-meta">4m &middot; frontend &middot; 2.17.0</div>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <div class="activity-dot-col">
+            <div class="activity-dot green"></div>
+            <div class="activity-line"></div>
+          </div>
+          <div class="activity-content">
+            <div class="activity-action"><strong>k2m3n</strong> production reset started</div>
+            <div class="activity-meta">5s &middot; frontend &middot; 2.16.1</div>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <div class="activity-dot-col">
+            <div class="activity-dot blue"></div>
+            <div class="activity-line"></div>
+          </div>
+          <div class="activity-content">
+            <div class="activity-action"><strong>a1b2c</strong> pushed to staging</div>
+            <div class="activity-meta">5m &middot; frontend &middot; 2.17.0</div>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <div class="activity-dot-col">
+            <div class="activity-dot blue"></div>
+            <div class="activity-line"></div>
+          </div>
+          <div class="activity-content">
+            <div class="activity-action"><strong>a1b2c</strong> claimed staging</div>
+            <div class="activity-meta">14m &middot; frontend &middot; 2.17.0</div>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <div class="activity-dot-col">
+            <div class="activity-dot green"></div>
+            <div class="activity-line"></div>
+          </div>
+          <div class="activity-content">
+            <div class="activity-action"><strong>d4e5f</strong> committed: feat: add agent cards</div>
+            <div class="activity-meta">45s &middot; backend &middot; feature/dashboard-ui</div>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <div class="activity-dot-col">
+            <div class="activity-dot blue"></div>
+            <div class="activity-line"></div>
+          </div>
+          <div class="activity-content">
+            <div class="activity-action"><strong>d4e5f</strong> DeployNOPE activated</div>
+            <div class="activity-meta">12m &middot; backend &middot; feature/dashboard-ui</div>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <div class="activity-dot-col">
+            <div class="activity-dot green"></div>
+            <div class="activity-line"></div>
+          </div>
+          <div class="activity-content">
+            <div class="activity-action"><strong>j2k3l</strong> completed deploy 2.16.0</div>
+            <div class="activity-meta">1h &middot; frontend</div>
+          </div>
+        </div>
+
+        <div class="activity-item">
+          <div class="activity-dot-col">
+            <div class="activity-dot gray"></div>
+          </div>
+          <div class="activity-content">
+            <div class="activity-action" style="color: #484f58;">Showing last 8 events</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

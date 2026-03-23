@@ -105,3 +105,126 @@ resolve_version() {
   local CWD="$1"
   cd "$CWD" 2>/dev/null && jq -r '.version // "N/A"' package.json 2>/dev/null || echo "N/A"
 }
+
+# resolve_repo_name
+# Gets the repo name (owner/repo) from git remote origin.
+#
+# Usage: REPO=$(resolve_repo_name "$CWD")
+resolve_repo_name() {
+  local CWD="$1"
+  cd "$CWD" 2>/dev/null && git remote get-url origin 2>/dev/null | sed 's/.*github\.com[:/]//' | sed 's/\.git$//' || echo "unknown"
+}
+
+# dashboard_update
+# Writes agent state to ~/.deploynope/dashboard-state.json.
+# Called by every hook to keep the dashboard current.
+# Runs in the background (&) to avoid slowing down hooks.
+#
+# Usage: dashboard_update "$CWD" "git-push" "$COMMAND" "ask"
+dashboard_update() {
+  local CWD="$1"
+  local ACTION_TYPE="$2"
+  local COMMAND="$3"
+  local DECISION="$4"
+
+  local STATE_DIR="$HOME/.deploynope"
+  local STATE_FILE="$STATE_DIR/dashboard-state.json"
+  local AGENT_ID="${CLAUDE_SESSION_KEY:-$$}"
+  local NOW
+  NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  mkdir -p "$STATE_DIR"
+
+  # Initialize state file if missing
+  if [ ! -f "$STATE_FILE" ]; then
+    echo '{"version":1,"agents":{},"stagingClaim":null,"warnings":[],"activity":[]}' > "$STATE_FILE"
+  fi
+
+  local BRANCH
+  BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
+  local VERSION
+  VERSION=$(resolve_version "$CWD")
+  local REPO
+  REPO=$(resolve_repo_name "$CWD")
+  local PROD_BRANCH
+  PROD_BRANCH=$(resolve_prod_branch "$CWD")
+  local STAGING_BRANCH
+  STAGING_BRANCH=$(resolve_staging_branch "$CWD")
+  local DEV_BRANCH
+  DEV_BRANCH=$(resolve_dev_branch "$CWD")
+
+  # Determine target branch based on action context
+  local TARGET=""
+  case "$ACTION_TYPE" in
+    git-push)
+      # Extract push target from command
+      local _PUSH_TARGET
+      _PUSH_TARGET=$(echo "$COMMAND" | sed -n 's/.*git[[:space:]]\{1,\}push[[:space:]]\{1,\}//p' | tr ' ' '\n' | grep -v '^-' | sed -n '2p')
+      if echo "$_PUSH_TARGET" | grep -q ':'; then
+        TARGET=$(echo "$_PUSH_TARGET" | cut -d':' -f2)
+      elif [ -n "$_PUSH_TARGET" ]; then
+        TARGET="$_PUSH_TARGET"
+      else
+        TARGET="origin/$BRANCH"
+      fi
+      ;;
+    git-reset)   TARGET="$PROD_BRANCH" ;;
+    git-merge)   TARGET="$BRANCH" ;;
+    gh-pr)       TARGET=$(echo "$COMMAND" | sed -n 's/.*--base[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p') ;;
+    gh-release)  TARGET="$PROD_BRANCH" ;;
+    *)           TARGET="" ;;
+  esac
+
+  # Build activity entry (keep last 50)
+  local ACTIVITY_ENTRY
+  ACTIVITY_ENTRY=$(jq -n \
+    --arg agent "$AGENT_ID" \
+    --arg action "$ACTION_TYPE" \
+    --arg command "$COMMAND" \
+    --arg branch "$BRANCH" \
+    --arg repo "$REPO" \
+    --arg decision "$DECISION" \
+    --arg ts "$NOW" \
+    '{agent:$agent,action:$action,command:$command,branch:$branch,repo:$repo,decision:$decision,timestamp:$ts}')
+
+  # Atomic update: read, modify, write to tmp, then mv
+  jq \
+    --arg id "$AGENT_ID" \
+    --arg cwd "$CWD" \
+    --arg branch "$BRANCH" \
+    --arg target "$TARGET" \
+    --arg version "$VERSION" \
+    --arg repo "$REPO" \
+    --arg now "$NOW" \
+    --arg actionType "$ACTION_TYPE" \
+    --arg command "$COMMAND" \
+    --arg decision "$DECISION" \
+    --arg prodBranch "$PROD_BRANCH" \
+    --arg stagingBranch "$STAGING_BRANCH" \
+    --arg devBranch "$DEV_BRANCH" \
+    --argjson activityEntry "$ACTIVITY_ENTRY" \
+    '
+    .agents[$id] = (.agents[$id] // {}) * {
+      id: $id,
+      cwd: $cwd,
+      branch: $branch,
+      target: $target,
+      version: $version,
+      repo: $repo,
+      lastSeenAt: $now,
+      startedAt: ((.agents[$id].startedAt) // $now),
+      config: {
+        prodBranch: $prodBranch,
+        stagingBranch: $stagingBranch,
+        devBranch: $devBranch
+      },
+      lastAction: {
+        type: $actionType,
+        command: $command,
+        decision: $decision,
+        timestamp: $now
+      }
+    } |
+    .activity = ([$activityEntry] + (.activity // []))[:50]
+    ' "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null && mv "$STATE_FILE.tmp" "$STATE_FILE"
+}
