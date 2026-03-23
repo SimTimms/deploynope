@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.17.0] - 2026-03-23
+
+### Added
+- Real-time web dashboard for monitoring DeployNOPE activity across all agents and worktrees — run with `./dashboard/start.sh`
+- All 9 hooks now write agent state to `~/.deploynope/dashboard-state.json` for dashboard tracking
+- `dashboard_update` and `resolve_repo_name` helper functions in `hook-helpers.sh`
+
+### Fixed
+- Dashboard state updates run synchronously in hooks (background processes were killed on hook exit)
+- Server watches state directory instead of file for macOS inode compatibility with atomic writes
+
+[2.17.0]: https://github.com/SimTimms/deploynope/compare/v2.16.0...v2.17.0
+
 ## [2.16.0] - 2026-03-20
 
 ### Added
