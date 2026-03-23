@@ -64,4 +64,6 @@ fi
 REASON=$(printf '[DeployNOPE] Git merge intercepted.\n\nMerging: %s → %s\nVersion: %s\nCommand: %s%s\n\nApprove this merge?' "$MERGE_SOURCE" "$BRANCH" "$VERSION" "$COMMAND" "$EXTRA")
 jq -n --arg reason "$REASON" --arg decision "$DECISION" '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:$decision,permissionDecisionReason:$reason}}'
 
+dashboard_update "$CWD" "git-merge" "$COMMAND" "$DECISION"
+
 exit 0
