@@ -384,13 +384,32 @@
   }
 
   function inferStage(agent) {
+    // Use explicit DeployNOPE stage if available
+    const dn = agent.deploynope || {};
+    if (dn.active && dn.stage) {
+      const s = dn.stage.toLowerCase();
+      if (s.includes('production')) return 'production';
+      if (s.includes('staging')) return 'staging';
+      if (s.includes('release')) return 'production';
+      if (s.includes('rollback')) return 'production';
+      return 'feature';
+    }
+
     const branch = agent.branch || '';
     const target = agent.target || '';
     const config = agent.config || {};
 
     if (target === config.prodBranch || target === 'main' || target === 'master') return 'production';
     if (target === config.stagingBranch || target === 'staging') return 'staging';
+    if (branch === config.prodBranch || branch === 'main' || branch === 'master') return 'production';
+    if (branch === config.stagingBranch || branch === 'staging') return 'staging';
     return 'feature';
+  }
+
+  function stageLabel(agent) {
+    const dn = agent.deploynope || {};
+    if (dn.active && dn.stage) return dn.stage.toUpperCase();
+    return inferStage(agent).toUpperCase();
   }
 
   function inferName(agent) {
@@ -446,22 +465,18 @@
       (warningCount > 0 ? warningCount + ' warning' + (warningCount > 1 ? 's' : '') + ' \u00b7 ' : '') +
       activeCount + ' agent' + (activeCount !== 1 ? 's' : '');
 
-    // Staging (from tag detection — look for agents targeting staging)
-    const stagingAgent = agents.find(a => !a.stale && (a.target === 'staging' || a.target === (a.config || {}).stagingBranch));
-    const stagingContainer = document.getElementById('staging-container');
-    if (stagingAgent) {
-      stagingContainer.innerHTML =
-        '<div class="staging-bar claimed">' +
-        '<span class="staging-label">Staging</span>' +
-        '<span class="staging-status claimed">\uD83D\uDD12 In use by ' + inferName(stagingAgent) + ' \u00b7 ' + stagingAgent.repo + '</span>' +
-        '</div>';
-    } else {
-      stagingContainer.innerHTML =
-        '<div class="staging-bar free">' +
-        '<span class="staging-label">Staging</span>' +
-        '<span class="staging-status free">Available</span>' +
-        '</div>';
-    }
+    // Build a set of repos that have staging claimed (per-repo staging lock)
+    const stagingByRepo = {};
+    agents.forEach(a => {
+      if (a.stale) return;
+      const t = a.target || '';
+      const b = a.branch || '';
+      const sb = (a.config || {}).stagingBranch || 'staging';
+      if (t === sb || b === sb) {
+        stagingByRepo[a.repo] = a.id;
+      }
+    });
+    document.getElementById('staging-container').innerHTML = '';
 
     // Agents
     const agentsContainer = document.getElementById('agents-container');
@@ -478,7 +493,7 @@
         const target = agent.target || '';
         const staleClass = agent.stale ? ' stale' : '';
         const tagClass = agent.stale ? 'idle' : stage;
-        const tagLabel = agent.stale ? 'STALE' : stage.toUpperCase();
+        const tagText = agent.stale ? 'STALE' : stageLabel(agent);
 
         let inner = '<div class="agent-header">';
         inner += '<span class="agent-name">' + escapeHtml(name) + '</span>';
@@ -488,7 +503,9 @@
         } else if (agent.branch) {
           inner += '<span class="agent-meta">' + escapeHtml(agent.branch) + '</span>';
         }
-        inner += '<span class="agent-tag ' + tagClass + '">' + tagLabel + '</span>';
+        const isStaging = agent.repo && stagingByRepo.hasOwnProperty(agent.repo) && stagingByRepo[agent.repo] === agent.id;
+        const lockIcon = isStaging ? '\uD83D\uDD12 ' : '';
+        inner += '<span class="agent-tag ' + tagClass + '">' + lockIcon + tagText + '</span>';
         inner += '</div>';
 
         // Last action
