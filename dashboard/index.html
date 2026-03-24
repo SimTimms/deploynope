@@ -159,7 +159,7 @@
     flex-wrap: wrap;
   }
   .agent-name {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: 400;
     color: #f0f6fc;
     font-family: 'SF Mono', 'Fira Code', monospace;
@@ -214,6 +214,23 @@
     background: #58a6ff;
     transition: width 0.5s ease;
   }
+
+  /* ── PR Banner ── */
+  .pr-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    margin-bottom: 0.35rem;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    color: #58a6ff;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .pr-banner:hover { border-color: #58a6ff; background: rgba(88, 166, 255, 0.15); }
 
   /* ── Cleanup Banner ── */
   .cleanup-banner {
@@ -555,7 +572,29 @@
   }
 
   function render(state) {
-    const agents = Object.values(state.agents || {});
+    // Deduplicate agents by cwd — prefer hook-registered over scanned, most recent first
+    var rawAgents = Object.values(state.agents || {});
+    var byCwd = {};
+    rawAgents.forEach(function(a) {
+      var key = a.cwd || a.id;
+      var existing = byCwd[key];
+      if (!existing) {
+        byCwd[key] = a;
+      } else {
+        // Prefer non-scanned (hook-registered) over scanned
+        var aIsHook = !a.scanned;
+        var existingIsHook = !existing.scanned;
+        if (aIsHook && !existingIsHook) {
+          byCwd[key] = a;
+        } else if (aIsHook === existingIsHook) {
+          // Same type — prefer most recently seen
+          if (new Date(a.lastSeenAt) > new Date(existing.lastSeenAt)) {
+            byCwd[key] = a;
+          }
+        }
+      }
+    });
+    const agents = Object.values(byCwd);
     const activity = state.activity || [];
 
     // Sort: active first, stale last
@@ -586,11 +625,136 @@
         stagingByRepo[a.repo] = a.id;
       }
     });
+    // Separate staging agents from work agents
+    var stagingAgents = [];
+    var workAgents = [];
+    agents.forEach(function(a) {
+      var cfg = a.config || {};
+      var sb = cfg.stagingBranch || 'staging';
+      if (a.branch === sb) {
+        stagingAgents.push(a);
+      } else {
+        workAgents.push(a);
+      }
+    });
+
+    // Index staging agents by repo for per-group rendering
+    var stagingByRepoAgent = {};
+    stagingAgents.forEach(function(a) {
+      stagingByRepoAgent[a.repo || 'Unknown'] = a;
+    });
+
+    // Clear the top-level staging container (staging is now per-repo)
     document.getElementById('staging-container').innerHTML = '';
 
-    // Agents — grouped by repo
+    function renderStagingBar(stagingAgent, repoWorkAgents) {
+      // Find the agent that is currently deploying through staging
+      // Look for a work agent whose deploynope stage is Staging, Staging Validation, or Production
+      var claimingAgent = null;
+      if (repoWorkAgents) {
+        for (var i = 0; i < repoWorkAgents.length; i++) {
+          var wa = repoWorkAgents[i];
+          var wdn = wa.deploynope || {};
+          if (wdn.active && wdn.stage) {
+            var ws = wdn.stage.toLowerCase();
+            if (ws.indexOf('staging') !== -1 || ws === 'production' || ws === 'release' || ws === 'release manifest' || ws === 'post-deploy') {
+              claimingAgent = wa;
+              break;
+            }
+          }
+        }
+      }
+
+      // Also check the staging agent itself for deploynope data (from the stage hook)
+      var dn = (stagingAgent ? stagingAgent.deploynope : null) || {};
+      var gate = dn.gate;
+      var gateWaiting = gate && gate.waiting;
+
+      var isClaimed = (dn.active && dn.stage) || gateWaiting || claimingAgent;
+
+      if (!isClaimed) {
+        return '<div class="staging-bar free">' +
+          '<span class="staging-label">staging</span>' +
+          '<span class="staging-status free">Available</span>' +
+          '</div>';
+      }
+
+      // Determine context and stage from the claiming agent or staging's own deploynope data
+      var currentStage = null;
+      var context = '';
+      if (claimingAgent) {
+        var cdn = claimingAgent.deploynope || {};
+        currentStage = cdn.stage || null;
+        context = cdn.context || claimingAgent.version || inferName(claimingAgent);
+        // Use claiming agent's gate if staging doesn't have one
+        if (!gateWaiting && cdn.gate && cdn.gate.waiting) {
+          gate = cdn.gate;
+          gateWaiting = true;
+        }
+      }
+      if (!currentStage && dn.active && dn.stage) {
+        currentStage = dn.stage;
+        context = context || dn.context || '';
+      }
+      if (!currentStage) {
+        currentStage = 'Staging';
+      }
+      if (!context) {
+        context = (stagingAgent ? stagingAgent.version : '') || '';
+      }
+
+      var statusText = context ? context + ' on staging' : 'Claimed';
+
+      var html = '<div class="staging-bar claimed">';
+      html += '<span class="staging-label">staging</span>';
+      html += '<span class="staging-status claimed">' + escapeHtml(statusText) + '</span>';
+
+      // Timeline
+      var stageOrder = [
+        'New Work', 'Configure', 'Verify Rules', 'Feature',
+        'Preflight', 'Stale Check', 'Deploy Status',
+        'Staging', 'Staging Validation',
+        'Production', 'Release', 'Release Manifest',
+        'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
+      ];
+      var stepIndex = -1;
+      for (var si = 0; si < stageOrder.length; si++) {
+        if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) { stepIndex = si; break; }
+      }
+      if (stepIndex === -1) {
+        for (var si = 0; si < stageOrder.length; si++) {
+          if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
+              stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) { stepIndex = si; break; }
+        }
+      }
+      if (stepIndex >= 0) {
+        var stepNum = stepIndex + 1;
+        var pct = Math.round((stepNum / stageOrder.length) * 100);
+        html += '<span style="flex:1;display:flex;align-items:center;gap:0.5rem;">';
+        html += '<span style="font-size:0.65rem;color:#8b949e;white-space:nowrap;">Step ' + stepNum + '/' + stageOrder.length + ' &middot; ' + escapeHtml(currentStage) + '</span>';
+        html += '<span style="flex:1;height:3px;background:#21262d;border-radius:2px;overflow:hidden;">';
+        html += '<span style="display:block;height:100%;width:' + pct + '%;background:#58a6ff;border-radius:2px;transition:width 0.5s ease;"></span>';
+        html += '</span>';
+        html += '<span style="font-size:0.65rem;color:#8b949e;">' + pct + '%</span>';
+        html += '</span>';
+      }
+
+      // Gate
+      if (gateWaiting) {
+        html += '<span style="font-size:0.65rem;color:#d29922;white-space:nowrap;">' + escapeHtml(gate.label || 'Sign-off required') + '</span>';
+        if (gate.since) {
+          html += '<span style="font-size:0.6rem;color:#8b949e;">' + timeAgo(gate.since) + '</span>';
+        }
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    // Agents — grouped by repo (excluding staging)
+    var displayAgents = workAgents;
     const agentsContainer = document.getElementById('agents-container');
-    if (agents.length === 0) {
+    if (displayAgents.length === 0 && stagingAgents.length === 0) {
       agentsContainer.innerHTML =
         '<div class="agents-section"><div class="agents-header"><h2>Agents</h2>' +
         '</div>' +
@@ -601,7 +765,7 @@
     } else {
       // Group agents by repo
       var repoGroups = {};
-      agents.forEach(function(agent) {
+      displayAgents.forEach(function(agent) {
         var repo = agent.repo || 'Unknown';
         if (!repoGroups[repo]) repoGroups[repo] = [];
         repoGroups[repo].push(agent);
@@ -644,46 +808,70 @@
         inner += '</div>';
 
         // Progress bar (deployment pipeline timeline)
+        // Use explicit DeployNOPE stage if available, otherwise infer from agent context
         var dn = agent.deploynope || {};
+        var currentStage = null;
         if (dn.active && dn.stage) {
-          var stageOrder = [
-            'New Work', 'Configure', 'Verify Rules', 'Feature',
-            'Preflight', 'Stale Check', 'Deploy Status',
-            'Staging', 'Staging Validation',
-            'Production', 'Release', 'Release Manifest',
-            'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
-          ];
-          var totalSteps = stageOrder.length;
-          var currentStage = dn.stage;
-          var stepIndex = -1;
+          currentStage = dn.stage;
+        } else {
+          // Infer stage from branch/target context
+          var cfg = agent.config || {};
+          var sBranch = cfg.stagingBranch || 'staging';
+          var pBranch = cfg.prodBranch || 'main';
+          var br = agent.branch || '';
+          var tgt = agent.target || '';
+          if (tgt === pBranch || br === pBranch) {
+            currentStage = 'Production';
+          } else if (tgt === sBranch || br === sBranch) {
+            currentStage = 'Staging';
+          } else {
+            currentStage = 'Feature';
+          }
+        }
+        var stageOrder = [
+          'New Work', 'Configure', 'Verify Rules', 'Feature',
+          'Preflight', 'Stale Check', 'Deploy Status',
+          'Staging', 'Staging Validation',
+          'Production', 'Release', 'Release Manifest',
+          'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
+        ];
+        var totalSteps = stageOrder.length;
+        var stepIndex = -1;
+        for (var si = 0; si < stageOrder.length; si++) {
+          if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) {
+            stepIndex = si;
+            break;
+          }
+        }
+        if (stepIndex === -1) {
           for (var si = 0; si < stageOrder.length; si++) {
-            if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) {
+            if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
+                stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) {
               stepIndex = si;
               break;
             }
           }
-          if (stepIndex === -1) {
-            for (var si = 0; si < stageOrder.length; si++) {
-              if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
-                  stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) {
-                stepIndex = si;
-                break;
-              }
-            }
-          }
-          if (stepIndex >= 0) {
-            var stepNum = stepIndex + 1;
-            var pct = Math.round((stepNum / totalSteps) * 100);
-            inner += '<div class="progress-row">';
-            inner += '<div class="progress-label">';
-            inner += '<span>Step ' + stepNum + '/' + totalSteps + ' &middot; ' + escapeHtml(currentStage) + '</span>';
-            inner += '<span>' + pct + '%</span>';
-            inner += '</div>';
-            inner += '<div class="progress-bar">';
-            inner += '<div class="progress-fill" style="width: ' + pct + '%"></div>';
-            inner += '</div>';
-            inner += '</div>';
-          }
+        }
+        if (stepIndex >= 0) {
+          var stepNum = stepIndex + 1;
+          var pct = Math.round((stepNum / totalSteps) * 100);
+          inner += '<div class="progress-row">';
+          inner += '<div class="progress-label">';
+          inner += '<span>Step ' + stepNum + '/' + totalSteps + ' &middot; ' + escapeHtml(currentStage) + '</span>';
+          inner += '<span>' + pct + '%</span>';
+          inner += '</div>';
+          inner += '<div class="progress-bar">';
+          inner += '<div class="progress-fill" style="width: ' + pct + '%"></div>';
+          inner += '</div>';
+          inner += '</div>';
+        }
+
+        // PR banner
+        var pr = agent.pr;
+        if (pr && pr.url && !pr.merged) {
+          inner += '<a class="pr-banner" href="' + escapeHtml(pr.url) + '" target="_blank">';
+          inner += '<span>PR #' + pr.number + ' awaiting merge</span>';
+          inner += '</a>';
         }
 
         // Cleanup banner
@@ -714,18 +902,26 @@
         return '<div class="agent-card' + staleClass + '">' + inner + '</div>';
       }
 
-      // Render each repo group with its own header
+      // Collect all repos (including those with only a staging agent)
+      var allRepos = {};
+      Object.keys(repoGroups).forEach(function(r) { allRepos[r] = true; });
+      Object.keys(stagingByRepoAgent).forEach(function(r) { allRepos[r] = true; });
+
+      // Render each repo group with header, staging bar, then cards
       var html = '';
-      Object.keys(repoGroups).forEach(function(repo) {
+      Object.keys(allRepos).forEach(function(repo) {
         var repoName = repo.indexOf('/') !== -1 ? repo.split('/').pop() : repo;
         html += '<div class="agents-section">';
         html += '<div class="agents-header">';
         html += '<h2>' + escapeHtml(repoName) + '</h2>';
-        html += '';
         html += '</div>';
-        html += '<div class="agent-cards">';
-        html += repoGroups[repo].map(renderCard).join('');
-        html += '</div>';
+        html += renderStagingBar(stagingByRepoAgent[repo] || null, repoGroups[repo] || []);
+        var cards = repoGroups[repo] || [];
+        if (cards.length > 0) {
+          html += '<div class="agent-cards">';
+          html += cards.map(renderCard).join('');
+          html += '</div>';
+        }
         html += '</div>';
       });
       agentsContainer.innerHTML = html;
