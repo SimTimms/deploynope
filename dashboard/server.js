@@ -11,7 +11,7 @@ const PORT = parseInt(process.argv[2] || '9876', 10);
 const STATE_DIR = path.join(require('os').homedir(), '.deploynope');
 const STATE_FILE = path.join(STATE_DIR, 'dashboard-state.json');
 const DASHBOARD_HTML = path.join(__dirname, 'index.html');
-const STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const STALE_THRESHOLD_MS = 60 * 60 * 1000; // 60 minutes
 
 // Ensure state directory and file exist
 if (!fs.existsSync(STATE_DIR)) fs.mkdirSync(STATE_DIR, { recursive: true });
@@ -24,11 +24,18 @@ function readState() {
     const raw = fs.readFileSync(STATE_FILE, 'utf8');
     const state = JSON.parse(raw);
 
-    // Mark stale agents
+    // Mark stale agents based on last real activity (git action timestamp).
+    // For hook-registered agents, lastSeenAt reflects real session activity.
+    // For scanned agents, lastSeenAt is just the scan time — use the action
+    // timestamp (last commit time on the branch) instead.
     const now = Date.now();
     for (const [id, agent] of Object.entries(state.agents || {})) {
+      const actionTime = agent.lastAction && agent.lastAction.timestamp
+        ? new Date(agent.lastAction.timestamp).getTime()
+        : 0;
       const lastSeen = new Date(agent.lastSeenAt).getTime();
-      agent.stale = (now - lastSeen) > STALE_THRESHOLD_MS;
+      const lastActivity = agent.scanned ? actionTime : Math.max(actionTime, lastSeen);
+      agent.stale = !lastActivity || (now - lastActivity) > STALE_THRESHOLD_MS;
     }
 
     return state;

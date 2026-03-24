@@ -159,7 +159,7 @@
     flex-wrap: wrap;
   }
   .agent-name {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: 400;
     color: #f0f6fc;
     font-family: 'SF Mono', 'Fira Code', monospace;
@@ -214,6 +214,23 @@
     background: #58a6ff;
     transition: width 0.5s ease;
   }
+
+  /* ── PR Banner ── */
+  .pr-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    margin-bottom: 0.35rem;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    color: #58a6ff;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .pr-banner:hover { border-color: #58a6ff; background: rgba(88, 166, 255, 0.15); }
 
   /* ── Cleanup Banner ── */
   .cleanup-banner {
@@ -847,6 +864,14 @@
           inner += '<div class="progress-fill" style="width: ' + pct + '%"></div>';
           inner += '</div>';
           inner += '</div>';
+        }
+
+        // PR banner
+        var pr = agent.pr;
+        if (pr && pr.url && !pr.merged) {
+          inner += '<a class="pr-banner" href="' + escapeHtml(pr.url) + '" target="_blank">';
+          inner += '<span>PR #' + pr.number + ' awaiting merge</span>';
+          inner += '</a>';
         }
 
         // Cleanup banner
