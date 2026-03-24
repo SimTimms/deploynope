@@ -74,7 +74,15 @@ jq \
       active: true,
       severity: $severity,
       context: $context,
-      stage: $stage
+      stage: $stage,
+      gate: (
+        if ($stage | ascii_downcase | test("validation|sign.?off|awaiting|gate"))
+        then { waiting: true, label: ($stage + " — sign-off required"), since: $now }
+        elif (.agents[$id].deploynope.gate.waiting // false)
+        then null
+        else (.agents[$id].deploynope.gate // null)
+        end
+      )
     }
   }
   ' "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null && mv "$STATE_FILE.tmp" "$STATE_FILE"

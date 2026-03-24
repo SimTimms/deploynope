@@ -161,7 +161,13 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  .agent-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.4rem;
     flex-wrap: wrap;
   }
   .agent-name {
@@ -223,14 +229,11 @@
 
   /* ── Gate Banner ── */
   .gate-banner {
-    background: rgba(210, 153, 34, 0.08);
-    border: 1px solid rgba(210, 153, 34, 0.25);
-    border-radius: 0;
-    padding: 0.4rem 0.6rem;
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
     margin-bottom: 0.4rem;
   }
   .gate-banner .gate-text { color: #d29922; font-weight: 500; }
@@ -408,7 +411,6 @@
 
     if (target === config.prodBranch || target === 'main' || target === 'master') return 'production';
     if (target === config.stagingBranch || target === 'staging') return 'staging';
-    if (branch === config.prodBranch || branch === 'main' || branch === 'master') return 'production';
     if (branch === config.stagingBranch || branch === 'staging') return 'staging';
     return 'feature';
   }
@@ -465,11 +467,12 @@
 
     // Header summary
     const activeCount = agents.filter(a => !a.stale).length;
-    const warningCount = 0; // Future: count agents without DeployNOPE active
+    const gateCount = agents.filter(a => !a.stale && (a.deploynope || {}).gate && a.deploynope.gate.waiting).length;
+    const warningCount = gateCount;
     const dot = document.getElementById('connection-dot');
     dot.className = 'status-dot' + (warningCount > 0 ? ' warning' : '');
     document.getElementById('header-summary').textContent =
-      (warningCount > 0 ? warningCount + ' warning' + (warningCount > 1 ? 's' : '') + ' \u00b7 ' : '') +
+      (gateCount > 0 ? gateCount + ' gate' + (gateCount > 1 ? 's' : '') + ' waiting \u00b7 ' : '') +
       activeCount + ' agent' + (activeCount !== 1 ? 's' : '');
 
     // Build a set of repos that have staging claimed (per-repo staging lock)
@@ -498,24 +501,46 @@
         const stage = inferStage(agent);
         const name = inferName(agent);
         const target = agent.target || '';
-        const staleClass = agent.stale ? ' stale' : '';
-        const tagClass = agent.stale ? 'idle' : stage;
-        const tagText = agent.stale ? 'STALE' : stageLabel(agent);
+        const gate = (agent.deploynope || {}).gate;
+        const gateWaiting = gate && gate.waiting;
+        const hasGate = (agent.deploynope || {}).gate && agent.deploynope.gate.waiting;
+        const treatAsStale = agent.stale && !hasGate;
+        const staleClass = treatAsStale ? ' stale' : '';
+        const tagClass = treatAsStale ? 'idle' : stage;
+        const tagText = treatAsStale ? 'STALE' : stageLabel(agent);
+
+        const isStaging = agent.repo && stagingByRepo.hasOwnProperty(agent.repo) && stagingByRepo[agent.repo] === agent.id;
+        const lockIcon = isStaging ? '\uD83D\uDD12 ' : '';
+
+        var ghIcon = '<svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
+        var branchIcon = '<svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/></svg>';
 
         let inner = '<div class="agent-header">';
         inner += '<span class="agent-name">' + escapeHtml(name) + '</span>';
-        var ghIcon = '<svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
-        var branchIcon = '<svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/></svg>';
+        inner += '<span class="agent-tag ' + tagClass + '">' + lockIcon + tagText + '</span>';
+        inner += '</div>';
+
+        inner += '<div class="agent-meta-row">';
         inner += '<span class="agent-meta">' + ghIcon + escapeHtml(agent.repo || '') + '</span>';
         if (agent.branch && target) {
           inner += '<span class="agent-meta">' + branchIcon + escapeHtml(agent.branch) + ' <span class="agent-branch-arrow">&rarr;</span> ' + escapeHtml(target) + '</span>';
         } else if (agent.branch) {
           inner += '<span class="agent-meta">' + branchIcon + escapeHtml(agent.branch) + '</span>';
         }
-        const isStaging = agent.repo && stagingByRepo.hasOwnProperty(agent.repo) && stagingByRepo[agent.repo] === agent.id;
-        const lockIcon = isStaging ? '\uD83D\uDD12 ' : '';
-        inner += '<span class="agent-tag ' + tagClass + '">' + lockIcon + tagText + '</span>';
+        var prodBranch = (agent.config || {}).prodBranch || 'main';
+        var onProd = (agent.branch === prodBranch || agent.branch === 'main' || agent.branch === 'master');
+        if (onProd && stage !== 'production') {
+          inner += '<span class="agent-meta" style="color:#f85149;">checked out on ' + escapeHtml(agent.branch) + '</span>';
+        }
         inner += '</div>';
+
+        // Gate banner
+        if (gateWaiting) {
+          inner += '<div class="gate-banner">' +
+            '<span class="gate-text">' + escapeHtml(gate.label || 'Waiting for sign-off') + '</span>' +
+            (gate.since ? '<span style="margin-left:auto;font-size:0.6rem;color:#8b949e;">' + timeAgo(gate.since) + '</span>' : '') +
+            '</div>';
+        }
 
         // Last action
         if (agent.lastAction) {
