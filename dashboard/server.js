@@ -58,6 +58,60 @@ fs.watch(STATE_DIR, (eventType, filename) => {
   }
 });
 
+// Remove an agent — optionally removing its git worktree too
+function removeAgent(agentId, removeWorktree, force) {
+  const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+  const agent = (state.agents || {})[agentId];
+  if (!agent) return { ok: false, error: 'Agent not found' };
+
+  const result = { ok: true, id: agentId, worktreeRemoved: false };
+  const cwd = agent.cwd || '';
+
+  if (removeWorktree && cwd) {
+    try {
+      const gitDir = require('child_process')
+        .execSync('git rev-parse --git-dir', { cwd, encoding: 'utf8', timeout: 5000 })
+        .trim();
+      const isWorktree = gitDir.includes('/worktrees/');
+
+      if (isWorktree) {
+        const commonDir = require('child_process')
+          .execSync('git rev-parse --git-common-dir', { cwd, encoding: 'utf8', timeout: 5000 })
+          .trim();
+        const mainRepo = path.resolve(cwd, commonDir, '..');
+
+        const status = require('child_process')
+          .execSync('git status --porcelain', { cwd, encoding: 'utf8', timeout: 5000 })
+          .trim();
+
+        if (status && !force) {
+          return { ok: false, error: 'Worktree has uncommitted changes', dirty: true, status };
+        }
+
+        const forceFlag = force ? ' --force' : '';
+        require('child_process')
+          .execSync(`git worktree remove${forceFlag} "${cwd}"`, { cwd: mainRepo, encoding: 'utf8', timeout: 10000 });
+        result.worktreeRemoved = true;
+      } else {
+        result.worktreeRemoved = false;
+        result.note = 'Not a worktree — only removed dashboard entry';
+      }
+    } catch (e) {
+      if (e.message && e.message.includes('ENOENT') || (e.stderr && e.stderr.includes('is not a working tree'))) {
+        result.worktreeRemoved = false;
+        result.note = 'Path no longer exists — removed dashboard entry only';
+      } else {
+        return { ok: false, error: e.message || String(e) };
+      }
+    }
+  }
+
+  delete state.agents[agentId];
+  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+
+  return result;
+}
+
 const server = http.createServer((req, res) => {
   // SSE endpoint
   if (req.url === '/api/events') {
@@ -94,6 +148,39 @@ const server = http.createServer((req, res) => {
       res.writeHead(500);
       res.end('Dashboard HTML not found');
     }
+    return;
+  }
+
+  // Delete agent endpoint
+  const deleteMatch = req.url.match(/^\/api\/agents\/([^/?]+)(\?.*)?$/);
+  if (deleteMatch && req.method === 'DELETE') {
+    const agentId = decodeURIComponent(deleteMatch[1]);
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const removeWt = url.searchParams.get('removeWorktree') === 'true';
+    const forceWt = url.searchParams.get('force') === 'true';
+
+    const result = removeAgent(agentId, removeWt, forceWt);
+
+    if (!result.ok && result.dirty && !forceWt) {
+      res.writeHead(409, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(result));
+      return;
+    }
+
+    const status = result.ok ? 200 : 400;
+    res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify(result));
+    return;
+  }
+
+  // CORS preflight for DELETE
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    });
+    res.end();
     return;
   }
 
