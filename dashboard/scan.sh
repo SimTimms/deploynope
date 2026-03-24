@@ -65,15 +65,24 @@ scan_repo() {
   # Use repo path as a stable ID for scanned entries (prefix with "scan-")
   local AGENT_ID="scan-$(echo "$REPO_PATH" | sed 's/[^a-zA-Z0-9]/-/g')"
 
-  # Check for .deploynope.json config
-  local PROD_BRANCH=""
-  local STAGING_BRANCH=""
-  local DEV_BRANCH=""
-  if [ -f "$REPO_PATH/.deploynope.json" ]; then
-    PROD_BRANCH=$(resolve_prod_branch "$REPO_PATH")
-    STAGING_BRANCH=$(resolve_staging_branch "$REPO_PATH")
-    DEV_BRANCH=$(resolve_dev_branch "$REPO_PATH")
+  # Skip if a hook-registered agent already covers this cwd
+  local EXISTING_CWD_AGENT
+  EXISTING_CWD_AGENT=$(jq -r --arg cwd "$REPO_PATH" '
+    [.agents[] | select(.cwd == $cwd and (.scanned // false) == false)] | length
+  ' "$STATE_FILE" 2>/dev/null)
+  if [ "$EXISTING_CWD_AGENT" -gt 0 ] 2>/dev/null; then
+    SCANNED=$((SCANNED + 1))
+    echo "  ~ $REPO ($BRANCH) — $REPO_PATH (hook-registered, skipping)"
+    return
   fi
+
+  # Resolve branch names (from .deploynope.json if present, otherwise detect from remote)
+  local PROD_BRANCH
+  PROD_BRANCH=$(resolve_prod_branch "$REPO_PATH")
+  local STAGING_BRANCH
+  STAGING_BRANCH=$(resolve_staging_branch "$REPO_PATH")
+  local DEV_BRANCH
+  DEV_BRANCH=$(resolve_dev_branch "$REPO_PATH")
 
   # Determine target from branch context
   local TARGET=""
@@ -83,6 +92,49 @@ scan_repo() {
     ON_STAGING="true"
   elif [ "$BRANCH" = "${PROD_BRANCH:-main}" ] || [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
     TARGET="$BRANCH"
+  fi
+
+  # Cleanup detection — is this worktree branch safe to delete?
+  local CLEANUP_STATUS=""
+  local CLEANUP_REASON=""
+  local CLEANUP_CMD=""
+  local EFFECTIVE_PROD="${PROD_BRANCH:-main}"
+
+  # Only check worktrees, skip the main clone and infrastructure branches
+  if [ "$LABEL" = "worktree" ]; then
+    if [ "$BRANCH" = "$EFFECTIVE_PROD" ] || [ "$BRANCH" = "${STAGING_BRANCH:-staging}" ] || [ "$BRANCH" = "${DEV_BRANCH:-development}" ]; then
+      CLEANUP_STATUS="keep"
+      CLEANUP_REASON="Infrastructure branch"
+    else
+      # Check if the branch is a released version
+      local IS_RELEASED="false"
+      if echo "$BRANCH" | grep -qE '^[0-9]+\.[0-9]+'; then
+        if (cd "$REPO_PATH" && git tag -l "v$BRANCH" 2>/dev/null | grep -q .); then
+          IS_RELEASED="true"
+        fi
+      fi
+
+      # Check commits ahead of production
+      local AHEAD
+      AHEAD=$(cd "$REPO_PATH" && git log "origin/$EFFECTIVE_PROD..HEAD" --oneline 2>/dev/null | wc -l | tr -d ' ')
+
+      if [ "$IS_RELEASED" = "true" ] && [ "$AHEAD" -eq 0 ]; then
+        CLEANUP_STATUS="safe"
+        CLEANUP_REASON="Released (v$BRANCH)"
+        CLEANUP_CMD="git worktree remove $REPO_PATH"
+      elif [ "$AHEAD" -eq 0 ]; then
+        CLEANUP_STATUS="safe"
+        CLEANUP_REASON="Merged into $EFFECTIVE_PROD"
+        CLEANUP_CMD="git worktree remove $REPO_PATH"
+      elif [ "$AHEAD" -le 5 ]; then
+        CLEANUP_STATUS="review"
+        CLEANUP_REASON="${AHEAD} unmerged commit(s)"
+        CLEANUP_CMD="git worktree remove $REPO_PATH"
+      else
+        CLEANUP_STATUS="keep"
+        CLEANUP_REASON="${AHEAD} unmerged commit(s)"
+      fi
+    fi
   fi
 
   jq \
@@ -100,6 +152,9 @@ scan_repo() {
     --arg devBranch "$DEV_BRANCH" \
     --arg label "$LABEL" \
     --arg onStaging "$ON_STAGING" \
+    --arg cleanupStatus "$CLEANUP_STATUS" \
+    --arg cleanupReason "$CLEANUP_REASON" \
+    --arg cleanupCmd "$CLEANUP_CMD" \
     '
     .agents[$id] = {
       id: $id,
@@ -111,10 +166,15 @@ scan_repo() {
       lastSeenAt: $now,
       startedAt: $now,
       scanned: true,
-      config: (if $prodBranch == "" then null else {
+      config: {
         prodBranch: $prodBranch,
         stagingBranch: $stagingBranch,
         devBranch: $devBranch
+      },
+      cleanup: (if $cleanupStatus == "" then null else {
+        status: $cleanupStatus,
+        reason: $cleanupReason,
+        command: $cleanupCmd
       } end),
       deploynope: (if $onStaging == "true" then {
         active: true,

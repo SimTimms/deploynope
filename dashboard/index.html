@@ -117,6 +117,7 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.75rem;
+    margin-top: 1.25rem;
   }
   .agents-section h2,
   .activity-section h2 {
@@ -128,19 +129,6 @@
   }
   .activity-section h2 {
     margin-bottom: 0.75rem;
-  }
-  .new-work-btn {
-    background: none;
-    border: 1px solid #30363d;
-    color: #c9d1d9;
-    font-size: 0.75rem;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    padding: 0.3rem 0.75rem;
-    cursor: pointer;
-  }
-  .new-work-btn:hover {
-    border-color: #58a6ff;
-    color: #58a6ff;
   }
 
   /* ── Agent Cards ── */
@@ -225,6 +213,42 @@
     border-radius: 2px;
     background: #58a6ff;
     transition: width 0.5s ease;
+  }
+
+  /* ── Cleanup Banner ── */
+  .cleanup-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    margin-bottom: 0.35rem;
+  }
+  .cleanup-banner.safe {
+    background: rgba(63, 185, 80, 0.1);
+    border: 1px solid rgba(63, 185, 80, 0.3);
+    color: #3fb950;
+  }
+  .cleanup-banner.review {
+    background: rgba(210, 153, 34, 0.1);
+    border: 1px solid rgba(210, 153, 34, 0.3);
+    color: #d29922;
+  }
+  .cleanup-cmd {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.6rem;
+    color: #8b949e;
+    background: #161b22;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid #21262d;
+    user-select: all;
+  }
+  .cleanup-cmd:hover {
+    border-color: #58a6ff;
+    color: #c9d1d9;
   }
 
   /* ── Gate Banner ── */
@@ -348,11 +372,7 @@
 
   <div class="main-grid">
     <div class="agents-section">
-      <div class="agents-header">
-        <h2>Agents</h2>
-        <button class="new-work-btn">+ New work</button>
-      </div>
-      <div class="agent-cards" id="agents-container">
+      <div id="agents-container">
         <div class="empty-state">
           <div>No agents detected yet</div>
           <div class="hint">Start a Claude Code session — hooks will register it automatically</div>
@@ -486,18 +506,153 @@
         stagingByRepo[a.repo] = a.id;
       }
     });
+    // Separate staging agents from work agents
+    var stagingAgents = [];
+    var workAgents = [];
+    agents.forEach(function(a) {
+      var cfg = a.config || {};
+      var sb = cfg.stagingBranch || 'staging';
+      if (a.branch === sb) {
+        stagingAgents.push(a);
+      } else {
+        workAgents.push(a);
+      }
+    });
+
+    // Index staging agents by repo for per-group rendering
+    var stagingByRepoAgent = {};
+    stagingAgents.forEach(function(a) {
+      stagingByRepoAgent[a.repo || 'Unknown'] = a;
+    });
+
+    // Clear the top-level staging container (staging is now per-repo)
     document.getElementById('staging-container').innerHTML = '';
 
-    // Agents
+    function renderStagingBar(stagingAgent, repoWorkAgents) {
+      // Find the agent that is currently deploying through staging
+      // Look for a work agent whose deploynope stage is Staging, Staging Validation, or Production
+      var claimingAgent = null;
+      if (repoWorkAgents) {
+        for (var i = 0; i < repoWorkAgents.length; i++) {
+          var wa = repoWorkAgents[i];
+          var wdn = wa.deploynope || {};
+          if (wdn.active && wdn.stage) {
+            var ws = wdn.stage.toLowerCase();
+            if (ws.indexOf('staging') !== -1 || ws === 'production' || ws === 'release' || ws === 'release manifest' || ws === 'post-deploy') {
+              claimingAgent = wa;
+              break;
+            }
+          }
+        }
+      }
+
+      // Also check the staging agent itself for deploynope data (from the stage hook)
+      var dn = (stagingAgent ? stagingAgent.deploynope : null) || {};
+      var gate = dn.gate;
+      var gateWaiting = gate && gate.waiting;
+
+      var isClaimed = (dn.active && dn.stage) || gateWaiting || claimingAgent;
+
+      if (!isClaimed) {
+        return '<div class="staging-bar free">' +
+          '<span class="staging-label">staging</span>' +
+          '<span class="staging-status free">Available</span>' +
+          '</div>';
+      }
+
+      // Determine context and stage from the claiming agent or staging's own deploynope data
+      var currentStage = null;
+      var context = '';
+      if (claimingAgent) {
+        var cdn = claimingAgent.deploynope || {};
+        currentStage = cdn.stage || null;
+        context = cdn.context || claimingAgent.version || inferName(claimingAgent);
+        // Use claiming agent's gate if staging doesn't have one
+        if (!gateWaiting && cdn.gate && cdn.gate.waiting) {
+          gate = cdn.gate;
+          gateWaiting = true;
+        }
+      }
+      if (!currentStage && dn.active && dn.stage) {
+        currentStage = dn.stage;
+        context = context || dn.context || '';
+      }
+      if (!currentStage) {
+        currentStage = 'Staging';
+      }
+      if (!context) {
+        context = (stagingAgent ? stagingAgent.version : '') || '';
+      }
+
+      var statusText = context ? context + ' on staging' : 'Claimed';
+
+      var html = '<div class="staging-bar claimed">';
+      html += '<span class="staging-label">staging</span>';
+      html += '<span class="staging-status claimed">' + escapeHtml(statusText) + '</span>';
+
+      // Timeline
+      var stageOrder = [
+        'New Work', 'Configure', 'Verify Rules', 'Feature',
+        'Preflight', 'Stale Check', 'Deploy Status',
+        'Staging', 'Staging Validation',
+        'Production', 'Release', 'Release Manifest',
+        'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
+      ];
+      var stepIndex = -1;
+      for (var si = 0; si < stageOrder.length; si++) {
+        if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) { stepIndex = si; break; }
+      }
+      if (stepIndex === -1) {
+        for (var si = 0; si < stageOrder.length; si++) {
+          if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
+              stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) { stepIndex = si; break; }
+        }
+      }
+      if (stepIndex >= 0) {
+        var stepNum = stepIndex + 1;
+        var pct = Math.round((stepNum / stageOrder.length) * 100);
+        html += '<span style="flex:1;display:flex;align-items:center;gap:0.5rem;">';
+        html += '<span style="font-size:0.65rem;color:#8b949e;white-space:nowrap;">Step ' + stepNum + '/' + stageOrder.length + ' &middot; ' + escapeHtml(currentStage) + '</span>';
+        html += '<span style="flex:1;height:3px;background:#21262d;border-radius:2px;overflow:hidden;">';
+        html += '<span style="display:block;height:100%;width:' + pct + '%;background:#58a6ff;border-radius:2px;transition:width 0.5s ease;"></span>';
+        html += '</span>';
+        html += '<span style="font-size:0.65rem;color:#8b949e;">' + pct + '%</span>';
+        html += '</span>';
+      }
+
+      // Gate
+      if (gateWaiting) {
+        html += '<span style="font-size:0.65rem;color:#d29922;white-space:nowrap;">' + escapeHtml(gate.label || 'Sign-off required') + '</span>';
+        if (gate.since) {
+          html += '<span style="font-size:0.6rem;color:#8b949e;">' + timeAgo(gate.since) + '</span>';
+        }
+      }
+
+      html += '</div>';
+      return html;
+    }
+
+    // Agents — grouped by repo (excluding staging)
+    var displayAgents = workAgents;
     const agentsContainer = document.getElementById('agents-container');
-    if (agents.length === 0) {
+    if (displayAgents.length === 0 && stagingAgents.length === 0) {
       agentsContainer.innerHTML =
+        '<div class="agents-section"><div class="agents-header"><h2>Agents</h2>' +
+        '</div>' +
         '<div class="empty-state">' +
         '<div>No agents detected yet</div>' +
         '<div class="hint">Start a Claude Code session \u2014 hooks will register it automatically</div>' +
-        '</div>';
+        '</div></div>';
     } else {
-      agentsContainer.innerHTML = agents.map(agent => {
+      // Group agents by repo
+      var repoGroups = {};
+      displayAgents.forEach(function(agent) {
+        var repo = agent.repo || 'Unknown';
+        if (!repoGroups[repo]) repoGroups[repo] = [];
+        repoGroups[repo].push(agent);
+      });
+
+      function renderCard(agent) {
         const stage = inferStage(agent);
         const name = inferName(agent);
         const target = agent.target || '';
@@ -512,7 +667,6 @@
         const isStaging = agent.repo && stagingByRepo.hasOwnProperty(agent.repo) && stagingByRepo[agent.repo] === agent.id;
         const lockIcon = isStaging ? '\uD83D\uDD12 ' : '';
 
-        var ghIcon = '<svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
         var branchIcon = '<svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/></svg>';
 
         let inner = '<div class="agent-header">';
@@ -521,7 +675,6 @@
         inner += '</div>';
 
         inner += '<div class="agent-meta-row">';
-        inner += '<span class="agent-meta">' + ghIcon + escapeHtml(agent.repo || '') + '</span>';
         if (agent.branch && target) {
           inner += '<span class="agent-meta">' + branchIcon + escapeHtml(agent.branch) + ' <span class="agent-branch-arrow">&rarr;</span> ' + escapeHtml(target) + '</span>';
         } else if (agent.branch) {
@@ -535,46 +688,74 @@
         inner += '</div>';
 
         // Progress bar (deployment pipeline timeline)
+        // Use explicit DeployNOPE stage if available, otherwise infer from agent context
         var dn = agent.deploynope || {};
+        var currentStage = null;
         if (dn.active && dn.stage) {
-          var stageOrder = [
-            'New Work', 'Configure', 'Verify Rules', 'Feature',
-            'Preflight', 'Stale Check', 'Deploy Status',
-            'Staging', 'Staging Validation',
-            'Production', 'Release', 'Release Manifest',
-            'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
-          ];
-          var totalSteps = stageOrder.length;
-          var currentStage = dn.stage;
-          var stepIndex = -1;
+          currentStage = dn.stage;
+        } else {
+          // Infer stage from branch/target context
+          var cfg = agent.config || {};
+          var sBranch = cfg.stagingBranch || 'staging';
+          var pBranch = cfg.prodBranch || 'main';
+          var br = agent.branch || '';
+          var tgt = agent.target || '';
+          if (tgt === pBranch || br === pBranch) {
+            currentStage = 'Production';
+          } else if (tgt === sBranch || br === sBranch) {
+            currentStage = 'Staging';
+          } else {
+            currentStage = 'Feature';
+          }
+        }
+        var stageOrder = [
+          'New Work', 'Configure', 'Verify Rules', 'Feature',
+          'Preflight', 'Stale Check', 'Deploy Status',
+          'Staging', 'Staging Validation',
+          'Production', 'Release', 'Release Manifest',
+          'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
+        ];
+        var totalSteps = stageOrder.length;
+        var stepIndex = -1;
+        for (var si = 0; si < stageOrder.length; si++) {
+          if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) {
+            stepIndex = si;
+            break;
+          }
+        }
+        if (stepIndex === -1) {
           for (var si = 0; si < stageOrder.length; si++) {
-            if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) {
+            if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
+                stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) {
               stepIndex = si;
               break;
             }
           }
-          if (stepIndex === -1) {
-            for (var si = 0; si < stageOrder.length; si++) {
-              if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
-                  stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) {
-                stepIndex = si;
-                break;
-              }
-            }
+        }
+        if (stepIndex >= 0) {
+          var stepNum = stepIndex + 1;
+          var pct = Math.round((stepNum / totalSteps) * 100);
+          inner += '<div class="progress-row">';
+          inner += '<div class="progress-label">';
+          inner += '<span>Step ' + stepNum + '/' + totalSteps + ' &middot; ' + escapeHtml(currentStage) + '</span>';
+          inner += '<span>' + pct + '%</span>';
+          inner += '</div>';
+          inner += '<div class="progress-bar">';
+          inner += '<div class="progress-fill" style="width: ' + pct + '%"></div>';
+          inner += '</div>';
+          inner += '</div>';
+        }
+
+        // Cleanup banner
+        var cleanup = agent.cleanup;
+        if (cleanup && (cleanup.status === 'safe' || cleanup.status === 'review')) {
+          var cleanupLabel = cleanup.status === 'safe' ? 'Safe to delete' : 'Review before deleting';
+          inner += '<div class="cleanup-banner ' + cleanup.status + '">';
+          inner += '<span>' + cleanupLabel + ' &middot; ' + escapeHtml(cleanup.reason) + '</span>';
+          if (cleanup.command) {
+            inner += '<code class="cleanup-cmd" title="Click to select">' + escapeHtml(cleanup.command) + '</code>';
           }
-          if (stepIndex >= 0) {
-            var stepNum = stepIndex + 1;
-            var pct = Math.round((stepNum / totalSteps) * 100);
-            inner += '<div class="progress-row">';
-            inner += '<div class="progress-label">';
-            inner += '<span>Step ' + stepNum + '/' + totalSteps + ' &middot; ' + escapeHtml(currentStage) + '</span>';
-            inner += '<span>' + pct + '%</span>';
-            inner += '</div>';
-            inner += '<div class="progress-bar">';
-            inner += '<div class="progress-fill" style="width: ' + pct + '%"></div>';
-            inner += '</div>';
-            inner += '</div>';
-          }
+          inner += '</div>';
         }
 
         // Gate banner
@@ -591,7 +772,31 @@
         }
 
         return '<div class="agent-card' + staleClass + '">' + inner + '</div>';
-      }).join('');
+      }
+
+      // Collect all repos (including those with only a staging agent)
+      var allRepos = {};
+      Object.keys(repoGroups).forEach(function(r) { allRepos[r] = true; });
+      Object.keys(stagingByRepoAgent).forEach(function(r) { allRepos[r] = true; });
+
+      // Render each repo group with header, staging bar, then cards
+      var html = '';
+      Object.keys(allRepos).forEach(function(repo) {
+        var repoName = repo.indexOf('/') !== -1 ? repo.split('/').pop() : repo;
+        html += '<div class="agents-section">';
+        html += '<div class="agents-header">';
+        html += '<h2>' + escapeHtml(repoName) + '</h2>';
+        html += '</div>';
+        html += renderStagingBar(stagingByRepoAgent[repo] || null, repoGroups[repo] || []);
+        var cards = repoGroups[repo] || [];
+        if (cards.length > 0) {
+          html += '<div class="agent-cards">';
+          html += cards.map(renderCard).join('');
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      agentsContainer.innerHTML = html;
     }
 
     // Activity feed
