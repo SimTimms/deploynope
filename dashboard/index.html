@@ -351,6 +351,86 @@
     font-family: 'SF Mono', 'Fira Code', monospace;
   }
 
+  /* ── Remove Button ── */
+  .remove-btn {
+    background: none;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    line-height: 1;
+    border-radius: 3px;
+    flex-shrink: 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .agent-card:hover .remove-btn { opacity: 1; }
+  .remove-btn:hover { color: #f85149; background: rgba(248, 81, 73, 0.1); border-color: rgba(248, 81, 73, 0.4); }
+
+  /* ── Confirm Modal ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal {
+    background: #161b22;
+    border: 1px solid #30363d;
+    padding: 1.25rem;
+    max-width: 420px;
+    width: 90%;
+  }
+  .modal h3 {
+    font-size: 0.85rem;
+    color: #f0f6fc;
+    margin-bottom: 0.5rem;
+  }
+  .modal p {
+    font-size: 0.75rem;
+    color: #8b949e;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+  }
+  .modal code {
+    background: #1f2937;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.7rem;
+    color: #c9d1d9;
+  }
+  .modal .warning {
+    color: #d29922;
+    font-size: 0.7rem;
+    margin-bottom: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(210, 153, 34, 0.1);
+    border: 1px solid rgba(210, 153, 34, 0.2);
+  }
+  .modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+  .modal-btn {
+    font-size: 0.75rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #30363d;
+    background: none;
+    color: #c9d1d9;
+    cursor: pointer;
+  }
+  .modal-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+  .modal-btn.danger { border-color: rgba(248, 81, 73, 0.4); color: #f85149; }
+  .modal-btn.danger:hover { background: rgba(248, 81, 73, 0.1); border-color: #f85149; }
+
   @media (max-width: 900px) {
     .main-grid { grid-template-columns: 1fr; }
   }
@@ -672,6 +752,7 @@
         let inner = '<div class="agent-header">';
         inner += '<span class="agent-name">' + escapeHtml(name) + '</span>';
         inner += '<span class="agent-tag ' + tagClass + '">' + lockIcon + tagText + '</span>';
+        inner += '<button class="remove-btn" data-agent-id="' + escapeHtml(agent.id) + '" data-agent-name="' + escapeHtml(name) + '" data-agent-cwd="' + escapeHtml(agent.cwd || '') + '" title="Remove">&times;</button>';
         inner += '</div>';
 
         inner += '<div class="agent-meta-row">';
@@ -860,6 +941,118 @@
   setInterval(function() {
     // Re-render with cached state would be ideal, but the SSE will push updates anyway
   }, 30000);
+
+  // Remove agent — click handler on cards
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.remove-btn');
+    if (!btn) return;
+
+    var agentId = btn.getAttribute('data-agent-id');
+    var agentName = btn.getAttribute('data-agent-name');
+    var agentCwd = btn.getAttribute('data-agent-cwd');
+
+    showRemoveModal(agentId, agentName, agentCwd);
+  });
+
+  function showRemoveModal(agentId, agentName, agentCwd) {
+    var existing = document.querySelector('.modal-overlay');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    var isWorktreePath = agentCwd && (agentCwd.includes('/worktrees/') || agentCwd.includes('.claude/worktrees/'));
+
+    var html = '<div class="modal">';
+    html += '<h3>Remove ' + escapeHtml(agentName) + '</h3>';
+
+    if (isWorktreePath) {
+      html += '<p>This entry points to a git worktree at:<br><code>' + escapeHtml(agentCwd) + '</code></p>';
+      html += '<div class="modal-actions">';
+      html += '<button class="modal-btn" data-action="cancel">Cancel</button>';
+      html += '<button class="modal-btn" data-action="entry-only">Dashboard only</button>';
+      html += '<button class="modal-btn danger" data-action="remove-worktree">Remove worktree</button>';
+      html += '</div>';
+    } else {
+      html += '<p>Remove this entry from the dashboard?</p>';
+      if (agentCwd) {
+        html += '<p>Path: <code>' + escapeHtml(agentCwd) + '</code><br>The repo will not be touched.</p>';
+      }
+      html += '<div class="modal-actions">';
+      html += '<button class="modal-btn" data-action="cancel">Cancel</button>';
+      html += '<button class="modal-btn danger" data-action="entry-only">Remove</button>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+    overlay.innerHTML = html;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', function(e) {
+      var action = e.target.getAttribute('data-action');
+      if (!action) {
+        if (e.target === overlay) overlay.remove();
+        return;
+      }
+      if (action === 'cancel') { overlay.remove(); return; }
+
+      var removeWorktree = action === 'remove-worktree';
+      doRemove(agentId, removeWorktree, overlay);
+    });
+  }
+
+  function doRemove(agentId, removeWorktree, overlay) {
+    var url = '/api/agents/' + encodeURIComponent(agentId);
+    if (removeWorktree) url += '?removeWorktree=true';
+
+    fetch(url, { method: 'DELETE' })
+      .then(function(res) { return res.json().then(function(data) { return { status: res.status, data: data }; }); })
+      .then(function(result) {
+        if (result.status === 409 && result.data.dirty) {
+          showDirtyWarning(agentId, result.data.status, overlay);
+          return;
+        }
+        if (!result.data.ok) {
+          alert('Failed to remove: ' + (result.data.error || 'Unknown error'));
+          overlay.remove();
+          return;
+        }
+        overlay.remove();
+      })
+      .catch(function(err) {
+        alert('Error: ' + err.message);
+        overlay.remove();
+      });
+  }
+
+  function showDirtyWarning(agentId, statusOutput, overlay) {
+    var modal = overlay.querySelector('.modal');
+    modal.innerHTML =
+      '<h3>Worktree has uncommitted changes</h3>' +
+      '<div class="warning">The following changes would be lost:<br><code>' + escapeHtml(statusOutput) + '</code></div>' +
+      '<div class="modal-actions">' +
+      '<button class="modal-btn" data-action="cancel">Cancel</button>' +
+      '<button class="modal-btn" data-action="entry-only">Dashboard only</button>' +
+      '<button class="modal-btn danger" data-action="force-remove">Remove anyway</button>' +
+      '</div>';
+
+    modal.addEventListener('click', function(e) {
+      var action = e.target.getAttribute('data-action');
+      if (!action) return;
+      if (action === 'cancel') { overlay.remove(); return; }
+      if (action === 'entry-only') {
+        fetch('/api/agents/' + encodeURIComponent(agentId), { method: 'DELETE' })
+          .then(function() { overlay.remove(); })
+          .catch(function() { overlay.remove(); });
+        return;
+      }
+      if (action === 'force-remove') {
+        fetch('/api/agents/' + encodeURIComponent(agentId) + '?removeWorktree=true&force=true', { method: 'DELETE' })
+          .then(function() { overlay.remove(); })
+          .catch(function(err) { alert('Error: ' + err.message); overlay.remove(); });
+      }
+    });
+  }
 })();
 </script>
 
