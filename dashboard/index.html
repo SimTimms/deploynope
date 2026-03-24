@@ -534,6 +534,49 @@
         }
         inner += '</div>';
 
+        // Progress bar (deployment pipeline timeline)
+        var dn = agent.deploynope || {};
+        if (dn.active && dn.stage) {
+          var stageOrder = [
+            'New Work', 'Configure', 'Verify Rules', 'Feature',
+            'Preflight', 'Stale Check', 'Deploy Status',
+            'Staging', 'Staging Validation',
+            'Production', 'Release', 'Release Manifest',
+            'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
+          ];
+          var totalSteps = stageOrder.length;
+          var currentStage = dn.stage;
+          var stepIndex = -1;
+          for (var si = 0; si < stageOrder.length; si++) {
+            if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) {
+              stepIndex = si;
+              break;
+            }
+          }
+          if (stepIndex === -1) {
+            for (var si = 0; si < stageOrder.length; si++) {
+              if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
+                  stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) {
+                stepIndex = si;
+                break;
+              }
+            }
+          }
+          if (stepIndex >= 0) {
+            var stepNum = stepIndex + 1;
+            var pct = Math.round((stepNum / totalSteps) * 100);
+            inner += '<div class="progress-row">';
+            inner += '<div class="progress-label">';
+            inner += '<span>Step ' + stepNum + '/' + totalSteps + ' &middot; ' + escapeHtml(currentStage) + '</span>';
+            inner += '<span>' + pct + '%</span>';
+            inner += '</div>';
+            inner += '<div class="progress-bar">';
+            inner += '<div class="progress-fill" style="width: ' + pct + '%"></div>';
+            inner += '</div>';
+            inner += '</div>';
+          }
+        }
+
         // Gate banner
         if (gateWaiting) {
           inner += '<div class="gate-banner">' +
