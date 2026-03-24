@@ -697,7 +697,7 @@
         context = context || dn.context || '';
       }
       if (!currentStage) {
-        currentStage = 'Staging';
+        currentStage = 'Staging Validation';
       }
       if (!context) {
         context = (stagingAgent ? stagingAgent.version : '') || '';
@@ -712,8 +712,8 @@
       // Timeline
       var stageOrder = [
         'New Work', 'Configure', 'Verify Rules', 'Feature',
-        'Preflight', 'Stale Check', 'Deploy Status',
-        'Staging', 'Staging Validation',
+        'Changelog', 'Preflight', 'Stale Check', 'Deploy Status',
+        'Staging Contention', 'Staging Claim', 'Staging Reset', 'Staging Validation',
         'Production', 'Release', 'Release Manifest',
         'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
       ];
@@ -823,15 +823,15 @@
           if (tgt === pBranch || br === pBranch) {
             currentStage = 'Production';
           } else if (tgt === sBranch || br === sBranch) {
-            currentStage = 'Staging';
+            currentStage = 'Staging Validation';
           } else {
             currentStage = 'Feature';
           }
         }
         var stageOrder = [
           'New Work', 'Configure', 'Verify Rules', 'Feature',
-          'Preflight', 'Stale Check', 'Deploy Status',
-          'Staging', 'Staging Validation',
+          'Changelog', 'Preflight', 'Stale Check', 'Deploy Status',
+          'Staging Contention', 'Staging Claim', 'Staging Reset', 'Staging Validation',
           'Production', 'Release', 'Release Manifest',
           'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
         ];

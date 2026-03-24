@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.19.0] - 2026-03-24
+
+### Added
+- Dashboard: group agent cards by repository with dedicated repo headers
+- Dashboard: per-repo staging environment bars showing claimed/available status with timeline
+- Dashboard: progress bar timeline on all agent cards, inferred from branch context when no hook data
+- Dashboard: finer-grained deployment stages in timeline (Changelog, Staging Contention, Staging Claim, Staging Reset)
+- Dashboard: clickable PR banner showing awaiting-merge status with link to PR
+- Dashboard: agent remove button with worktree cleanup and dirty-check confirmation modal
+- Dashboard: worktree cleanup detection in scan — shows "safe to delete" / "review" banners
+- PostToolUse hook to capture PR URLs from command output
+- Render-time deduplication of agents by cwd to prevent duplicate cards
+- Scan deduplication: skip repos already registered by hooks
+
+### Fixed
+- Scan no longer fabricates fake staging validation gate for branches on staging
+- Stale threshold increased to 60 minutes, based on last action timestamp not scan time
+- Reduced agent name font size for lighter visual weight
+
+[2.19.0]: https://github.com/SimTimms/deploynope/compare/v2.18.0...v2.19.0
+
 ## [2.17.0] - 2026-03-23
 
 ### Added
