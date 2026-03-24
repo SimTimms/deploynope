@@ -1,0 +1,18 @@
+{
+  "version": "2.18.0",
+  "type": "feature",
+  "timestamp": "2026-03-24T00:00:00Z",
+  "deployer": "Tim Simms",
+  "backend": null,
+  "frontend": {
+    "sha": "5ce5f178427773c30c83bcf8f884cf57970eed3b",
+    "branch": "deploynope-dashboard",
+    "repo": "SimTimms/deploynope",
+    "githubReleaseUrl": "https://github.com/SimTimms/deploynope/releases/tag/v2.18.0"
+  },
+  "jiraTickets": [],
+  "confluencePageUrl": null,
+  "previousVersion": "2.17.0",
+  "status": "deployed",
+  "rollback": null
+}
