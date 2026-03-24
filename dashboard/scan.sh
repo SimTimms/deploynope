@@ -86,10 +86,8 @@ scan_repo() {
 
   # Determine target from branch context
   local TARGET=""
-  local ON_STAGING="false"
   if [ "$BRANCH" = "${STAGING_BRANCH:-staging}" ]; then
     TARGET="$BRANCH"
-    ON_STAGING="true"
   elif [ "$BRANCH" = "${PROD_BRANCH:-main}" ] || [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
     TARGET="$BRANCH"
   fi
@@ -151,7 +149,6 @@ scan_repo() {
     --arg stagingBranch "$STAGING_BRANCH" \
     --arg devBranch "$DEV_BRANCH" \
     --arg label "$LABEL" \
-    --arg onStaging "$ON_STAGING" \
     --arg cleanupStatus "$CLEANUP_STATUS" \
     --arg cleanupReason "$CLEANUP_REASON" \
     --arg cleanupCmd "$CLEANUP_CMD" \
@@ -176,13 +173,7 @@ scan_repo() {
         reason: $cleanupReason,
         command: $cleanupCmd
       } end),
-      deploynope: (if $onStaging == "true" then {
-        active: true,
-        severity: "⚠️",
-        context: $version,
-        stage: "Staging Validation",
-        gate: { waiting: true, label: "Staging Validation — sign-off required", since: $now }
-      } else null end),
+      deploynope: null,
       lastAction: {
         type: "scan",
         command: $lastCommit,

@@ -555,7 +555,29 @@
   }
 
   function render(state) {
-    const agents = Object.values(state.agents || {});
+    // Deduplicate agents by cwd — prefer hook-registered over scanned, most recent first
+    var rawAgents = Object.values(state.agents || {});
+    var byCwd = {};
+    rawAgents.forEach(function(a) {
+      var key = a.cwd || a.id;
+      var existing = byCwd[key];
+      if (!existing) {
+        byCwd[key] = a;
+      } else {
+        // Prefer non-scanned (hook-registered) over scanned
+        var aIsHook = !a.scanned;
+        var existingIsHook = !existing.scanned;
+        if (aIsHook && !existingIsHook) {
+          byCwd[key] = a;
+        } else if (aIsHook === existingIsHook) {
+          // Same type — prefer most recently seen
+          if (new Date(a.lastSeenAt) > new Date(existing.lastSeenAt)) {
+            byCwd[key] = a;
+          }
+        }
+      }
+    });
+    const agents = Object.values(byCwd);
     const activity = state.activity || [];
 
     // Sort: active first, stale last
