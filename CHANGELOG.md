@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.20.0] - 2026-03-25
+
+### Added
+- Branch drift detection: stage hook and scan check how far branches are behind/ahead of production
+- Drift warning badges on agent cards (yellow 1-10 commits behind, red 11+, grey ahead count)
+- Drift rules in deploy framework: informational at early stages, blocking at Staging Contention onwards
+- Development bar in dashboard: separates development branches from agent cards, like staging
+- "In development" progress bar with dimmed style for agents without active DeployNOPE
+- Descriptive stage labels in timeline (e.g. "Working on feature branch" instead of "Feature")
+- "Complete" terminal stage with modified-after-complete flag
+- Scan button and `/api/scan` endpoint in dashboard
+- Timeline progression tests (49 assertions covering all 18 stages)
+- Branch drift detection tests (6 assertions)
+- Visual timeline test with optional drift simulation
+
+### Changed
+- Branches with no unique commits no longer marked "safe to delete" — no banner shown instead
+- Duplicate branch→target row hidden when branch and target are identical
+- Progress bar only shows active pipeline stages when DeployNOPE is driving; otherwise shows "In development"
+- Scan updates drift on hook-registered agents without overwriting their DeployNOPE data
+- Non-linear stages (Rollback, Deploy) excluded from progress bar positioning
+
+### Fixed
+- Scan button missing from worktree dashboard builds
+
+[2.20.0]: https://github.com/SimTimms/deploynope/compare/v2.19.0...v2.20.0
+
 ## [2.19.0] - 2026-03-24
 
 ### Added
