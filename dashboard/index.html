@@ -730,10 +730,13 @@ function runScan() {
       var cfg = a.config || {};
       var sb = cfg.stagingBranch || 'staging';
       var db = cfg.devBranch || 'development';
+      var pb = cfg.prodBranch || 'main';
       if (a.branch === sb) {
         stagingAgents.push(a);
       } else if (a.branch === db) {
         devAgents.push(a);
+      } else if (a.branch === pb || a.branch === 'main' || a.branch === 'master') {
+        // Production branches are infrastructure — don't show as work agent cards
       } else {
         workAgents.push(a);
       }

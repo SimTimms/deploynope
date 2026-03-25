@@ -37,10 +37,18 @@ fi
 
 STATE_DIR="$HOME/.deploynope"
 STATE_FILE="$STATE_DIR/dashboard-state.json"
-AGENT_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
-if [ -z "$AGENT_ID" ]; then
-  AGENT_ID="${CLAUDE_CODE_SSE_PORT:-$$}"
+
+# When DeployNOPE is active, use the context (e.g. "timeline-fixes") as the agent ID
+# so all stage updates for a workflow go to the same card regardless of cwd/session.
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+if [ -z "$SESSION_ID" ]; then
+  SESSION_ID="${CLAUDE_CODE_SSE_PORT:-$$}"
 fi
+AGENT_ID="$CONTEXT"
+if [ -z "$AGENT_ID" ]; then
+  AGENT_ID="$SESSION_ID"
+fi
+
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 mkdir -p "$STATE_DIR"
@@ -90,9 +98,9 @@ jq \
   '
   .agents[$id] = (.agents[$id] // {}) * {
     id: $id,
-    cwd: $cwd,
-    branch: $branch,
-    repo: $repo,
+    cwd: ((.agents[$id].cwd) // $cwd),
+    branch: ((.agents[$id].branch) // $branch),
+    repo: ((.agents[$id].repo) // $repo),
     lastSeenAt: $now,
     startedAt: ((.agents[$id].startedAt) // $now),
     deploynope: {
