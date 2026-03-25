@@ -647,7 +647,20 @@ function runScan() {
   }
 
   function render(state) {
-    // Deduplicate agents by cwd — prefer hook-registered over scanned, most recent first
+    // Deduplicate agents by cwd — prefer hook-registered over scanned,
+    // then prefer the most advanced active pipeline stage, then most recent.
+    var stageRank = {
+      'new work': 1, 'configure': 2, 'verify rules': 3, 'feature': 4,
+      'changelog': 5, 'preflight': 6, 'stale check': 7, 'deploy status': 8,
+      'staging contention': 9, 'staging claim': 10, 'staging reset': 11,
+      'staging validation': 12, 'production': 13, 'release': 14,
+      'release manifest': 15, 'post-deploy': 16, 'reconcile': 17, 'complete': 18
+    };
+    function agentStageRank(agent) {
+      var dn = agent.deploynope || {};
+      if (!dn.active || !dn.stage) return 0;
+      return stageRank[dn.stage.toLowerCase()] || 0;
+    }
     var rawAgents = Object.values(state.agents || {});
     var byCwd = {};
     rawAgents.forEach(function(a) {
@@ -662,10 +675,19 @@ function runScan() {
         if (aIsHook && !existingIsHook) {
           byCwd[key] = a;
         } else if (aIsHook === existingIsHook) {
-          // Same type — prefer most recently seen
-          if (new Date(a.lastSeenAt) > new Date(existing.lastSeenAt)) {
+          // Same type — prefer the most advanced active pipeline stage
+          var aRank = agentStageRank(a);
+          var existingRank = agentStageRank(existing);
+          if (aRank > existingRank && aRank < 18) {
+            // More advanced and not Complete — prefer it
             byCwd[key] = a;
+          } else if (aRank === existingRank) {
+            // Same stage rank — prefer most recently seen
+            if (new Date(a.lastSeenAt) > new Date(existing.lastSeenAt)) {
+              byCwd[key] = a;
+            }
           }
+          // If existing is more advanced (and not Complete), keep it
         }
       }
     });
