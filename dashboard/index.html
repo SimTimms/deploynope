@@ -135,15 +135,28 @@
   .agent-cards {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0;
   }
   .agent-card {
-    background: #161b22;
-    border: 1px solid #30363d;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #21262d;
+    border-left: 3px solid #484f58;
     border-radius: 0;
-    padding: 0.85rem 1rem;
+    padding: 1.25rem 1rem;
+  }
+  .agent-card:last-child {
+    border-bottom: none;
   }
   .agent-card.stale { opacity: 0.5; }
+  .agent-card.stage-feature { border-left-color: #58a6ff; }
+  .agent-card.stage-awaiting-staging { border-left-color: #58a6ff; }
+  .agent-card.stage-staging { border-left-color: #d29922; }
+  .agent-card.stage-production { border-left-color: #f85149; }
+  .agent-card.stage-active { border-left-color: #3fb950; }
+  .agent-card.stage-complete { border-left-color: #3fb950; }
+  .agent-card.stage-idle { border-left-color: #484f58; }
+  .agent-card.stage-no-deploynope { border-left-color: #f85149; }
 
   .agent-header {
     display: flex;
@@ -187,6 +200,7 @@
     margin-left: auto;
   }
   .agent-tag.feature { color: #58a6ff; }
+  .agent-tag.awaiting-staging { color: #58a6ff; }
   .agent-tag.staging { color: #d29922; }
   .agent-tag.production { color: #f85149; }
   .agent-tag.no-deploynope { color: #f85149; animation: pulse 1.5s ease-in-out infinite; }
@@ -228,7 +242,8 @@
 
   /* ── Progress Bar ── */
   .progress-row {
-    border: 1px solid #30363d;
+    background: #161b22;
+    border: none;
     border-radius: 4px;
     padding: 0.5rem;
     margin-top: 0.4rem;
@@ -604,13 +619,27 @@ function runScan() {
     if (target === config.prodBranch || target === 'main' || target === 'master') return 'production';
     if (target === config.stagingBranch || target === 'staging') return 'staging';
     if (branch === config.stagingBranch || branch === 'staging') return 'staging';
+
+    // Detect post-development: pushed to remote but not yet on staging
+    const lastActionType = (agent.lastAction || {}).type || '';
+    const protectedBranches = [
+      config.prodBranch || 'main', 'main', 'master',
+      config.stagingBranch || 'staging', 'staging',
+      config.devBranch || 'development', 'development'
+    ];
+    if (lastActionType === 'git-push' && protectedBranches.indexOf(branch) === -1) {
+      return 'awaiting-staging';
+    }
+
     return 'feature';
   }
 
   function stageLabel(agent) {
     const dn = agent.deploynope || {};
     if (dn.active && dn.stage) return dn.stage.toUpperCase();
-    return inferStage(agent).toUpperCase();
+    const stage = inferStage(agent);
+    if (stage === 'awaiting-staging') return 'AWAITING STAGING';
+    return stage.toUpperCase();
   }
 
   function inferName(agent) {
@@ -948,15 +977,44 @@ function runScan() {
         inner += '</div>';
 
         inner += '<div class="agent-meta-row">';
-        if (agent.branch && target && target !== agent.branch) {
-          inner += '<span class="agent-meta">' + branchIcon + escapeHtml(agent.branch) + ' <span class="agent-branch-arrow">&rarr;</span> ' + escapeHtml(target) + '</span>';
-        } else if (agent.branch) {
-          inner += '<span class="agent-meta">' + branchIcon + escapeHtml(agent.branch) + '</span>';
-        }
         var prodBranch = (agent.config || {}).prodBranch || 'main';
         var onProd = (agent.branch === prodBranch || agent.branch === 'main' || agent.branch === 'master');
-        if (onProd && stage !== 'production') {
+        if (agent.branch && target && target !== agent.branch) {
+          // Merging/PRing into another branch — show the flow
+          inner += '<span class="agent-meta">' + branchIcon + escapeHtml(agent.branch) + ' <span class="agent-branch-arrow">&rarr;</span> ' + escapeHtml(target) + '</span>';
+        } else if (onProd && stage !== 'production') {
           inner += '<span class="agent-meta" style="color:#f85149;">checked out on ' + escapeHtml(agent.branch) + '</span>';
+        } else if (agent.pr && agent.pr.url && !agent.pr.merged) {
+          // PR is open — the PR banner handles detail, just show branch
+          inner += '<span class="agent-meta">' + branchIcon + escapeHtml(agent.branch) + '</span>';
+        } else {
+          // Branch name matches agent name or no interesting target — show a status hint
+          var earlyStages = ['new work', 'configure', 'verify rules'];
+          var stageLower = stage.toLowerCase();
+          var lastActionType = (agent.lastAction || {}).type || '';
+          var agentConfig = agent.config || {};
+          var protectedBranches = [
+            agentConfig.prodBranch || 'main', 'main', 'master',
+            agentConfig.stagingBranch || 'staging', 'staging',
+            agentConfig.devBranch || 'development', 'development'
+          ];
+          var isProtectedBranch = protectedBranches.indexOf(agent.branch) !== -1;
+          var hasBeenPushed = lastActionType === 'git-push';
+          var statusHint = '';
+          if (treatAsStale) {
+            statusHint = 'No recent activity';
+          } else if (earlyStages.indexOf(stageLower) !== -1) {
+            statusHint = 'Working locally';
+          } else if (stageLower === 'complete') {
+            statusHint = 'Ready for cleanup';
+          } else if (!isProtectedBranch && hasBeenPushed) {
+            statusHint = 'Pushed \u2014 awaiting staging';
+          } else if (!isProtectedBranch && lastActionType === 'git-commit') {
+            statusHint = 'Committed \u2014 not yet pushed';
+          } else {
+            statusHint = 'No PR open';
+          }
+          inner += '<span class="agent-meta">' + statusHint + '</span>';
         }
         inner += '</div>';
 
@@ -1082,7 +1140,7 @@ function runScan() {
           inner += '<div class="last-action"><code>' + escapeHtml(shortCommand(agent.lastAction.command || '')) + '</code> ' + timeAgo(agent.lastAction.timestamp) + '</div>';
         }
 
-        return '<div class="agent-card' + staleClass + '">' + inner + '</div>';
+        return '<div class="agent-card' + staleClass + ' stage-' + tagClass + '">' + inner + '</div>';
       }
 
       // Collect all repos (including those with only a staging agent)
