@@ -38,14 +38,25 @@ fi
 STATE_DIR="$HOME/.deploynope"
 STATE_FILE="$STATE_DIR/dashboard-state.json"
 
-# When DeployNOPE is active, use the context (e.g. "timeline-fixes") as the agent ID
-# so all stage updates for a workflow go to the same card regardless of cwd/session.
+# Resolve agent ID: find an existing agent by cwd first, so context changes
+# (e.g. "style-changes" → "2.21.0") update the same card instead of creating a new one.
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
 if [ -z "$SESSION_ID" ]; then
   SESSION_ID="${CLAUDE_CODE_SSE_PORT:-$$}"
 fi
-AGENT_ID="$CONTEXT"
-if [ -z "$AGENT_ID" ]; then
+
+EXISTING_ID=""
+if [ -n "$CWD" ] && [ -f "$STATE_FILE" ]; then
+  EXISTING_ID=$(jq -r --arg cwd "$CWD" '
+    [.agents[] | select(.cwd == $cwd and (.scanned // false) == false and (.deploynope.active // false) == true)] | .[0].id // empty
+  ' "$STATE_FILE" 2>/dev/null)
+fi
+
+if [ -n "$EXISTING_ID" ]; then
+  AGENT_ID="$EXISTING_ID"
+elif [ -n "$CONTEXT" ]; then
+  AGENT_ID="$CONTEXT"
+else
   AGENT_ID="$SESSION_ID"
 fi
 
