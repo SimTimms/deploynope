@@ -192,6 +192,20 @@
   .agent-tag.no-deploynope { color: #f85149; animation: pulse 1.5s ease-in-out infinite; }
   .agent-tag.idle { color: #484f58; }
   .agent-tag.active { color: #3fb950; }
+  .agent-tag.complete { color: #3fb950; }
+  .modified-after-complete {
+    font-size: 0.6rem;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #d29922;
+    background: rgba(210, 153, 34, 0.1);
+    border: 1px solid rgba(210, 153, 34, 0.3);
+    padding: 0.1rem 0.4rem;
+    margin-top: 0.3rem;
+    display: inline-block;
+  }
 
   /* ── Progress Bar ── */
   .progress-row { margin-bottom: 0.5rem; }
@@ -715,16 +729,21 @@
         'Changelog', 'Preflight', 'Stale Check', 'Deploy Status',
         'Staging Contention', 'Staging Claim', 'Staging Reset', 'Staging Validation',
         'Production', 'Release', 'Release Manifest',
-        'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
+        'Post-Deploy', 'Reconcile', 'Complete'
       ];
+      var nonLinearStages = { 'rollback': true, 'deploy': true };
       var stepIndex = -1;
-      for (var si = 0; si < stageOrder.length; si++) {
-        if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) { stepIndex = si; break; }
-      }
-      if (stepIndex === -1) {
+      if (nonLinearStages[currentStage.toLowerCase()]) {
+        stepIndex = -1;
+      } else {
         for (var si = 0; si < stageOrder.length; si++) {
-          if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
-              stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) { stepIndex = si; break; }
+          if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) { stepIndex = si; break; }
+        }
+        if (stepIndex === -1) {
+          for (var si = 0; si < stageOrder.length; si++) {
+            if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
+                stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) { stepIndex = si; break; }
+          }
         }
       }
       if (stepIndex >= 0) {
@@ -807,9 +826,14 @@
         }
         inner += '</div>';
 
+        // Modified-after-complete warning
+        var dn = agent.deploynope || {};
+        if (dn.modifiedAfterComplete) {
+          inner += '<div class="modified-after-complete">Modified after complete</div>';
+        }
+
         // Progress bar (deployment pipeline timeline)
         // Use explicit DeployNOPE stage if available, otherwise infer from agent context
-        var dn = agent.deploynope || {};
         var currentStage = null;
         if (dn.active && dn.stage) {
           currentStage = dn.stage;
@@ -833,22 +857,25 @@
           'Changelog', 'Preflight', 'Stale Check', 'Deploy Status',
           'Staging Contention', 'Staging Claim', 'Staging Reset', 'Staging Validation',
           'Production', 'Release', 'Release Manifest',
-          'Post-Deploy', 'Reconcile', 'Rollback', 'Deploy'
+          'Post-Deploy', 'Reconcile', 'Complete'
         ];
         var totalSteps = stageOrder.length;
+        var nonLinearStages = { 'rollback': true, 'deploy': true };
         var stepIndex = -1;
-        for (var si = 0; si < stageOrder.length; si++) {
-          if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) {
-            stepIndex = si;
-            break;
-          }
-        }
-        if (stepIndex === -1) {
+        if (!nonLinearStages[currentStage.toLowerCase()]) {
           for (var si = 0; si < stageOrder.length; si++) {
-            if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
-                stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) {
+            if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) {
               stepIndex = si;
               break;
+            }
+          }
+          if (stepIndex === -1) {
+            for (var si = 0; si < stageOrder.length; si++) {
+              if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
+                  stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) {
+                stepIndex = si;
+                break;
+              }
             }
           }
         }

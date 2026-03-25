@@ -75,6 +75,19 @@ jq \
       severity: $severity,
       context: $context,
       stage: $stage,
+      completedAt: (
+        if ($stage | ascii_downcase) == "complete"
+        then $now
+        else (.agents[$id].deploynope.completedAt // null)
+        end
+      ),
+      modifiedAfterComplete: (
+        if (.agents[$id].deploynope.completedAt // null) != null
+           and ($stage | ascii_downcase) != "complete"
+        then true
+        else (.agents[$id].deploynope.modifiedAfterComplete // false)
+        end
+      ),
       gate: (
         if ($stage | ascii_downcase | test("validation|sign.?off|awaiting|gate"))
         then { waiting: true, label: ($stage + " — sign-off required"), since: $now }

@@ -67,6 +67,7 @@ Each command and deployment step has its own stage label:
 | Resetting <production-branch> / production deployment | `Production` |
 | Creating a GitHub Release | `Release` |
 | Post-deployment alignment check | `Post-Deploy` |
+| Deployment fully complete (all checks passed) | `Complete` |
 | General deployment work (no specific step) | `Deploy` |
 
 **Rules:**
