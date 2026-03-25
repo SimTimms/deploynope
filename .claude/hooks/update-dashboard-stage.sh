@@ -38,17 +38,21 @@ fi
 STATE_DIR="$HOME/.deploynope"
 STATE_FILE="$STATE_DIR/dashboard-state.json"
 
-# Resolve agent ID: find an existing agent by cwd first, so context changes
-# (e.g. "style-changes" → "2.21.0") update the same card instead of creating a new one.
+# Resolve agent ID: find an existing agent by branch name so the hook enriches
+# the scan-created entry rather than creating a duplicate. This means the scan
+# populates the agent, and the hook takes over with DeployNOPE data.
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
 if [ -z "$SESSION_ID" ]; then
   SESSION_ID="${CLAUDE_CODE_SSE_PORT:-$$}"
 fi
 
+BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
+
 EXISTING_ID=""
 if [ -n "$CWD" ] && [ -f "$STATE_FILE" ]; then
-  EXISTING_ID=$(jq -r --arg cwd "$CWD" '
-    [.agents[] | select(.cwd == $cwd and (.scanned // false) == false and (.deploynope.active // false) == true)] | .[0].id // empty
+  # First: match by branch AND cwd (strongest match — same branch in same worktree)
+  EXISTING_ID=$(jq -r --arg cwd "$CWD" --arg branch "$BRANCH" '
+    [.agents[] | select(.cwd == $cwd and .branch == $branch)] | .[0].id // empty
   ' "$STATE_FILE" 2>/dev/null)
 fi
 
@@ -68,7 +72,6 @@ if [ ! -f "$STATE_FILE" ]; then
   echo '{"version":1,"agents":{},"stagingClaim":null,"warnings":[],"activity":[]}' > "$STATE_FILE"
 fi
 
-BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
 REPO=$(resolve_repo_name "$CWD")
 
 # ── Branch drift detection ──────────────────────────────────────────────────
