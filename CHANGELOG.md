@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.21.0] - 2026-03-25
+
+### Added
+- Left accent bar on agent cards colored by stage (blue=feature, yellow=staging, red=production, green=active/complete, grey=idle)
+- "Awaiting staging" stage detection for branches that have been pushed but not yet merged to staging
+- Contextual status hints in agent meta row: "Pushed — awaiting staging", "Committed — not yet pushed", "Working locally", "Ready for cleanup", "No recent activity"
+
+### Changed
+- Agent cards now use transparent background with soft bottom dividers instead of bordered cards
+- Progress bar uses subtle background instead of border
+- Agent meta row shows actionable status instead of repeating the branch name when branch matches agent name
+
+[2.21.0]: https://github.com/SimTimms/deploynope/compare/v2.20.0...v2.21.0
+
 ## [2.20.0] - 2026-03-25
 
 ### Added
