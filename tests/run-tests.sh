@@ -39,7 +39,7 @@ if [ $# -gt 0 ]; then
     fi
   done
 else
-  TEST_FILES=("$TESTS_DIR"/test-hook-*.sh)
+  TEST_FILES=("$TESTS_DIR"/test-hook-*.sh "$TESTS_DIR"/test-timeline-progression.sh "$TESTS_DIR"/test-timeline-drift.sh)
 fi
 
 TOTAL_PASS=0

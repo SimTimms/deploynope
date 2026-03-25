@@ -52,6 +52,28 @@ fi
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
 REPO=$(resolve_repo_name "$CWD")
 
+# ── Branch drift detection ──────────────────────────────────────────────────
+# Check how many commits the current branch is behind the production branch
+DRIFT_BEHIND=0
+DRIFT_AHEAD=0
+DRIFT_BASE="main"
+if [ -d "$CWD/.git" ] || (cd "$CWD" 2>/dev/null && git rev-parse --git-dir &>/dev/null); then
+  # Read production branch from .deploynope.json if available
+  if [ -f "$CWD/.deploynope.json" ]; then
+    DRIFT_BASE=$(jq -r '.productionBranch // "main"' "$CWD/.deploynope.json" 2>/dev/null)
+  fi
+  # Fetch silently to ensure we have latest refs
+  (cd "$CWD" 2>/dev/null && git fetch -q origin 2>/dev/null) || true
+  # Count commits on origin/production that are not on the current branch
+  DRIFT_BEHIND=$(cd "$CWD" 2>/dev/null && git rev-list --count HEAD.."origin/$DRIFT_BASE" 2>/dev/null || echo "0")
+  DRIFT_BEHIND=$(echo "$DRIFT_BEHIND" | grep -oE '^[0-9]+$' || echo "0")
+  [ -z "$DRIFT_BEHIND" ] && DRIFT_BEHIND=0
+  # Count commits ahead of production
+  DRIFT_AHEAD=$(cd "$CWD" 2>/dev/null && git rev-list --count "origin/$DRIFT_BASE"..HEAD 2>/dev/null || echo "0")
+  DRIFT_AHEAD=$(echo "$DRIFT_AHEAD" | grep -oE '^[0-9]+$' || echo "0")
+  [ -z "$DRIFT_AHEAD" ] && DRIFT_AHEAD=0
+fi
+
 # Update agent's deploynope stage info
 jq \
   --arg id "$AGENT_ID" \
@@ -62,6 +84,9 @@ jq \
   --arg severity "$SEVERITY" \
   --arg context "$CONTEXT" \
   --arg stage "$STAGE" \
+  --argjson driftBehind "$DRIFT_BEHIND" \
+  --argjson driftAhead "$DRIFT_AHEAD" \
+  --arg driftBase "$DRIFT_BASE" \
   '
   .agents[$id] = (.agents[$id] // {}) * {
     id: $id,
@@ -95,7 +120,13 @@ jq \
         then null
         else (.agents[$id].deploynope.gate // null)
         end
-      )
+      ),
+      drift: {
+        behindBy: $driftBehind,
+        aheadBy: $driftAhead,
+        baseBranch: $driftBase,
+        lastChecked: $now
+      }
     }
   }
   ' "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null && mv "$STATE_FILE.tmp" "$STATE_FILE"

@@ -559,6 +559,53 @@ If discrepancies are found, warn the user:
 
 Do not proceed until the user has acknowledged the warning.
 
+### Active Branch Drift Detection
+
+When DeployNOPE is active, check whether the **current working branch** is behind
+`origin/<production-branch>` at every stage transition. Run:
+
+```shell
+git fetch -q origin
+git rev-list --count HEAD..origin/<production-branch>
+```
+
+If the branch is behind, append a drift warning to the DeployNOPE tag line. The severity
+depends on the current stage:
+
+| Stage group | Stages | Drift behaviour |
+|---|---|---|
+| Early | New Work, Configure, Verify Rules, Feature | **Informational** — append warning, do not block |
+| Mid | Changelog, Preflight, Stale Check, Deploy Status | **Warning** — prominent warning, strongly recommend resolving |
+| Late | Staging Contention onwards | **Blocking** — refuse to proceed until drift is resolved |
+
+#### Tag format with drift
+
+Append the drift count after the stage label:
+
+> **`🤓 DeployNOPE 2.19.0 · Feature`** — Branch is 5 commits behind main
+>
+> **`⚠️ DeployNOPE 2.19.0 · Preflight`** — Branch is 12 commits behind main — merge or rebase before progressing
+>
+> **`🚨 DeployNOPE 2.19.0 · Staging Contention`** — BLOCKED: Branch is 3 commits behind main. Run `git merge <production-branch>` or `git rebase <production-branch>` before continuing.
+
+#### Drift severity escalation
+
+- **1–10 commits behind:** `⚠️` severity (or upgrade from `🤓` to `⚠️` if currently normal)
+- **11+ commits behind:** `🚨` severity (always alert level regardless of stage)
+- **0 commits behind:** No drift warning — branch is up to date
+
+#### When drift blocks
+
+At blocking stages (Staging Contention and beyond), if the branch is behind
+`origin/<production-branch>` by any number of commits:
+
+1. **Do not proceed** with the deployment step.
+2. Display the blocking message with the exact commit count.
+3. Suggest the fix: `git merge <production-branch>` or `git rebase <production-branch>`.
+4. Wait for the user to resolve and confirm before continuing.
+
+This prevents deploying stale branches that would overwrite newer production commits.
+
 ---
 
 ## Deployment Timing

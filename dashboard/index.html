@@ -207,14 +207,46 @@
     display: inline-block;
   }
 
+  .drift-badge {
+    font-size: 0.6rem;
+    font-weight: 400;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-left: 0.4rem;
+    white-space: nowrap;
+  }
+  .drift-badge.drift-warn {
+    color: #d29922;
+  }
+  .drift-badge.drift-danger {
+    color: #f85149;
+  }
+  .drift-badge.drift-ahead {
+    color: #8b949e;
+  }
+
   /* ── Progress Bar ── */
-  .progress-row { margin-bottom: 0.5rem; }
+  .progress-row {
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin-top: 0.4rem;
+    margin-bottom: 0.4rem;
+  }
   .progress-label {
+    display: flex;
+    justify-content: center;
+    font-size: 0.65rem;
+    color: #8b949e;
+    margin-bottom: 0.3rem;
+  }
+  .progress-label-split {
     display: flex;
     justify-content: space-between;
     font-size: 0.65rem;
     color: #8b949e;
-    margin-bottom: 0.2rem;
+    margin-bottom: 0.3rem;
   }
   .progress-bar {
     height: 3px;
@@ -227,6 +259,9 @@
     border-radius: 2px;
     background: #58a6ff;
     transition: width 0.5s ease;
+  }
+  .progress-fill.dev {
+    background: #484f58;
   }
 
   /* ── PR Banner ── */
@@ -265,6 +300,11 @@
     background: rgba(210, 153, 34, 0.1);
     border: 1px solid rgba(210, 153, 34, 0.3);
     color: #d29922;
+  }
+  .cleanup-banner.new {
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+    color: #58a6ff;
   }
   .cleanup-cmd {
     font-family: 'SF Mono', 'Fira Code', monospace;
@@ -472,6 +512,10 @@
 <header class="header">
   <h1>Deploy<span>NOPE</span></h1>
   <div class="header-status">
+    <button id="scan-btn" onclick="runScan()" title="Scan repos and worktrees to populate dashboard" style="
+      background: #21262d; border: 1px solid #30363d; color: #c9d1d9; padding: 0.3rem 0.7rem;
+      border-radius: 4px; font-size: 0.75rem; cursor: pointer; margin-right: 0.5rem;
+    ">Scan</button>
     <div class="status-dot" id="connection-dot"></div>
     <span id="header-summary">Connecting...</span>
   </div>
@@ -503,6 +547,23 @@
 </div>
 
 <script>
+function runScan() {
+  const btn = document.getElementById('scan-btn');
+  btn.disabled = true;
+  btn.textContent = 'Scanning...';
+  btn.style.opacity = '0.6';
+  fetch('/api/scan', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      btn.textContent = data.ok ? 'Done!' : 'Error';
+      setTimeout(() => { btn.textContent = 'Scan'; btn.disabled = false; btn.style.opacity = '1'; }, 2000);
+    })
+    .catch(() => {
+      btn.textContent = 'Error';
+      setTimeout(() => { btn.textContent = 'Scan'; btn.disabled = false; btn.style.opacity = '1'; }, 2000);
+    });
+}
+
 (function() {
   let connected = false;
 
@@ -639,23 +700,31 @@
         stagingByRepo[a.repo] = a.id;
       }
     });
-    // Separate staging agents from work agents
+    // Separate staging, development, and work agents
     var stagingAgents = [];
+    var devAgents = [];
     var workAgents = [];
     agents.forEach(function(a) {
       var cfg = a.config || {};
       var sb = cfg.stagingBranch || 'staging';
+      var db = cfg.devBranch || 'development';
       if (a.branch === sb) {
         stagingAgents.push(a);
+      } else if (a.branch === db) {
+        devAgents.push(a);
       } else {
         workAgents.push(a);
       }
     });
 
-    // Index staging agents by repo for per-group rendering
+    // Index staging and development agents by repo for per-group rendering
     var stagingByRepoAgent = {};
     stagingAgents.forEach(function(a) {
       stagingByRepoAgent[a.repo || 'Unknown'] = a;
+    });
+    var devByRepoAgent = {};
+    devAgents.forEach(function(a) {
+      devByRepoAgent[a.repo || 'Unknown'] = a;
     });
 
     // Clear the top-level staging container (staging is now per-repo)
@@ -770,7 +839,33 @@
       return html;
     }
 
-    // Agents — grouped by repo (excluding staging)
+    function renderDevBar(devAgent) {
+      if (!devAgent) return '';
+
+      var dn = devAgent.deploynope || {};
+      var drift = dn.drift || {};
+      var driftInfo = '';
+      if (drift.behindBy && drift.behindBy > 0) {
+        var driftClass = drift.behindBy > 10 ? 'drift-danger' : 'drift-warn';
+        driftInfo = '<span class="drift-badge ' + driftClass + '">' +
+          '\u26A0 ' + drift.behindBy + ' behind ' + escapeHtml(drift.baseBranch || 'main') + '</span>';
+      }
+
+      var lastActivity = '';
+      if (devAgent.lastAction && devAgent.lastAction.timestamp) {
+        lastActivity = ' &middot; ' + timeAgo(devAgent.lastAction.timestamp);
+      }
+
+      var html = '<div class="staging-bar free" style="border-color:#30363d;">';
+      html += '<span class="staging-label" style="color:#8b949e;">development</span>';
+      html += '<span class="staging-status free" style="color:#8b949e;">' +
+        escapeHtml(devAgent.version || '') + lastActivity + '</span>';
+      html += driftInfo;
+      html += '</div>';
+      return html;
+    }
+
+    // Agents — grouped by repo (excluding staging and development)
     var displayAgents = workAgents;
     const agentsContainer = document.getElementById('agents-container');
     if (displayAgents.length === 0 && stagingAgents.length === 0) {
@@ -807,14 +902,28 @@
 
         var branchIcon = '<svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M11.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122V6A2.5 2.5 0 0110 8.5H6a1 1 0 00-1 1v1.128a2.251 2.251 0 11-1.5 0V5.372a2.25 2.25 0 111.5 0v1.836A2.492 2.492 0 016 7h4a1 1 0 001-1v-.628A2.25 2.25 0 019.5 3.25zM4.25 12a.75.75 0 100 1.5.75.75 0 000-1.5zM3.5 3.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z"/></svg>';
 
+        var dn = agent.deploynope || {};
+        var drift = dn.drift || {};
+        var driftBadge = '';
+        if (drift.aheadBy && drift.aheadBy > 0) {
+          driftBadge += '<span class="drift-badge drift-ahead">' +
+            drift.aheadBy + ' ahead</span>';
+        }
+        if (drift.behindBy && drift.behindBy > 0) {
+          var driftClass = drift.behindBy > 10 ? 'drift-danger' : 'drift-warn';
+          driftBadge += '<span class="drift-badge ' + driftClass + '">' +
+            '\u26A0 ' + drift.behindBy + ' behind</span>';
+        }
+
         let inner = '<div class="agent-header">';
         inner += '<span class="agent-name">' + escapeHtml(name) + '</span>';
+        inner += driftBadge;
         inner += '<span class="agent-tag ' + tagClass + '">' + lockIcon + tagText + '</span>';
         inner += '<button class="remove-btn" data-agent-id="' + escapeHtml(agent.id) + '" data-agent-name="' + escapeHtml(name) + '" data-agent-cwd="' + escapeHtml(agent.cwd || '') + '" title="Remove">&times;</button>';
         inner += '</div>';
 
         inner += '<div class="agent-meta-row">';
-        if (agent.branch && target) {
+        if (agent.branch && target && target !== agent.branch) {
           inner += '<span class="agent-meta">' + branchIcon + escapeHtml(agent.branch) + ' <span class="agent-branch-arrow">&rarr;</span> ' + escapeHtml(target) + '</span>';
         } else if (agent.branch) {
           inner += '<span class="agent-meta">' + branchIcon + escapeHtml(agent.branch) + '</span>';
@@ -827,31 +936,11 @@
         inner += '</div>';
 
         // Modified-after-complete warning
-        var dn = agent.deploynope || {};
         if (dn.modifiedAfterComplete) {
           inner += '<div class="modified-after-complete">Modified after complete</div>';
         }
 
-        // Progress bar (deployment pipeline timeline)
-        // Use explicit DeployNOPE stage if available, otherwise infer from agent context
-        var currentStage = null;
-        if (dn.active && dn.stage) {
-          currentStage = dn.stage;
-        } else {
-          // Infer stage from branch/target context
-          var cfg = agent.config || {};
-          var sBranch = cfg.stagingBranch || 'staging';
-          var pBranch = cfg.prodBranch || 'main';
-          var br = agent.branch || '';
-          var tgt = agent.target || '';
-          if (tgt === pBranch || br === pBranch) {
-            currentStage = 'Production';
-          } else if (tgt === sBranch || br === sBranch) {
-            currentStage = 'Staging Validation';
-          } else {
-            currentStage = 'Feature';
-          }
-        }
+        // Progress bar
         var stageOrder = [
           'New Work', 'Configure', 'Verify Rules', 'Feature',
           'Changelog', 'Preflight', 'Stale Check', 'Deploy Status',
@@ -859,36 +948,74 @@
           'Production', 'Release', 'Release Manifest',
           'Post-Deploy', 'Reconcile', 'Complete'
         ];
+        var stageDescriptions = {
+          'new work': 'Setting up new branch',
+          'configure': 'Configuring DeployNOPE',
+          'verify rules': 'Verifying deployment rules',
+          'feature': 'Working on feature branch',
+          'changelog': 'Updating changelog',
+          'preflight': 'Running pre-flight checks',
+          'stale check': 'Checking for stale work',
+          'deploy status': 'Reviewing deployment status',
+          'staging contention': 'Checking staging availability',
+          'staging claim': 'Claiming staging branch',
+          'staging reset': 'Resetting staging branch',
+          'staging validation': 'Validating on staging',
+          'production': 'Deploying to production',
+          'release': 'Creating GitHub Release',
+          'release manifest': 'Writing release manifest',
+          'post-deploy': 'Running post-deploy checks',
+          'reconcile': 'Reconciling branches',
+          'complete': 'Deployment complete'
+        };
         var totalSteps = stageOrder.length;
         var nonLinearStages = { 'rollback': true, 'deploy': true };
-        var stepIndex = -1;
-        if (!nonLinearStages[currentStage.toLowerCase()]) {
-          for (var si = 0; si < stageOrder.length; si++) {
-            if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) {
-              stepIndex = si;
-              break;
-            }
-          }
-          if (stepIndex === -1) {
+        var isDeploynope = dn.active && dn.stage;
+
+        if (isDeploynope) {
+          // Active DeployNOPE — show real pipeline progress
+          var currentStage = dn.stage;
+          var stepIndex = -1;
+          if (!nonLinearStages[currentStage.toLowerCase()]) {
             for (var si = 0; si < stageOrder.length; si++) {
-              if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
-                  stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) {
+              if (stageOrder[si].toLowerCase() === currentStage.toLowerCase()) {
                 stepIndex = si;
                 break;
               }
             }
+            if (stepIndex === -1) {
+              for (var si = 0; si < stageOrder.length; si++) {
+                if (currentStage.toLowerCase().indexOf(stageOrder[si].toLowerCase()) !== -1 ||
+                    stageOrder[si].toLowerCase().indexOf(currentStage.toLowerCase()) !== -1) {
+                  stepIndex = si;
+                  break;
+                }
+              }
+            }
           }
-        }
-        if (stepIndex >= 0) {
-          var stepNum = stepIndex + 1;
-          var pct = Math.round((stepNum / totalSteps) * 100);
+          if (stepIndex >= 0) {
+            var stepNum = stepIndex + 1;
+            var pct = Math.round((stepNum / totalSteps) * 100);
+            var desc = stageDescriptions[currentStage.toLowerCase()] || currentStage;
+            inner += '<div class="progress-row">';
+            inner += '<div class="progress-label-split">';
+            inner += '<span>Step ' + stepNum + '/' + totalSteps + ' &middot; ' + escapeHtml(desc) + '</span>';
+            inner += '<span>' + pct + '%</span>';
+            inner += '</div>';
+            inner += '<div class="progress-bar">';
+            inner += '<div class="progress-fill" style="width: ' + pct + '%"></div>';
+            inner += '</div>';
+            inner += '</div>';
+          }
+        } else {
+          // No active DeployNOPE — show "In development" at the Feature stage
+          var devPct = Math.round((4 / totalSteps) * 100);
           inner += '<div class="progress-row">';
           inner += '<div class="progress-label">';
-          inner += '<span>Step ' + stepNum + '/' + totalSteps + ' &middot; ' + escapeHtml(currentStage) + '</span>';
-          inner += '<span>' + pct + '%</span>';
+          inner += '<span>In development</span>';
           inner += '</div>';
           inner += '<div class="progress-bar">';
-          inner += '<div class="progress-fill" style="width: ' + pct + '%"></div>';
+          inner += '<div class="progress-fill dev" style="width: ' + devPct + '%"></div>';
           inner += '</div>';
           inner += '</div>';
         }
@@ -903,12 +1030,16 @@
 
         // Cleanup banner
         var cleanup = agent.cleanup;
-        if (cleanup && (cleanup.status === 'safe' || cleanup.status === 'review')) {
-          var cleanupLabel = cleanup.status === 'safe' ? 'Safe to delete' : 'Review before deleting';
+        if (cleanup && (cleanup.status === 'safe' || cleanup.status === 'review' || cleanup.status === 'new')) {
+          var cleanupLabel = cleanup.status === 'safe' ? 'Safe to delete' : cleanup.status === 'new' ? 'New work' : 'Review before deleting';
           inner += '<div class="cleanup-banner ' + cleanup.status + '">';
-          inner += '<span>' + cleanupLabel + ' &middot; ' + escapeHtml(cleanup.reason) + '</span>';
-          if (cleanup.command) {
-            inner += '<code class="cleanup-cmd" title="Click to select">' + escapeHtml(cleanup.command) + '</code>';
+          if (cleanup.status === 'new') {
+            inner += '<span>' + cleanupLabel + '</span>';
+          } else {
+            inner += '<span>' + cleanupLabel + ' &middot; ' + escapeHtml(cleanup.reason) + '</span>';
+            if (cleanup.command) {
+              inner += '<code class="cleanup-cmd" title="Click to select">' + escapeHtml(cleanup.command) + '</code>';
+            }
           }
           inner += '</div>';
         }
@@ -933,6 +1064,7 @@
       var allRepos = {};
       Object.keys(repoGroups).forEach(function(r) { allRepos[r] = true; });
       Object.keys(stagingByRepoAgent).forEach(function(r) { allRepos[r] = true; });
+      Object.keys(devByRepoAgent).forEach(function(r) { allRepos[r] = true; });
 
       // Render each repo group with header, staging bar, then cards
       var html = '';
@@ -943,6 +1075,7 @@
         html += '<h2>' + escapeHtml(repoName) + '</h2>';
         html += '</div>';
         html += renderStagingBar(stagingByRepoAgent[repo] || null, repoGroups[repo] || []);
+        html += renderDevBar(devByRepoAgent[repo] || null);
         var cards = repoGroups[repo] || [];
         if (cards.length > 0) {
           html += '<div class="agent-cards">';

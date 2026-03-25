@@ -180,6 +180,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Scan endpoint
+  if (req.url === '/api/scan' && req.method === 'POST') {
+    const scanScript = path.join(__dirname, 'scan.sh');
+    try {
+      const output = require('child_process')
+        .execSync(`bash "${scanScript}"`, { encoding: 'utf8', timeout: 30000, cwd: path.join(__dirname, '..') });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: true, output }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ ok: false, error: e.message || String(e) }));
+    }
+    return;
+  }
+
   // CORS preflight for DELETE
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {

@@ -71,8 +71,48 @@ scan_repo() {
     [.agents[] | select(.cwd == $cwd and (.scanned // false) == false)] | length
   ' "$STATE_FILE" 2>/dev/null)
   if [ "$EXISTING_CWD_AGENT" -gt 0 ] 2>/dev/null; then
+    # Still update drift on hook-registered agents
+    local HR_PROD_BRANCH
+    HR_PROD_BRANCH=$(resolve_prod_branch "$REPO_PATH")
+    local HR_STAGING_BRANCH
+    HR_STAGING_BRANCH=$(resolve_staging_branch "$REPO_PATH")
+    local HR_DEV_BRANCH
+    HR_DEV_BRANCH=$(resolve_dev_branch "$REPO_PATH")
+    local HR_DRIFT_BASE="${HR_PROD_BRANCH:-main}"
+    local HR_DRIFT_BEHIND=0
+    local HR_DRIFT_AHEAD=0
+    if [ "$BRANCH" != "$HR_DRIFT_BASE" ] && [ "$BRANCH" != "${HR_STAGING_BRANCH:-staging}" ] && [ "$BRANCH" != "${HR_DEV_BRANCH:-development}" ]; then
+      HR_DRIFT_BEHIND=$(cd "$REPO_PATH" && git rev-list --count HEAD.."origin/$HR_DRIFT_BASE" 2>/dev/null || echo "0")
+      HR_DRIFT_BEHIND=$(echo "$HR_DRIFT_BEHIND" | grep -oE '^[0-9]+$' || echo "0")
+      [ -z "$HR_DRIFT_BEHIND" ] && HR_DRIFT_BEHIND=0
+      HR_DRIFT_AHEAD=$(cd "$REPO_PATH" && git rev-list --count "origin/$HR_DRIFT_BASE"..HEAD 2>/dev/null || echo "0")
+      HR_DRIFT_AHEAD=$(echo "$HR_DRIFT_AHEAD" | grep -oE '^[0-9]+$' || echo "0")
+      [ -z "$HR_DRIFT_AHEAD" ] && HR_DRIFT_AHEAD=0
+    fi
+    # Patch drift into the existing hook-registered agent
+    local HR_AGENT_ID
+    HR_AGENT_ID=$(jq -r --arg cwd "$REPO_PATH" '
+      [.agents[] | select(.cwd == $cwd and (.scanned // false) == false)] | .[0].id
+    ' "$STATE_FILE" 2>/dev/null)
+    if [ -n "$HR_AGENT_ID" ] && [ "$HR_AGENT_ID" != "null" ]; then
+      jq \
+        --arg id "$HR_AGENT_ID" \
+        --argjson driftBehind "$HR_DRIFT_BEHIND" \
+        --argjson driftAhead "$HR_DRIFT_AHEAD" \
+        --arg driftBase "$HR_DRIFT_BASE" \
+        --arg now "$NOW" \
+        '
+        .agents[$id].deploynope = ((.agents[$id].deploynope // {}) * {
+          drift: { behindBy: $driftBehind, aheadBy: $driftAhead, baseBranch: $driftBase, lastChecked: $now }
+        })
+        ' "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null && mv "$STATE_FILE.tmp" "$STATE_FILE"
+    fi
     SCANNED=$((SCANNED + 1))
-    echo "  ~ $REPO ($BRANCH) — $REPO_PATH (hook-registered, skipping)"
+    if [ "$HR_DRIFT_BEHIND" -gt 0 ]; then
+      echo "  ~ $REPO ($BRANCH) — $REPO_PATH (hook-registered, drift: ${HR_DRIFT_BEHIND} behind $HR_DRIFT_BASE)"
+    else
+      echo "  ~ $REPO ($BRANCH) — $REPO_PATH (hook-registered, up to date)"
+    fi
     return
   fi
 
@@ -121,9 +161,9 @@ scan_repo() {
         CLEANUP_REASON="Released (v$BRANCH)"
         CLEANUP_CMD="git worktree remove $REPO_PATH"
       elif [ "$AHEAD" -eq 0 ]; then
-        CLEANUP_STATUS="safe"
-        CLEANUP_REASON="Merged into $EFFECTIVE_PROD"
-        CLEANUP_CMD="git worktree remove $REPO_PATH"
+        CLEANUP_STATUS=""
+        CLEANUP_REASON=""
+        CLEANUP_CMD=""
       elif [ "$AHEAD" -le 5 ]; then
         CLEANUP_STATUS="review"
         CLEANUP_REASON="${AHEAD} unmerged commit(s)"
@@ -133,6 +173,20 @@ scan_repo() {
         CLEANUP_REASON="${AHEAD} unmerged commit(s)"
       fi
     fi
+  fi
+
+  # ── Branch drift detection ──────────────────────────────────────────────
+  local DRIFT_BEHIND=0
+  local DRIFT_AHEAD=0
+  local DRIFT_BASE="${PROD_BRANCH:-main}"
+  # Only check drift for non-infrastructure branches
+  if [ "$BRANCH" != "$DRIFT_BASE" ] && [ "$BRANCH" != "${STAGING_BRANCH:-staging}" ] && [ "$BRANCH" != "${DEV_BRANCH:-development}" ]; then
+    DRIFT_BEHIND=$(cd "$REPO_PATH" && git rev-list --count HEAD.."origin/$DRIFT_BASE" 2>/dev/null || echo "0")
+    DRIFT_BEHIND=$(echo "$DRIFT_BEHIND" | grep -oE '^[0-9]+$' || echo "0")
+    [ -z "$DRIFT_BEHIND" ] && DRIFT_BEHIND=0
+    DRIFT_AHEAD=$(cd "$REPO_PATH" && git rev-list --count "origin/$DRIFT_BASE"..HEAD 2>/dev/null || echo "0")
+    DRIFT_AHEAD=$(echo "$DRIFT_AHEAD" | grep -oE '^[0-9]+$' || echo "0")
+    [ -z "$DRIFT_AHEAD" ] && DRIFT_AHEAD=0
   fi
 
   jq \
@@ -152,6 +206,9 @@ scan_repo() {
     --arg cleanupStatus "$CLEANUP_STATUS" \
     --arg cleanupReason "$CLEANUP_REASON" \
     --arg cleanupCmd "$CLEANUP_CMD" \
+    --argjson driftBehind "$DRIFT_BEHIND" \
+    --argjson driftAhead "$DRIFT_AHEAD" \
+    --arg driftBase "$DRIFT_BASE" \
     '
     .agents[$id] = {
       id: $id,
@@ -173,7 +230,9 @@ scan_repo() {
         reason: $cleanupReason,
         command: $cleanupCmd
       } end),
-      deploynope: null,
+      deploynope: (if ($driftBehind > 0 or $driftAhead > 0) then {
+        drift: { behindBy: $driftBehind, aheadBy: $driftAhead, baseBranch: $driftBase, lastChecked: $now }
+      } else null end),
       lastAction: {
         type: "scan",
         command: $lastCommit,
