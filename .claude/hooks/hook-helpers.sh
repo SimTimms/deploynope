@@ -2,6 +2,74 @@
 # Shared helpers for DeployNOPE hooks
 # Source this file at the top of each hook after reading INPUT and COMMAND.
 
+# ── File locking for dashboard state ─────────────────────────────────────────
+# Uses mkdir-based locking (atomic on all POSIX systems, works on macOS without flock).
+# All state file writes should go through state_locked_update to prevent corruption.
+
+DEPLOYNOPE_LOCK_DIR="$HOME/.deploynope/.state.lock"
+DEPLOYNOPE_LOCK_TIMEOUT=10  # seconds
+
+# Acquire an exclusive lock on the state file.
+# Returns 0 on success, 1 on timeout.
+state_lock() {
+  local attempts=0
+  local max_attempts=$((DEPLOYNOPE_LOCK_TIMEOUT * 10))
+  while ! mkdir "$DEPLOYNOPE_LOCK_DIR" 2>/dev/null; do
+    attempts=$((attempts + 1))
+    if [ "$attempts" -ge "$max_attempts" ]; then
+      # Stale lock check — if lock dir is older than 30s, break it
+      if [ -d "$DEPLOYNOPE_LOCK_DIR" ]; then
+        local lock_age
+        lock_age=$(( $(date +%s) - $(stat -f %m "$DEPLOYNOPE_LOCK_DIR" 2>/dev/null || echo "0") ))
+        if [ "$lock_age" -gt 30 ]; then
+          rmdir "$DEPLOYNOPE_LOCK_DIR" 2>/dev/null
+          continue
+        fi
+      fi
+      return 1
+    fi
+    sleep 0.1
+  done
+  return 0
+}
+
+# Release the lock.
+state_unlock() {
+  rmdir "$DEPLOYNOPE_LOCK_DIR" 2>/dev/null
+}
+
+# Run a jq transform on the state file under an exclusive lock.
+# Usage: state_locked_update <jq_args...>
+# Example: state_locked_update --arg id "$ID" '.agents[$id].foo = "bar"' "$STATE_FILE"
+#
+# The last argument must be the state file path. The function handles the
+# read → transform → write-to-tmp → mv cycle atomically.
+state_locked_update() {
+  local state_file="${@: -1}"
+  local tmp_file="${state_file}.tmp"
+
+  if ! state_lock; then
+    echo "Warning: could not acquire state lock, skipping update" >&2
+    return 1
+  fi
+
+  # Ensure state file exists and is valid JSON before transforming
+  if [ ! -s "$state_file" ]; then
+    echo '{"version":1,"agents":{},"stagingClaim":null,"warnings":[],"activity":[]}' > "$state_file"
+  fi
+
+  if jq "$@" > "$tmp_file" 2>/dev/null && [ -s "$tmp_file" ]; then
+    mv "$tmp_file" "$state_file"
+  else
+    rm -f "$tmp_file"
+    state_unlock
+    return 1
+  fi
+
+  state_unlock
+  return 0
+}
+
 # resolve_effective_cwd
 # When commands contain "cd /path && git ...", the effective working directory
 # is the cd target, not the .cwd from the tool input. This matters in worktrees
@@ -187,8 +255,8 @@ dashboard_update() {
     --arg ts "$NOW" \
     '{agent:$agent,action:$action,command:$command,branch:$branch,repo:$repo,decision:$decision,timestamp:$ts}')
 
-  # Atomic update: read, modify, write to tmp, then mv
-  jq \
+  # Locked update: read, modify, write to tmp, then mv — under exclusive lock
+  state_locked_update \
     --arg id "$AGENT_ID" \
     --arg cwd "$CWD" \
     --arg branch "$BRANCH" \
@@ -226,5 +294,5 @@ dashboard_update() {
       }
     } |
     .activity = ([$activityEntry] + (.activity // []))[:50]
-    ' "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null && mv "$STATE_FILE.tmp" "$STATE_FILE"
+    ' "$STATE_FILE"
 }

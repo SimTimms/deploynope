@@ -47,8 +47,8 @@ fi
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
 REPO=$(resolve_repo_name "$CWD")
 
-# Update agent with PR gate info
-jq \
+# Update agent with PR gate info (under exclusive lock)
+state_locked_update \
   --arg id "$AGENT_ID" \
   --arg cwd "$CWD" \
   --arg branch "$BRANCH" \
@@ -71,6 +71,6 @@ jq \
       merged: false
     }
   }
-  ' "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null && mv "$STATE_FILE.tmp" "$STATE_FILE"
+  ' "$STATE_FILE"
 
 exit 0

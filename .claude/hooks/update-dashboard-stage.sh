@@ -122,8 +122,8 @@ if [ -d "$CWD/.git" ] || (cd "$CWD" 2>/dev/null && git rev-parse --git-dir &>/de
   [ -z "$DRIFT_AHEAD" ] && DRIFT_AHEAD=0
 fi
 
-# Update agent's deploynope stage info
-jq \
+# Update agent's deploynope stage info (under exclusive lock)
+state_locked_update \
   --arg id "$AGENT_ID" \
   --arg cwd "$CWD" \
   --arg branch "$BRANCH" \
@@ -177,6 +177,6 @@ jq \
       }
     }
   }
-  ' "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null && mv "$STATE_FILE.tmp" "$STATE_FILE"
+  ' "$STATE_FILE"
 
 exit 0

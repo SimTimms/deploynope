@@ -95,7 +95,7 @@ scan_repo() {
       [.agents[] | select(.cwd == $cwd and (.scanned // false) == false)] | .[0].id
     ' "$STATE_FILE" 2>/dev/null)
     if [ -n "$HR_AGENT_ID" ] && [ "$HR_AGENT_ID" != "null" ]; then
-      jq \
+      state_locked_update \
         --arg id "$HR_AGENT_ID" \
         --argjson driftBehind "$HR_DRIFT_BEHIND" \
         --argjson driftAhead "$HR_DRIFT_AHEAD" \
@@ -105,7 +105,7 @@ scan_repo() {
         .agents[$id].deploynope = ((.agents[$id].deploynope // {}) * {
           drift: { behindBy: $driftBehind, aheadBy: $driftAhead, baseBranch: $driftBase, lastChecked: $now }
         })
-        ' "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null && mv "$STATE_FILE.tmp" "$STATE_FILE"
+        ' "$STATE_FILE"
     fi
     SCANNED=$((SCANNED + 1))
     if [ "$HR_DRIFT_BEHIND" -gt 0 ]; then
@@ -189,7 +189,7 @@ scan_repo() {
     [ -z "$DRIFT_AHEAD" ] && DRIFT_AHEAD=0
   fi
 
-  jq \
+  state_locked_update \
     --arg id "$AGENT_ID" \
     --arg cwd "$REPO_PATH" \
     --arg branch "$BRANCH" \
@@ -240,7 +240,7 @@ scan_repo() {
         timestamp: $lastCommitTime
       }
     }
-    ' "$STATE_FILE" > "$STATE_FILE.tmp" 2>/dev/null && mv "$STATE_FILE.tmp" "$STATE_FILE"
+    ' "$STATE_FILE"
 
   SCANNED=$((SCANNED + 1))
   echo "  ✓ $REPO ($BRANCH) — $REPO_PATH"
