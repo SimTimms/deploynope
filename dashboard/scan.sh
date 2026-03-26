@@ -189,6 +189,40 @@ scan_repo() {
     [ -z "$DRIFT_AHEAD" ] && DRIFT_AHEAD=0
   fi
 
+  # ── Branch name vs commit content mismatch detection ──────────────────
+  # Extract a ticket identifier from the branch name and check if any unique
+  # commits actually reference it. Flags repurposed worktrees.
+  local MISMATCH=""
+  local MISMATCH_REFS=""
+  if [ "$LABEL" = "worktree" ] && [ "$BRANCH" != "$DRIFT_BASE" ] && [ "$BRANCH" != "${STAGING_BRANCH:-staging}" ] && [ "$BRANCH" != "${DEV_BRANCH:-development}" ]; then
+    # Extract ticket pattern from branch name (e.g. "cog-110" from "emdash/cog-110-ghb")
+    local TICKET_PATTERN
+    # Extract ticket pattern — take the first match after any prefix (e.g. "emdash/")
+    # Require at least 2 alpha chars, exclude common non-ticket words
+    TICKET_PATTERN=$(echo "$BRANCH" | sed 's|.*/||' | grep -oiE '[a-z]{2,}-[0-9]+' | grep -viE '^(bug|fix|feat|hot|bash|test|dev|pre|post)-' | head -1)
+    if [ -n "$TICKET_PATTERN" ] && [ "$DRIFT_AHEAD" -gt 0 ]; then
+      # Check if any unique commits mention this ticket
+      local MATCHING_COMMITS
+      MATCHING_COMMITS=$(cd "$REPO_PATH" && git log "origin/$DRIFT_BASE"..HEAD --oneline 2>/dev/null | grep -ic "$TICKET_PATTERN")
+      MATCHING_COMMITS=${MATCHING_COMMITS:-0}
+      if [ "$MATCHING_COMMITS" -eq 0 ] 2>/dev/null; then
+        # Find what tickets the commits actually reference
+        MISMATCH_REFS=$(cd "$REPO_PATH" && git log "origin/$DRIFT_BASE"..HEAD --oneline 2>/dev/null | grep -oiE '[a-z]+-[0-9]+' | sort -u | tr '\n' ',' | sed 's/,$//')
+        if [ -n "$MISMATCH_REFS" ]; then
+          MISMATCH="Commits reference ${MISMATCH_REFS}, not ${TICKET_PATTERN}"
+        else
+          MISMATCH="No commits reference ${TICKET_PATTERN}"
+        fi
+      fi
+    fi
+  fi
+
+  # Check if a Claude session is active in this directory
+  local HAS_ACTIVE_SESSION="false"
+  if echo "$ACTIVE_CLAUDE_CWDS" | grep -q "${REPO_PATH}:"; then
+    HAS_ACTIVE_SESSION="true"
+  fi
+
   state_locked_update \
     --arg id "$AGENT_ID" \
     --arg cwd "$REPO_PATH" \
@@ -209,6 +243,8 @@ scan_repo() {
     --argjson driftBehind "$DRIFT_BEHIND" \
     --argjson driftAhead "$DRIFT_AHEAD" \
     --arg driftBase "$DRIFT_BASE" \
+    --arg mismatch "$MISMATCH" \
+    --argjson activeSession "$HAS_ACTIVE_SESSION" \
     '
     .agents[$id] = {
       id: $id,
@@ -233,6 +269,8 @@ scan_repo() {
       deploynope: (if ($driftBehind > 0 or $driftAhead > 0) then {
         drift: { behindBy: $driftBehind, aheadBy: $driftAhead, baseBranch: $driftBase, lastChecked: $now }
       } else null end),
+      mismatch: (if $mismatch == "" then null else $mismatch end),
+      activeSession: $activeSession,
       lastAction: {
         type: "scan",
         command: $lastCommit,
@@ -245,6 +283,19 @@ scan_repo() {
   SCANNED=$((SCANNED + 1))
   echo "  ✓ $REPO ($BRANCH) — $REPO_PATH"
 }
+
+# ── Detect active Claude sessions ──────────────────────────────────────────
+# Collect cwds of running Claude CLI processes, then expand to include their
+# worktrees (Claude runs from the main repo but may be working on a worktree).
+ACTIVE_CLAUDE_CWDS=""
+while IFS=: read -r pid cwd; do
+  if [ -n "$cwd" ]; then
+    ACTIVE_CLAUDE_CWDS="${ACTIVE_CLAUDE_CWDS}${cwd}:"
+  fi
+done < <(ps -eo pid,command | grep "[c]laude" | grep -v "Claude.app" | grep -v Helper | awk '{print $1}' | while read pid; do
+  cwd=$(lsof -p "$pid" -Fd -Fn 2>/dev/null | grep -A1 "^fcwd" | grep "^n" | sed 's/^n//')
+  echo "$pid:$cwd"
+done)
 
 echo "DeployNOPE Dashboard — Scanning repos..."
 echo ""

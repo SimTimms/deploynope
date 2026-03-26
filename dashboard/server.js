@@ -35,7 +35,7 @@ function readState() {
         : 0;
       const lastSeen = new Date(agent.lastSeenAt).getTime();
       const lastActivity = agent.scanned ? actionTime : Math.max(actionTime, lastSeen);
-      agent.stale = !lastActivity || (now - lastActivity) > STALE_THRESHOLD_MS;
+      agent.stale = !agent.activeSession && (!lastActivity || (now - lastActivity) > STALE_THRESHOLD_MS);
     }
 
     return state;

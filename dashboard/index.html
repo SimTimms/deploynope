@@ -197,7 +197,17 @@
     font-family: 'SF Mono', 'Fira Code', monospace;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    margin-left: auto;
+  }
+  .active-session-badge {
+    font-size: 0.6rem;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #d29922;
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
   }
   .agent-tag.feature { color: #58a6ff; }
   .agent-tag.awaiting-staging { color: #58a6ff; }
@@ -237,7 +247,7 @@
     color: #f85149;
   }
   .drift-badge.drift-ahead {
-    color: #8b949e;
+    color: #3fb950;
   }
 
   /* ── Progress Bar ── */
@@ -732,11 +742,19 @@ function runScan() {
     const agents = Object.values(byCwd);
     const activity = state.activity || [];
 
-    // Sort: active first, stale last
+    // Sort: active Claude sessions first, then non-stale, then stale.
+    // Within each group, order by last activity descending.
     agents.sort((a, b) => {
+      // Active sessions always on top
+      if (a.activeSession && !b.activeSession) return -1;
+      if (!a.activeSession && b.activeSession) return 1;
+      // Stale always at bottom
       if (a.stale && !b.stale) return 1;
       if (!a.stale && b.stale) return -1;
-      return new Date(b.lastSeenAt) - new Date(a.lastSeenAt);
+      // Within same group, most recent activity first
+      var aTime = (a.lastAction && a.lastAction.timestamp) ? new Date(a.lastAction.timestamp) : new Date(a.lastSeenAt);
+      var bTime = (b.lastAction && b.lastAction.timestamp) ? new Date(b.lastAction.timestamp) : new Date(b.lastSeenAt);
+      return bTime - aTime;
     });
 
     // Header summary
@@ -981,7 +999,14 @@ function runScan() {
         let inner = '<div class="agent-header">';
         inner += '<span class="agent-name">' + escapeHtml(name) + '</span>';
         inner += driftBadge;
+        inner += '<span style="margin-left:auto;display:flex;align-items:center;gap:0.5rem;">';
+        if (agent.activeSession) {
+          inner += '<span class="active-session-badge">' +
+            '<svg viewBox="0 0 16 16" fill="currentColor" style="width:11px;height:11px;color:#d29922;flex-shrink:0;"><path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0114.25 15H1.75A1.75 1.75 0 010 13.25zm1.75-.25a.25.25 0 00-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 00.25-.25V2.75a.25.25 0 00-.25-.25zM7.25 8a.75.75 0 01-.22.53l-2.25 2.25a.75.75 0 11-1.06-1.06L5.44 8 3.72 6.28a.75.75 0 111.06-1.06l2.25 2.25c.141.14.22.331.22.53zm1.5 1.5a.75.75 0 000 1.5h3a.75.75 0 000-1.5z"/></svg>' +
+            'ACTIVE</span>';
+        }
         inner += '<span class="agent-tag ' + tagClass + '">' + lockIcon + tagText + '</span>';
+        inner += '</span>';
         inner += '<button class="remove-btn" data-agent-id="' + escapeHtml(agent.id) + '" data-agent-name="' + escapeHtml(name) + '" data-agent-cwd="' + escapeHtml(agent.cwd || '') + '" title="Remove">&times;</button>';
         inner += '</div>';
 
@@ -1133,6 +1158,13 @@ function runScan() {
               inner += '<code class="cleanup-cmd" title="Click to select">' + escapeHtml(cleanup.command) + '</code>';
             }
           }
+          inner += '</div>';
+        }
+
+        // Mismatch banner — branch name doesn't match commit content
+        if (agent.mismatch) {
+          inner += '<div class="cleanup-banner review">';
+          inner += '<span>\u26A0 Repurposed \u2014 ' + escapeHtml(agent.mismatch) + '</span>';
           inner += '</div>';
         }
 
