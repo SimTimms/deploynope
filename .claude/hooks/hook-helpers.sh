@@ -197,7 +197,6 @@ dashboard_update() {
 
   local STATE_DIR="$HOME/.deploynope"
   local STATE_FILE="$STATE_DIR/dashboard-state.json"
-  local AGENT_ID="${CLAUDE_CODE_SSE_PORT:-$$}"
   local NOW
   NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -214,6 +213,29 @@ dashboard_update() {
   VERSION=$(resolve_version "$CWD")
   local REPO
   REPO=$(resolve_repo_name "$CWD")
+
+  # Resolve agent ID: find an existing agent for this branch+cwd so hooks
+  # enrich scan-created entries rather than creating duplicates.
+  local AGENT_ID=""
+  if [ -f "$STATE_FILE" ]; then
+    # 1. Match by branch + cwd
+    if [ -n "$BRANCH" ] && [ "$BRANCH" != "unknown" ]; then
+      AGENT_ID=$(jq -r --arg cwd "$CWD" --arg branch "$BRANCH" '
+        [.agents[] | select(.cwd == $cwd and .branch == $branch)] | .[0].id // empty
+      ' "$STATE_FILE" 2>/dev/null)
+    fi
+    # 2. Match by branch name alone (covers worktree cwd mismatches)
+    if [ -z "$AGENT_ID" ] && [ -n "$BRANCH" ] && [ "$BRANCH" != "unknown" ]; then
+      AGENT_ID=$(jq -r --arg branch "$BRANCH" '
+        [.agents[] | select(.branch == $branch)] | .[0].id // empty
+      ' "$STATE_FILE" 2>/dev/null)
+    fi
+  fi
+  # 3. Fallback to session-based ID
+  if [ -z "$AGENT_ID" ]; then
+    AGENT_ID="${CLAUDE_CODE_SSE_PORT:-$$}"
+  fi
+
   local PROD_BRANCH
   PROD_BRANCH=$(resolve_prod_branch "$CWD")
   local STAGING_BRANCH
