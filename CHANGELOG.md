@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.22.0] - 2026-03-26
+
+### Added
+- File locking for dashboard state writes using mkdir-based POSIX locking (macOS compatible)
+- `state_lock`, `state_unlock`, and `state_locked_update` helpers in hook-helpers.sh
+- Stale lock detection and automatic cleanup after 30 seconds
+- Empty-output protection: jq transforms that produce empty results no longer overwrite the state file
+- Active Claude session detection: agents with a running Claude process show yellow terminal icon + "ACTIVE" badge
+- Repurposed worktree detection: warns when branch name ticket doesn't match commit content
+- Agents sorted by active sessions first, then by most recent activity
+
+### Changed
+- All state file writes (hooks, scan, PR create) now go through `state_locked_update`
+- "Ahead" drift badge colour changed from grey to green
+- Active agents cannot be marked stale
+
+[2.22.0]: https://github.com/SimTimms/deploynope/compare/v2.21.0...v2.22.0
+
 ## [2.21.0] - 2026-03-25
 
 ### Added
