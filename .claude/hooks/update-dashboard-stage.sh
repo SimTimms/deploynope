@@ -47,13 +47,41 @@ if [ -z "$SESSION_ID" ]; then
 fi
 
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
+REPO=$(resolve_repo_name "$CWD")
 
 EXISTING_ID=""
-if [ -n "$CWD" ] && [ -f "$STATE_FILE" ]; then
-  # First: match by branch AND cwd (strongest match — same branch in same worktree)
-  EXISTING_ID=$(jq -r --arg cwd "$CWD" --arg branch "$BRANCH" '
-    [.agents[] | select(.cwd == $cwd and .branch == $branch)] | .[0].id // empty
-  ' "$STATE_FILE" 2>/dev/null)
+if [ -f "$STATE_FILE" ]; then
+  # 1. Match by branch AND cwd (strongest — same branch in same directory)
+  #    Skip protected branches — DeployNOPE stages should never enrich a main/staging/dev agent
+  if [ -n "$BRANCH" ] && [ "$BRANCH" != "unknown" ]; then
+    EXISTING_ID=$(jq -r --arg cwd "$CWD" --arg branch "$BRANCH" '
+      [.agents[] | select(
+        .cwd == $cwd and .branch == $branch and
+        ($branch | test("^(main|master|staging|development)$") | not)
+      )] | .[0].id // empty
+    ' "$STATE_FILE" 2>/dev/null)
+  fi
+  # 2. Match by context against branch name (covers worktrees where cwd differs
+  #    and context may be the branch name e.g. "style-changes")
+  if [ -z "$EXISTING_ID" ] && [ -n "$CONTEXT" ]; then
+    EXISTING_ID=$(jq -r --arg ctx "$CONTEXT" '
+      [.agents[] | select(.branch == $ctx)] | .[0].id // empty
+    ' "$STATE_FILE" 2>/dev/null)
+  fi
+  # 3. Match by repo: find a non-protected, non-complete branch agent in the same repo.
+  #    Covers context changes (e.g. "style-changes" → "2.21.0") and worktree cwd mismatches.
+  #    Excludes completed deployments so we don't hijack a finished workflow.
+  if [ -z "$EXISTING_ID" ] && [ -n "$REPO" ]; then
+    EXISTING_ID=$(jq -r --arg repo "$REPO" '
+      [.agents[] | select(
+        .repo == $repo and
+        (.branch // "" | test("^(main|master|staging|development)$") | not) and
+        ((.deploynope.stage // "" | ascii_downcase) != "complete")
+      )] |
+      sort_by(if (.deploynope.active // false) then 0 else 1 end) |
+      .[0].id // empty
+    ' "$STATE_FILE" 2>/dev/null)
+  fi
 fi
 
 if [ -n "$EXISTING_ID" ]; then
@@ -71,8 +99,6 @@ mkdir -p "$STATE_DIR"
 if [ ! -f "$STATE_FILE" ]; then
   echo '{"version":1,"agents":{},"stagingClaim":null,"warnings":[],"activity":[]}' > "$STATE_FILE"
 fi
-
-REPO=$(resolve_repo_name "$CWD")
 
 # ── Branch drift detection ──────────────────────────────────────────────────
 # Check how many commits the current branch is behind the production branch

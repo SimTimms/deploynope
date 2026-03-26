@@ -273,7 +273,16 @@
     height: 100%;
     border-radius: 2px;
     background: #58a6ff;
-    transition: width 0.5s ease;
+    transition: width 0.5s ease, background 0.5s ease;
+  }
+  .progress-fill.stage-staging {
+    background: #d29922;
+  }
+  .progress-fill.stage-production {
+    background: #f85149;
+  }
+  .progress-fill.stage-complete {
+    background: #3fb950;
   }
   .progress-fill.dev {
     background: #484f58;
@@ -1086,7 +1095,7 @@ function runScan() {
             inner += '<span>' + pct + '%</span>';
             inner += '</div>';
             inner += '<div class="progress-bar">';
-            inner += '<div class="progress-fill" style="width: ' + pct + '%"></div>';
+            inner += '<div class="progress-fill stage-' + stage + '" style="width: ' + pct + '%"></div>';
             inner += '</div>';
             inner += '</div>';
           }

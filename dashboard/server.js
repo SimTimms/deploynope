@@ -11,7 +11,7 @@ const PORT = parseInt(process.argv[2] || '9876', 10);
 const STATE_DIR = path.join(require('os').homedir(), '.deploynope');
 const STATE_FILE = path.join(STATE_DIR, 'dashboard-state.json');
 const DASHBOARD_HTML = path.join(__dirname, 'index.html');
-const STALE_THRESHOLD_MS = 60 * 60 * 1000; // 60 minutes
+const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
 
 // Ensure state directory and file exist
 if (!fs.existsSync(STATE_DIR)) fs.mkdirSync(STATE_DIR, { recursive: true });
